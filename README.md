@@ -11,8 +11,10 @@ Modernizatition could involve:
 * Make changes required by new C++ standards (e.g. don't allow modifiction of a temporary)
 * Make the code safer against accidental edits (e.g. const correctness, override, etc)
 * Use modern OOP constructs (e.g. range based for, exceptions, RAAI, smart pointers, standard containers, string classes, etc)
-* Use a better architecture (i.e. transition code from an old style interal api to a new style)
+* Use a better architecture (e.g. transition the codebase from one interal api to another)
 * Update libraries to more modern versions. This will only have limited support
+* Remove undefined behaviour
+* Fix/remove warnings
 
 ## Use
 LevelUp Server is a Python Flask server that gets instruction (called Mods)  via a web interface. Skilled C++ developers, called cppDevs, will send thee Mods to LevelUp.
@@ -50,20 +52,25 @@ LLMS are not validators, but may be added as extra checks.
   * Normally, Microsoft macros will be reintroduced to compile with MSVC.
 * MSVC for compiling MS code. This will be used to verify that compiling succeeds and no new warnings are introduced
 * Clang for general compile. All projects should compile with Clang after standardization
-* CppDevs can make their own Mods and run them through validators
+* CppDevs can make their own Mods (i.e. git commits) and run them through validators
 * Warning diff to extract which warnings are added or removed.
 * Clang-Tidy fixups
-* Splitting a cpp file into separate files for each method
+* Splitting a cpp file into separate files for each method to test validate changes to each function in isolation
 * LLMs
+* New or 3rd party lugins to Clang that work on the AST
 
-## Setup
+## Usage
 CppDevs need to provide git repo location, post-checkout commmands (if any),  build command for building the whole project, build command for single translation unit, and work branch name
-If there is a conflict between concurrent Mods, the cppDev needs to decide whether he will do a manual merge or re-run all subsequent Mods. 
+If there is a conflict between concurrent Mods, the cppDev needs to decide whether he will do a manual merge or re-run all subsequent Mods. LevelUp may start re-running the Mods on the new main branch 
+The cppDevs need to add the Mods that are in line with customer needs, issue them in the correct order 
 
 ## Implementation
 The main priority is that no upgraded code will have regressions. 
-All code, both Flask code (Python) and web code (HTML/JS/CSS) will be hosted in a single repo. 
+All code, both Flask code (Python) and web code (HTML/JS/CSS) will be hosted in a this repo.
 Flask will serve Web page and take the input from the cppDevs. It will not be a SPA. 
 We may demand tools to be installed on the cppDev workstations, such as diff tools, git, etc. but all LevelUp code should be run or served from Flask.
-Code simplicity and correctness will be prioritzed over UI beauty and covering special cases, as long as we don't allow regressions in upgraded code.   
-We allow compute-intensive Mods, and many Mods, if that gives better end results than fewer and less compute-intensive Mods. 
+Code simplicity and correctness will be prioritzed over UI beauty and covering special cases.
+We prefer compute-intensive Mods, and many Mods, if that gives a better end result than fewer or less compute-intensive Mods. 
+
+## Future enhancements
+Support multi-repo Mods, multi-platform targets, GCC extensions, multiple build version based on defines, libraries and several clients, 
