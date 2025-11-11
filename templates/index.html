@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LevelUp - Safe C++ Modernization</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>LevelUp</h1>
+            <p>Modernize Legacy C++</p>
+        </header>
+
+        <nav>
+            <ul>
+                <li><a href="#repos" class="nav-link active">Repositories</a></li>
+                <li><a href="#mods" class="nav-link">Mods</a></li>
+                <li><a href="#queue" class="nav-link">Queue Status</a></li>
+                <li><a href="#cppdev" class="nav-link">CppDev Tools</a></li>
+            </ul>
+        </nav>
+
+        <main>
+            <!-- Repositories Section -->
+            <section id="repos" class="tab-content active">
+                <h2>Repository Configuration</h2>
+                
+                <div class="form-container">
+                    <h3>Add New Repository</h3>
+                    <form id="repo-form">
+                        <div class="form-group">
+                            <label for="repo-name">Repository Name:</label>
+                            <input type="text" id="repo-name" name="name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="repo-url">Repository URL:</label>
+                            <input type="url" id="repo-url" name="url" required 
+                                   placeholder="https://github.com/user/repo.git">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="work-branch">Work Branch:</label>
+                            <input type="text" id="work-branch" name="work_branch" 
+                                   value="levelup-work" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="post-checkout">Post-Checkout Commands (optional):</label>
+                            <textarea id="post-checkout" name="post_checkout" 
+                                    placeholder="Commands to run after checkout"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="build-command">Build Command:</label>
+                            <input type="text" id="build-command" name="build_command" 
+                                   placeholder="msbuild /p:Configuration=Release">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="single-tu-command">Single Translation Unit Command:</label>
+                            <input type="text" id="single-tu-command" name="single_tu_command" 
+                                   placeholder="cl.exe /c /O2 %FILE%">
+                        </div>
+                        
+                        <button type="submit">Add Repository</button>
+                    </form>
+                </div>
+                
+                <div class="repo-list">
+                    <h3>Configured Repositories</h3>
+                    <div id="repo-list"></div>
+                </div>
+            </section>
+
+            <!-- Mods Section -->
+            <section id="mods" class="tab-content">
+                <h2>Modification Management</h2>
+                
+                <div class="form-container">
+                    <h3>Submit New Mod</h3>
+                    <form id="mod-form">
+                        <div class="form-group">
+                            <label for="mod-repo">Repository:</label>
+                            <select id="mod-repo" name="repo_name" required>
+                                <option value="">Select a repository...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="mod-type">Mod Type:</label>
+                            <select id="mod-type" name="type" required>
+                                <option value="commit">Git Commit</option>
+                                <option value="patch">Patch File</option>
+                                <option value="builtin">Built-in Mod</option>
+                            </select>
+                        </div>
+                        
+                        <div id="commit-options" class="mod-options">
+                            <div class="form-group">
+                                <label for="commit-hash">Commit Hash:</label>
+                                <input type="text" id="commit-hash" name="commit_hash">
+                            </div>
+                        </div>
+                        
+                        <div id="patch-options" class="mod-options" style="display: none;">
+                            <div class="form-group">
+                                <label for="patch-file">Patch File:</label>
+                                <input type="file" id="patch-file" name="patch_file" accept=".patch,.diff">
+                            </div>
+                        </div>
+                        
+                        <div id="builtin-options" class="mod-options" style="display: none;">
+                            <div class="form-group">
+                                <label for="builtin-mod">Built-in Mod:</label>
+                                <select id="builtin-mod" name="builtin_mod">
+                                    <option value="remove_inline">Remove Inline Keywords</option>
+                                    <option value="add_const">Add Const Correctness</option>
+                                    <option value="modernize_for">Modernize For Loops</option>
+                                    <option value="add_override">Add Override Keywords</option>
+                                    <option value="replace_ms_specific">Replace MS-Specific Syntax</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="mod-description">Description:</label>
+                            <textarea id="mod-description" name="description" required></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="validators">Validators:</label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" name="validators" value="asm" checked> ASM Comparison</label>
+                                <label><input type="checkbox" name="validators" value="ast"> AST Diff</label>
+                                <label><input type="checkbox" name="validators" value="warnings"> Warning Diff</label>
+                                <label><input type="checkbox" name="validators" value="unit_test"> Unit Tests</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="allow_reorder"> Allow Reordering
+                            </label>
+                        </div>
+                        
+                        <button type="submit">Submit Mod</button>
+                    </form>
+                </div>
+                
+                <div class="mod-results">
+                    <h3>Recent Mod Results</h3>
+                    <div id="mod-results"></div>
+                </div>
+            </section>
+
+            <!-- Queue Status Section -->
+            <section id="queue" class="tab-content">
+                <h2>Queue Status</h2>
+                
+                <div class="queue-stats">
+                    <div class="stat-card">
+                        <h3>Queue Size</h3>
+                        <p id="queue-size">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Processing</h3>
+                        <p id="processing-count">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Completed</h3>
+                        <p id="completed-count">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Failed</h3>
+                        <p id="failed-count">0</p>
+                    </div>
+                </div>
+                
+                <div class="queue-list">
+                    <h3>Queue Details</h3>
+                    <div id="queue-details"></div>
+                </div>
+                
+                <button id="refresh-queue" class="refresh-btn">Refresh Status</button>
+            </section>
+
+            <!-- CppDev Tools Section -->
+            <section id="cppdev" class="tab-content">
+                <h2>CppDev Tools</h2>
+                
+                <div class="form-container">
+                    <h3>Submit Direct Commit for Validation</h3>
+                    <form id="cppdev-form">
+                        <div class="form-group">
+                            <label for="cppdev-repo">Repository:</label>
+                            <select id="cppdev-repo" name="repo_name" required>
+                                <option value="">Select a repository...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="cppdev-commit">Commit Hash:</label>
+                            <input type="text" id="cppdev-commit" name="commit_hash" required 
+                                   placeholder="Enter commit hash to validate">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="cppdev-message">Commit Message:</label>
+                            <input type="text" id="cppdev-message" name="message" 
+                                   placeholder="Brief description of changes">
+                        </div>
+                        
+                        <button type="submit">Validate & Rebase</button>
+                    </form>
+                </div>
+                
+                <div class="cppdev-instructions">
+                    <h3>Instructions</h3>
+                    <ol>
+                        <li>Make your changes in the repository locally</li>
+                        <li>Commit your changes: <code>git commit -m "Your changes"</code></li>
+                        <li>Get the commit hash: <code>git rev-parse HEAD</code></li>
+                        <li>Submit the commit hash above for validation</li>
+                        <li>If validation passes, changes will be automatically rebased to the work branch</li>
+                    </ol>
+                </div>
+                
+                <div class="cppdev-results">
+                    <h3>Validation Results</h3>
+                    <div id="cppdev-results"></div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>LevelUp Server v0.1</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
