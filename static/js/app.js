@@ -4,6 +4,7 @@ const API_BASE = '/api';
 let currentRepos = [];
 let selectedRepo = null;
 let queueUpdateInterval = null;
+let queuedModsInterval = null;
 
 // Tab Navigation
 document.querySelectorAll('.nav-link').forEach(link => {
@@ -36,15 +37,20 @@ function showTab(tabId) {
         tab.classList.remove('active');
     });
     document.getElementById(tabId).classList.add('active');
-    
+
     // Load tab-specific data
     if (tabId === 'repos') {
         loadRepositories();
+        stopQueuedModsUpdates();
+    } else if (tabId === 'mods') {
+        startQueuedModsUpdates();
     } else if (tabId === 'queue') {
         loadQueueStatus();
         startQueueUpdates();
+        stopQueuedModsUpdates();
     } else {
         stopQueueUpdates();
+        stopQueuedModsUpdates();
     }
 }
 
@@ -142,13 +148,13 @@ function displayRepositories(repos) {
 }
 
 function updateRepoSelects(repos) {
-    const selects = ['mod-repo', 'cppdev-repo'];
+    const selects = ['cppdev-repo'];
     selects.forEach(selectId => {
         const select = document.getElementById(selectId);
         if (select) {
             // Save current selection
             const currentValue = select.value;
-            
+
             // Clear and rebuild options
             select.innerHTML = '<option value="">Select a repository...</option>';
             repos.forEach(repo => {
@@ -159,13 +165,22 @@ function updateRepoSelects(repos) {
                 option.dataset.branch = repo.work_branch;
                 select.appendChild(option);
             });
-            
+
             // Restore selection if possible
             if (currentValue) {
                 select.value = currentValue;
             }
         }
     });
+
+    // Auto-select first repo if none selected
+    if (!selectedRepo && repos.length > 0) {
+        selectedRepo = {
+            name: repos[0].name,
+            url: repos[0].url,
+            work_branch: repos[0].work_branch
+        };
+    }
 }
 
 // Repository Form
@@ -198,56 +213,71 @@ document.getElementById('repo-form').addEventListener('submit', async (e) => {
 });
 
 // Mod Management
-document.getElementById('mod-type').addEventListener('change', (e) => {
-    const type = e.target.value;
+document.getElementById('mod-select').addEventListener('change', (e) => {
+    const value = e.target.value;
     document.querySelectorAll('.mod-options').forEach(opt => {
         opt.style.display = 'none';
     });
-    
-    if (type === 'commit') {
+
+    if (value === 'commit') {
         document.getElementById('commit-options').style.display = 'block';
-    } else if (type === 'patch') {
+    } else if (value === 'patch') {
         document.getElementById('patch-options').style.display = 'block';
-    } else if (type === 'builtin') {
-        document.getElementById('builtin-options').style.display = 'block';
     }
 });
 
 document.getElementById('mod-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    // Check if a repository is selected
+    if (!selectedRepo) {
+        showNotification('Please select a repository from the Repositories tab first', 'error');
+        return;
+    }
+
     const formData = new FormData(e.target);
-    
-    // Get repository details
-    const repoSelect = document.getElementById('mod-repo');
-    const selectedOption = repoSelect.options[repoSelect.selectedIndex];
-    
+    const modSelect = formData.get('mod_select');
+
+    // Determine type and mod details
+    let type, modType;
+    if (modSelect.startsWith('builtin:')) {
+        type = 'builtin';
+        modType = modSelect.replace('builtin:', '');
+    } else {
+        type = modSelect; // 'commit' or 'patch'
+    }
+
     const data = {
-        repo_name: formData.get('repo_name'),
-        repo_url: selectedOption.dataset.url,
-        work_branch: selectedOption.dataset.branch,
-        type: formData.get('type'),
+        repo_name: selectedRepo.name,
+        repo_url: selectedRepo.url,
+        work_branch: selectedRepo.work_branch,
+        type: type,
         description: formData.get('description'),
-        validators: Array.from(formData.getAll('validators')),
+        validators: ['asm'], // Always use ASM validator
         allow_reorder: formData.has('allow_reorder')
     };
-    
+
     // Add type-specific data
-    if (data.type === 'commit') {
+    if (type === 'commit') {
         data.commit_hash = formData.get('commit_hash');
-    } else if (data.type === 'builtin') {
-        data.mod_type = formData.get('builtin_mod');
+    } else if (type === 'builtin') {
+        data.mod_type = modType;
     }
-    
+
     try {
         let response;
-        if (data.type === 'patch') {
+        if (type === 'patch') {
             // Handle file upload
             const patchFormData = new FormData();
             Object.keys(data).forEach(key => {
-                patchFormData.append(key, data[key]);
+                if (Array.isArray(data[key])) {
+                    data[key].forEach(v => patchFormData.append(key, v));
+                } else {
+                    patchFormData.append(key, data[key]);
+                }
             });
             patchFormData.append('patch_file', document.getElementById('patch-file').files[0]);
-            
+
             response = await fetch(`${API_BASE}/mods`, {
                 method: 'POST',
                 body: patchFormData
@@ -261,12 +291,13 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
                 body: JSON.stringify(data)
             });
         }
-        
+
         if (response.ok) {
             const mod = await response.json();
             showNotification('Mod submitted successfully', 'success');
             e.target.reset();
             trackModStatus(mod.id);
+            loadQueuedMods(); // Refresh queued mods list
         } else {
             showNotification('Failed to submit mod', 'error');
         }
@@ -463,6 +494,55 @@ function stopQueueUpdates() {
     if (queueUpdateInterval) {
         clearInterval(queueUpdateInterval);
         queueUpdateInterval = null;
+    }
+}
+
+// Queued Mods Management
+async function loadQueuedMods() {
+    try {
+        const response = await fetch(`${API_BASE}/queue/status`);
+        const status = await response.json();
+        displayQueuedMods(status);
+    } catch (error) {
+        console.error('Error loading queued mods:', error);
+    }
+}
+
+function displayQueuedMods(status) {
+    const container = document.getElementById('queued-mods-list');
+    container.innerHTML = '';
+
+    // Filter for queued and processing items
+    const queuedItems = Object.entries(status.results)
+        .filter(([id, result]) => result.status === 'queued' || result.status === 'processing')
+        .sort((a, b) => new Date(a[1].timestamp) - new Date(b[1].timestamp));
+
+    if (queuedItems.length === 0) {
+        container.innerHTML = '<p class="no-items">No mods in queue</p>';
+        return;
+    }
+
+    const list = document.createElement('ul');
+    list.className = 'queued-list';
+    queuedItems.forEach(([id, result]) => {
+        const item = document.createElement('li');
+        const statusBadge = result.status === 'processing' ? '<span class="processing-badge">Processing</span>' : '';
+        item.innerHTML = `${result.description || result.message || `Mod ${id}`} ${statusBadge}`;
+        list.appendChild(item);
+    });
+    container.appendChild(list);
+}
+
+function startQueuedModsUpdates() {
+    stopQueuedModsUpdates();
+    loadQueuedMods();
+    queuedModsInterval = setInterval(loadQueuedMods, 1000); // Update every second
+}
+
+function stopQueuedModsUpdates() {
+    if (queuedModsInterval) {
+        clearInterval(queuedModsInterval);
+        queuedModsInterval = null;
     }
 }
 
