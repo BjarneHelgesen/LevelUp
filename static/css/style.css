@@ -83,6 +83,12 @@ nav a.active {
     color: white;
 }
 
+nav a.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* Main Content */
 main {
     background-color: var(--card-bg);
@@ -168,7 +174,7 @@ button:hover {
 
 /* Repository List */
 .repo-list {
-    margin-top: 30px;
+    margin-bottom: 30px;
 }
 
 .repo-item {
@@ -179,6 +185,23 @@ button:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    border: 2px solid transparent;
+}
+
+.repo-item:hover {
+    background-color: #e5e7eb;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.repo-item.selected {
+    border-color: var(--primary-color);
+    background-color: #dbeafe;
+}
+
+.repo-info {
+    flex: 1;
 }
 
 .repo-info h4 {
@@ -189,6 +212,32 @@ button:hover {
 .repo-info p {
     color: #6b7280;
     font-size: 14px;
+}
+
+.repo-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.delete-repo-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: #6b7280;
+    transition: color 0.2s, transform 0.1s;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.delete-repo-btn:hover {
+    color: var(--danger-color);
+    transform: scale(1.1);
+}
+
+.delete-repo-btn::before {
+    content: "🗑️";
 }
 
 /* Queue Stats */

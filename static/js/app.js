@@ -2,15 +2,29 @@
 
 const API_BASE = '/api';
 let currentRepos = [];
+let selectedRepo = null;
 let queueUpdateInterval = null;
 
 // Tab Navigation
 document.querySelectorAll('.nav-link').forEach(link => {
     link.addEventListener('click', (e) => {
         e.preventDefault();
+
+        // Check if link is disabled
+        if (link.classList.contains('disabled')) {
+            return;
+        }
+
         const target = link.getAttribute('href').substring(1);
+
+        // Don't allow switching away from repos tab if no repo selected
+        if (!selectedRepo && target !== 'repos') {
+            showNotification('Please select a repository first', 'warning');
+            return;
+        }
+
         showTab(target);
-        
+
         // Update active nav
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
         link.classList.add('active');
@@ -42,23 +56,71 @@ async function loadRepositories() {
         currentRepos = repos;
         displayRepositories(repos);
         updateRepoSelects(repos);
+
+        // Auto-select first repo if none selected
+        if (repos.length > 0 && !selectedRepo) {
+            selectRepo(repos[0]);
+        }
+
+        // Update tab states
+        updateTabStates();
     } catch (error) {
         console.error('Error loading repositories:', error);
     }
 }
 
+function selectRepo(repo) {
+    selectedRepo = repo;
+
+    // Update UI to show selection
+    document.querySelectorAll('.repo-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+
+    const selectedElement = document.querySelector(`[data-repo-id="${repo.id}"]`);
+    if (selectedElement) {
+        selectedElement.classList.add('selected');
+    }
+
+    // Update tab states
+    updateTabStates();
+}
+
+function updateTabStates() {
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        const target = link.getAttribute('href').substring(1);
+        if (target !== 'repos') {
+            if (selectedRepo) {
+                link.classList.remove('disabled');
+            } else {
+                link.classList.add('disabled');
+            }
+        }
+    });
+}
+
 function displayRepositories(repos) {
     const container = document.getElementById('repo-list');
     container.innerHTML = '';
-    
+
     if (repos.length === 0) {
         container.innerHTML = '<p>No repositories configured yet.</p>';
+        selectedRepo = null;
+        updateTabStates();
         return;
     }
-    
+
     repos.forEach(repo => {
         const repoElement = document.createElement('div');
         repoElement.className = 'repo-item';
+        repoElement.dataset.repoId = repo.id;
+
+        // Check if this is the selected repo
+        if (selectedRepo && selectedRepo.id === repo.id) {
+            repoElement.classList.add('selected');
+        }
+
         repoElement.innerHTML = `
             <div class="repo-info">
                 <h4>${repo.name}</h4>
@@ -66,9 +128,15 @@ function displayRepositories(repos) {
                 <p>Work Branch: ${repo.work_branch}</p>
             </div>
             <div class="repo-actions">
-                <button onclick="removeRepo('${repo.id}')">Remove</button>
+                <button class="delete-repo-btn" onclick="event.stopPropagation(); removeRepo('${repo.id}')" title="Remove repository"></button>
             </div>
         `;
+
+        // Make repo item clickable
+        repoElement.addEventListener('click', () => {
+            selectRepo(repo);
+        });
+
         container.appendChild(repoElement);
     });
 }
@@ -404,26 +472,62 @@ document.getElementById('refresh-queue').addEventListener('click', () => {
     showNotification('Queue status refreshed', 'success');
 });
 
+// Remove Repository
+async function removeRepo(repoId) {
+    if (!confirm('Are you sure you want to remove this repository?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/repos/${repoId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showNotification('Repository removed successfully', 'success');
+
+            // If the removed repo was selected, clear selection
+            if (selectedRepo && selectedRepo.id === repoId) {
+                selectedRepo = null;
+            }
+
+            // Reload repositories
+            loadRepositories();
+        } else {
+            showNotification('Failed to remove repository', 'error');
+        }
+    } catch (error) {
+        console.error('Error removing repository:', error);
+        showNotification('Error removing repository', 'error');
+    }
+}
+
 // Utility Functions
 function showNotification(message, type = 'info') {
     // Simple notification - could be enhanced with a proper notification system
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.textContent = message;
+
+    let bgColor = '#2563eb'; // info (blue)
+    if (type === 'success') bgColor = '#10b981';
+    else if (type === 'error') bgColor = '#ef4444';
+    else if (type === 'warning') bgColor = '#f59e0b';
+
     notification.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
         padding: 15px 20px;
-        background-color: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#2563eb'};
+        background-color: ${bgColor};
         color: white;
         border-radius: 4px;
         z-index: 1000;
         animation: slideIn 0.3s ease;
     `;
-    
+
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
         notification.style.animation = 'slideOut 0.3s ease';
         setTimeout(() => {

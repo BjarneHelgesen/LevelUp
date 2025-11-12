@@ -21,6 +21,15 @@ from utils.compiler import MSVCCompiler
 from validators.asm_validator import ASMValidator
 from mods.mod_handler import ModHandler
 
+def extract_repo_name(repo_url):
+    """Extract repository name from URL"""
+    # Remove .git suffix if present
+    url = repo_url.rstrip('/')
+    if url.endswith('.git'):
+        url = url[:-4]
+    # Get the last part of the URL path
+    return url.split('/')[-1]
+
 app = Flask(__name__)
 app.secret_key = 'levelup-secret-key-change-in-production'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -168,14 +177,17 @@ def index():
     """Main UI page"""
     return render_template('index.html')
 
-@app.route('/api/repos', methods=['GET', 'POST'])
+@app.route('/api/repos', methods=['GET', 'POST', 'DELETE'])
 def manage_repos():
     """Manage repository configurations"""
     if request.method == 'POST':
         data = request.json
+        # Extract repo name from URL
+        repo_name = extract_repo_name(data['url'])
+
         repo_config = {
             'id': str(uuid.uuid4()),
-            'name': data['name'],
+            'name': repo_name,
             'url': data['url'],
             'work_branch': data['work_branch'],
             'post_checkout': data.get('post_checkout', ''),
@@ -203,6 +215,23 @@ def manage_repos():
             with open(config_file, 'r') as f:
                 return jsonify(json.load(f))
         return jsonify([])
+
+@app.route('/api/repos/<repo_id>', methods=['DELETE'])
+def delete_repo(repo_id):
+    """Delete a repository configuration"""
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if config_file.exists():
+        with open(config_file, 'r') as f:
+            configs = json.load(f)
+
+        # Filter out the repo with matching ID
+        configs = [repo for repo in configs if repo['id'] != repo_id]
+
+        with open(config_file, 'w') as f:
+            json.dump(configs, f, indent=2)
+
+        return jsonify({'success': True})
+    return jsonify({'success': False}), 404
 
 @app.route('/api/mods', methods=['POST'])
 def submit_mod():
