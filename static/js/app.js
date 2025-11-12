@@ -5,6 +5,42 @@ let currentRepos = [];
 let selectedRepo = null;
 let queuedModsInterval = null;
 
+// Modal Management
+const modal = document.getElementById('add-repo-modal');
+const addRepoBtn = document.getElementById('add-repo-btn');
+const closeModalBtn = modal.querySelector('.close-modal');
+const cancelBtn = modal.querySelector('.cancel-btn');
+
+function openModal() {
+    modal.classList.add('active');
+}
+
+function closeModal() {
+    modal.classList.remove('active');
+    document.getElementById('repo-form').reset();
+}
+
+// Open modal
+addRepoBtn.addEventListener('click', openModal);
+
+// Close modal
+closeModalBtn.addEventListener('click', closeModal);
+cancelBtn.addEventListener('click', closeModal);
+
+// Close modal when clicking outside
+modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+        closeModal();
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('active')) {
+        closeModal();
+    }
+});
+
 // Tab Navigation
 document.querySelectorAll('.nav-link').forEach(link => {
     link.addEventListener('click', (e) => {
@@ -158,7 +194,7 @@ document.getElementById('repo-form').addEventListener('submit', async (e) => {
         if (response.ok) {
             const repo = await response.json();
             showNotification('Repository added successfully', 'success');
-            e.target.reset();
+            closeModal();
             loadRepositories();
         } else {
             showNotification('Failed to add repository', 'error');
