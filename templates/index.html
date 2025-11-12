@@ -17,8 +17,6 @@
             <ul>
                 <li><a href="#repos" class="nav-link active">Repos</a></li>
                 <li><a href="#mods" class="nav-link">Mods</a></li>
-                <li><a href="#queue" class="nav-link">Queue Status</a></li>
-                <li><a href="#cppdev" class="nav-link">CppDev Tools</a></li>
             </ul>
         </nav>
 
@@ -133,84 +131,6 @@
                 <div class="mod-results">
                     <h3>Recent Mod Results</h3>
                     <div id="mod-results"></div>
-                </div>
-            </section>
-
-            <!-- Queue Status Section -->
-            <section id="queue" class="tab-content">
-                <h2>Queue Status</h2>
-                
-                <div class="queue-stats">
-                    <div class="stat-card">
-                        <h3>Queue Size</h3>
-                        <p id="queue-size">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Processing</h3>
-                        <p id="processing-count">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Completed</h3>
-                        <p id="completed-count">0</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Failed</h3>
-                        <p id="failed-count">0</p>
-                    </div>
-                </div>
-                
-                <div class="queue-list">
-                    <h3>Queue Details</h3>
-                    <div id="queue-details"></div>
-                </div>
-                
-                <button id="refresh-queue" class="refresh-btn">Refresh Status</button>
-            </section>
-
-            <!-- CppDev Tools Section -->
-            <section id="cppdev" class="tab-content">
-                <h2>CppDev Tools</h2>
-                
-                <div class="form-container">
-                    <h3>Submit Direct Commit for Validation</h3>
-                    <form id="cppdev-form">
-                        <div class="form-group">
-                            <label for="cppdev-repo">Repo:</label>
-                            <select id="cppdev-repo" name="repo_name" required>
-                                <option value="">Select a repository...</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="cppdev-commit">Commit Hash:</label>
-                            <input type="text" id="cppdev-commit" name="commit_hash" required 
-                                   placeholder="Enter commit hash to validate">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="cppdev-message">Commit Message:</label>
-                            <input type="text" id="cppdev-message" name="message" 
-                                   placeholder="Brief description of changes">
-                        </div>
-                        
-                        <button type="submit">Validate & Rebase</button>
-                    </form>
-                </div>
-                
-                <div class="cppdev-instructions">
-                    <h3>Instructions</h3>
-                    <ol>
-                        <li>Make your changes in the repository locally</li>
-                        <li>Commit your changes: <code>git commit -m "Your changes"</code></li>
-                        <li>Get the commit hash: <code>git rev-parse HEAD</code></li>
-                        <li>Submit the commit hash above for validation</li>
-                        <li>If validation passes, changes will be automatically rebased to the work branch</li>
-                    </ol>
-                </div>
-                
-                <div class="cppdev-results">
-                    <h3>Validation Results</h3>
-                    <div id="cppdev-results"></div>
                 </div>
             </section>
         </main>

@@ -290,33 +290,5 @@ def get_queue_status():
         'timestamp': datetime.now().isoformat()
     })
 
-@app.route('/api/cppdev/commit', methods=['POST'])
-def cppdev_commit():
-    """Handle direct commits from cppDevs"""
-    data = request.json
-    
-    # Create a mod from the cppDev's commit
-    mod_data = {
-        'id': str(uuid.uuid4()),
-        'repo_name': data['repo_name'],
-        'repo_url': data['repo_url'],
-        'work_branch': data['work_branch'],
-        'type': 'commit',
-        'commit_hash': data['commit_hash'],
-        'description': f"CppDev commit: {data.get('message', 'No message')}",
-        'validators': ['asm'],
-        'timestamp': datetime.now().isoformat()
-    }
-    
-    results[mod_data['id']] = {
-        'status': 'queued',
-        'message': 'CppDev commit queued for validation',
-        'timestamp': datetime.now().isoformat()
-    }
-    
-    mod_queue.put(mod_data)
-    
-    return jsonify(mod_data)
-
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

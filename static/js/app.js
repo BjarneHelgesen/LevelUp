@@ -3,7 +3,6 @@
 const API_BASE = '/api';
 let currentRepos = [];
 let selectedRepo = null;
-let queueUpdateInterval = null;
 let queuedModsInterval = null;
 
 // Tab Navigation
@@ -44,12 +43,7 @@ function showTab(tabId) {
         stopQueuedModsUpdates();
     } else if (tabId === 'mods') {
         startQueuedModsUpdates();
-    } else if (tabId === 'queue') {
-        loadQueueStatus();
-        startQueueUpdates();
-        stopQueuedModsUpdates();
     } else {
-        stopQueueUpdates();
         stopQueuedModsUpdates();
     }
 }
@@ -61,7 +55,6 @@ async function loadRepositories() {
         const repos = await response.json();
         currentRepos = repos;
         displayRepositories(repos);
-        updateRepoSelects(repos);
 
         // Auto-select first repo if none selected
         if (repos.length > 0 && !selectedRepo) {
@@ -145,42 +138,6 @@ function displayRepositories(repos) {
 
         container.appendChild(repoElement);
     });
-}
-
-function updateRepoSelects(repos) {
-    const selects = ['cppdev-repo'];
-    selects.forEach(selectId => {
-        const select = document.getElementById(selectId);
-        if (select) {
-            // Save current selection
-            const currentValue = select.value;
-
-            // Clear and rebuild options
-            select.innerHTML = '<option value="">Select a repository...</option>';
-            repos.forEach(repo => {
-                const option = document.createElement('option');
-                option.value = repo.name;
-                option.textContent = repo.name;
-                option.dataset.url = repo.url;
-                option.dataset.branch = repo.work_branch;
-                select.appendChild(option);
-            });
-
-            // Restore selection if possible
-            if (currentValue) {
-                select.value = currentValue;
-            }
-        }
-    });
-
-    // Auto-select first repo if none selected
-    if (!selectedRepo && repos.length > 0) {
-        selectedRepo = {
-            name: repos[0].name,
-            url: repos[0].url,
-            work_branch: repos[0].work_branch
-        };
-    }
 }
 
 // Repository Form
@@ -307,86 +264,7 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
     }
 });
 
-// CppDev Tools
-document.getElementById('cppdev-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    
-    // Get repository details
-    const repoSelect = document.getElementById('cppdev-repo');
-    const selectedOption = repoSelect.options[repoSelect.selectedIndex];
-    
-    const data = {
-        repo_name: formData.get('repo_name'),
-        repo_url: selectedOption.dataset.url,
-        work_branch: selectedOption.dataset.branch,
-        commit_hash: formData.get('commit_hash'),
-        message: formData.get('message')
-    };
-    
-    try {
-        const response = await fetch(`${API_BASE}/cppdev/commit`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (response.ok) {
-            const mod = await response.json();
-            showNotification('Commit submitted for validation', 'success');
-            e.target.reset();
-            trackCppDevResult(mod.id);
-        } else {
-            showNotification('Failed to submit commit', 'error');
-        }
-    } catch (error) {
-        console.error('Error submitting commit:', error);
-        showNotification('Error submitting commit', 'error');
-    }
-});
-
-// Queue Status
-async function loadQueueStatus() {
-    try {
-        const response = await fetch(`${API_BASE}/queue/status`);
-        const status = await response.json();
-        displayQueueStatus(status);
-    } catch (error) {
-        console.error('Error loading queue status:', error);
-    }
-}
-
-function displayQueueStatus(status) {
-    // Update stats
-    document.getElementById('queue-size').textContent = status.queue_size;
-    
-    // Count statuses
-    let processing = 0;
-    let completed = 0;
-    let failed = 0;
-    
-    Object.values(status.results).forEach(result => {
-        if (result.status === 'processing') processing++;
-        else if (result.status === 'success') completed++;
-        else if (result.status === 'failed') failed++;
-    });
-    
-    document.getElementById('processing-count').textContent = processing;
-    document.getElementById('completed-count').textContent = completed;
-    document.getElementById('failed-count').textContent = failed;
-    
-    // Display queue details
-    const container = document.getElementById('queue-details');
-    container.innerHTML = '';
-    
-    Object.entries(status.results).forEach(([id, result]) => {
-        const item = createResultItem(id, result);
-        container.appendChild(item);
-    });
-}
-
+// Status Tracking
 function createResultItem(id, result) {
     const item = document.createElement('div');
     item.className = `result-item ${result.status}`;
@@ -452,51 +330,6 @@ async function trackModStatus(modId) {
     checkStatus();
 }
 
-async function trackCppDevResult(modId) {
-    const container = document.getElementById('cppdev-results');
-    const checkStatus = async () => {
-        try {
-            const response = await fetch(`${API_BASE}/mods/${modId}/status`);
-            const status = await response.json();
-            
-            // Update or add result item
-            let item = container.querySelector(`[data-mod-id="${modId}"]`);
-            if (!item) {
-                item = createResultItem(modId, status);
-                item.dataset.modId = modId;
-                container.prepend(item);
-            } else {
-                const newItem = createResultItem(modId, status);
-                newItem.dataset.modId = modId;
-                item.replaceWith(newItem);
-            }
-            
-            // Continue checking if still processing
-            if (status.status === 'processing' || status.status === 'queued') {
-                setTimeout(checkStatus, 2000);
-            }
-        } catch (error) {
-            console.error('Error checking cppdev status:', error);
-        }
-    };
-    
-    checkStatus();
-}
-
-// Queue Updates
-function startQueueUpdates() {
-    stopQueueUpdates();
-    loadQueueStatus();
-    queueUpdateInterval = setInterval(loadQueueStatus, 5000);
-}
-
-function stopQueueUpdates() {
-    if (queueUpdateInterval) {
-        clearInterval(queueUpdateInterval);
-        queueUpdateInterval = null;
-    }
-}
-
 // Queued Mods Management
 async function loadQueuedMods() {
     try {
@@ -545,12 +378,6 @@ function stopQueuedModsUpdates() {
         queuedModsInterval = null;
     }
 }
-
-// Refresh Button
-document.getElementById('refresh-queue').addEventListener('click', () => {
-    loadQueueStatus();
-    showNotification('Queue status refreshed', 'success');
-});
 
 // Remove Repository
 async function removeRepo(repoId) {
