@@ -41,47 +41,33 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Tab Navigation
-document.querySelectorAll('.nav-link').forEach(link => {
-    link.addEventListener('click', (e) => {
-        e.preventDefault();
-
-        // Check if link is disabled
-        if (link.classList.contains('disabled')) {
-            return;
-        }
-
-        const target = link.getAttribute('href').substring(1);
-
-        // Don't allow switching away from repos tab if no repo selected
-        if (!selectedRepo && target !== 'repos') {
-            showNotification('Please select a repository first', 'warning');
-            return;
-        }
-
-        showTab(target);
-
-        // Update active nav
-        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-        link.classList.add('active');
+// Screen Navigation
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
     });
-});
+    document.getElementById(screenId).classList.add('active');
 
-function showTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.getElementById(tabId).classList.add('active');
-
-    // Load tab-specific data
-    if (tabId === 'repos') {
+    // Load screen-specific data
+    if (screenId === 'repos') {
         loadRepositories();
         stopQueuedModsUpdates();
-    } else if (tabId === 'mods') {
+    } else if (screenId === 'mods') {
+        // Update the mods header with selected repo name
+        const repoNameEl = document.getElementById('mods-repo-name');
+        if (selectedRepo) {
+            repoNameEl.textContent = `Mods - ${selectedRepo.name}`;
+        }
         startQueuedModsUpdates();
-    } else {
-        stopQueuedModsUpdates();
     }
+}
+
+// Back to repos button
+const backToReposBtn = document.getElementById('back-to-repos-btn');
+if (backToReposBtn) {
+    backToReposBtn.addEventListener('click', () => {
+        showScreen('repos');
+    });
 }
 
 // Repository Management
@@ -91,14 +77,6 @@ async function loadRepositories() {
         const repos = await response.json();
         currentRepos = repos;
         displayRepositories(repos);
-
-        // Auto-select first repo if none selected
-        if (repos.length > 0 && !selectedRepo) {
-            selectRepo(repos[0]);
-        }
-
-        // Update tab states
-        updateTabStates();
     } catch (error) {
         console.error('Error loading repositories:', error);
     }
@@ -107,32 +85,8 @@ async function loadRepositories() {
 function selectRepo(repo) {
     selectedRepo = repo;
 
-    // Update UI to show selection
-    document.querySelectorAll('.repo-item').forEach(item => {
-        item.classList.remove('selected');
-    });
-
-    const selectedElement = document.querySelector(`[data-repo-id="${repo.id}"]`);
-    if (selectedElement) {
-        selectedElement.classList.add('selected');
-    }
-
-    // Update tab states
-    updateTabStates();
-}
-
-function updateTabStates() {
-    const navLinks = document.querySelectorAll('.nav-link');
-    navLinks.forEach(link => {
-        const target = link.getAttribute('href').substring(1);
-        if (target !== 'repos') {
-            if (selectedRepo) {
-                link.classList.remove('disabled');
-            } else {
-                link.classList.add('disabled');
-            }
-        }
-    });
+    // Navigate to mods screen
+    showScreen('mods');
 }
 
 function displayRepositories(repos) {
@@ -142,7 +96,6 @@ function displayRepositories(repos) {
     if (repos.length === 0) {
         container.innerHTML = '<p>No repositories configured yet.</p>';
         selectedRepo = null;
-        updateTabStates();
         return;
     }
 
@@ -150,11 +103,6 @@ function displayRepositories(repos) {
         const repoElement = document.createElement('div');
         repoElement.className = 'repo-item';
         repoElement.dataset.repoId = repo.id;
-
-        // Check if this is the selected repo
-        if (selectedRepo && selectedRepo.id === repo.id) {
-            repoElement.classList.add('selected');
-        }
 
         repoElement.innerHTML = `
             <div class="repo-info">

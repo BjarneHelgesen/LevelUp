@@ -13,17 +13,10 @@
             <p>Modernize Legacy C++</p>
         </header>
 
-        <nav>
-            <ul>
-                <li><a href="#repos" class="nav-link active">Repos</a></li>
-                <li><a href="#mods" class="nav-link">Mods</a></li>
-            </ul>
-        </nav>
-
         <main>
-            <!-- Repositories Section -->
-            <section id="repos" class="tab-content active">
-                <div class="repos-header">
+            <!-- Repositories Screen -->
+            <section id="repos" class="screen active">
+                <div class="screen-header">
                     <h2>Repositories</h2>
                     <button id="add-repo-btn" class="primary-btn">Add Repo</button>
                 </div>
@@ -33,9 +26,12 @@
                 </div>
             </section>
 
-            <!-- Mods Section -->
-            <section id="mods" class="tab-content">
-                <h2>Modification Management</h2>
+            <!-- Mods Screen -->
+            <section id="mods" class="screen">
+                <div class="screen-header">
+                    <button id="back-to-repos-btn" class="back-btn">← Back to Repos</button>
+                    <h2 id="mods-repo-name">Mods</h2>
+                </div>
 
                 <!-- Queued Items List -->
                 <div class="queued-items">

@@ -48,47 +48,6 @@ header p {
     color: #6b7280;
 }
 
-/* Navigation */
-nav {
-    background-color: var(--card-bg);
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-nav ul {
-    list-style: none;
-    display: flex;
-    padding: 10px;
-}
-
-nav li {
-    margin-right: 20px;
-}
-
-nav a {
-    text-decoration: none;
-    color: var(--text-color);
-    padding: 10px 15px;
-    border-radius: 4px;
-    transition: background-color 0.3s;
-}
-
-nav a:hover {
-    background-color: var(--bg-color);
-}
-
-nav a.active {
-    background-color: var(--primary-color);
-    color: white;
-}
-
-nav a.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
 /* Main Content */
 main {
     background-color: var(--card-bg);
@@ -97,12 +56,14 @@ main {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.tab-content {
+/* Screen Navigation */
+.screen {
     display: none;
 }
 
-.tab-content.active {
+.screen.active {
     display: block;
+    animation: fadeIn 0.2s ease;
 }
 
 /* Forms */
@@ -193,11 +154,6 @@ button:hover {
 .repo-item:hover {
     background-color: #e5e7eb;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.repo-item.selected {
-    border-color: var(--primary-color);
-    background-color: #dbeafe;
 }
 
 .repo-info {
@@ -440,17 +396,35 @@ footer {
     100% { transform: rotate(360deg); }
 }
 
-/* Repos Header */
-.repos-header {
+/* Screen Header */
+.screen-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
 }
 
-.repos-header h2 {
+.screen-header h2 {
     margin: 0;
     color: var(--primary-color);
+}
+
+/* Back Button */
+.back-btn {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.2s, color 0.2s;
+    margin-right: auto;
+}
+
+.back-btn:hover {
+    background-color: var(--primary-color);
+    color: white;
 }
 
 /* Primary Button */
@@ -583,23 +557,19 @@ footer {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    nav ul {
-        flex-direction: column;
-    }
-
-    nav li {
-        margin-right: 0;
-        margin-bottom: 5px;
-    }
-
     .queue-stats {
         grid-template-columns: 1fr;
     }
 
-    .repos-header {
+    .screen-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
+    }
+
+    .back-btn {
+        margin-right: 0;
+        margin-bottom: 10px;
     }
 
     .modal-content {
