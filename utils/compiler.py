@@ -6,11 +6,16 @@ import subprocess
 import os
 import tempfile
 from pathlib import Path
+from typing import List, Tuple, Optional
 
-class MSVCCompiler:
+from .base_compiler import BaseCompiler
+
+
+class MSVCCompiler(BaseCompiler):
     """Wrapper for Microsoft Visual C++ compiler"""
-    
+
     def __init__(self, cl_path='cl.exe'):
+        super().__init__(cl_path)
         self.cl_path = cl_path
         self.default_flags = [
             '/O2',  # Maximum optimization

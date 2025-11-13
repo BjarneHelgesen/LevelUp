@@ -6,9 +6,12 @@ import difflib
 import re
 from pathlib import Path
 
-class ASMValidator:
+from .base_validator import BaseValidator
+
+
+class ASMValidator(BaseValidator):
     """Validates assembly output to ensure no functional changes"""
-    
+
     def __init__(self, compiler):
         self.compiler = compiler
         self.ignore_patterns = [

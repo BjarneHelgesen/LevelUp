@@ -9,46 +9,48 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
+from .base_mod import BaseMod
+from .mod_factory import ModFactory
+
+
 class ModHandler:
     """Handles application of mods to C++ code"""
-    
+
     def __init__(self):
         self.mod_history = []
-        self.supported_mods = {
-            'remove_inline': self._remove_inline,
-            'add_const': self._add_const,
-            'modernize_for': self._modernize_for_loops,
-            'add_override': self._add_override,
-            'replace_ms_specific': self._replace_ms_specific,
-            'custom': self._apply_custom_mod,
-        }
-    
+        self.mod_factory = ModFactory()
+
     def apply_mod(self, cpp_file, mod_data):
         """
         Apply a mod to a C++ file
         Returns path to modified file
         """
-        # Create a temporary copy
-        temp_file = Path(tempfile.mktemp(suffix='.cpp'))
-        shutil.copy2(cpp_file, temp_file)
-        
-        # Apply the mod based on type
         mod_type = mod_data.get('mod_type', 'custom')
-        
-        if mod_type in self.supported_mods:
-            self.supported_mods[mod_type](temp_file, mod_data)
-        else:
-            raise ValueError(f"Unsupported mod type: {mod_type}")
-        
+
+        # Create the mod instance using the factory
+        try:
+            mod_instance = self.mod_factory.create_mod(mod_type)
+        except (ValueError, NotImplementedError) as e:
+            raise ValueError(f"Cannot create mod: {e}")
+
+        # Validate before applying
+        is_valid, message = mod_instance.validate_before_apply(Path(cpp_file))
+        if not is_valid:
+            raise ValueError(f"Mod validation failed: {message}")
+
+        # Apply the mod
+        modified_file = mod_instance.apply(Path(cpp_file))
+
         # Record in history
         self.mod_history.append({
             'file': str(cpp_file),
             'mod_type': mod_type,
             'timestamp': datetime.now().isoformat(),
-            'mod_data': mod_data
+            'mod_data': mod_data,
+            'mod_metadata': mod_instance.get_metadata()
         })
-        
-        return temp_file
+
+        return modified_file
     
     def _remove_inline(self, cpp_file, mod_data):
         """Remove inline keywords from functions"""
