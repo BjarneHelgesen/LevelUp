@@ -59,7 +59,6 @@ class ModProcessor:
     """Processes Mods asynchronously"""
     
     def __init__(self):
-        self.git_handler = GitHandler(CONFIG['git_path'])
         self.compiler = MSVCCompiler(CONFIG['msvc_path'])
         self.asm_validator = ASMValidator(self.compiler)
         self.mod_handler = ModHandler()
@@ -79,22 +78,23 @@ class ModProcessor:
             # Clone or update repository
             repo_path = CONFIG['repos'] / secure_filename(mod_data['repo_name'])
             if not repo_path.exists():
-                self.git_handler.clone(mod_data['repo_url'], repo_path)
+                git_handler = GitHandler.clone(mod_data['repo_url'], repo_path, CONFIG['git_path'])
             else:
-                self.git_handler.pull(repo_path)
-            
+                git_handler = GitHandler(repo_path, CONFIG['git_path'])
+                git_handler.pull()
+
             # Checkout work branch
-            self.git_handler.checkout_branch(repo_path, mod_data['work_branch'])
+            git_handler.checkout_branch(mod_data['work_branch'])
             
             # Apply the mod (changes from cppDev)
             if mod_data['type'] == 'commit':
                 # Apply commit from cppDev
                 commit_hash = mod_data['commit_hash']
-                self.git_handler.cherry_pick(repo_path, commit_hash)
+                git_handler.cherry_pick(commit_hash)
             elif mod_data['type'] == 'patch':
                 # Apply patch file
                 patch_path = Path(mod_data['patch_path'])
-                self.git_handler.apply_patch(repo_path, patch_path)
+                git_handler.apply_patch(patch_path)
             
             # Compile and generate ASM for validation
             cpp_files = list(repo_path.glob('**/*.cpp'))
@@ -128,8 +128,7 @@ class ModProcessor:
             
             if all_valid:
                 # Rebase changes to work branch
-                self.git_handler.commit(
-                    repo_path, 
+                git_handler.commit(
                     f"LevelUp: Applied mod {mod_id} - {mod_data['description']}"
                 )
                 
@@ -141,7 +140,7 @@ class ModProcessor:
                 }
             else:
                 # Revert changes
-                self.git_handler.reset_hard(repo_path)
+                git_handler.reset_hard()
                 
                 results[mod_id] = {
                     'status': 'failed',
