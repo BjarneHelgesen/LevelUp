@@ -309,13 +309,26 @@ button:hover {
 }
 
 /* Results */
-.mod-results,
+.mod-results {
+    background-color: #f0fdf4;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border-left: 4px solid var(--secondary-color);
+}
+
+.mod-results h3 {
+    color: var(--secondary-color);
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
 .cppdev-results {
     margin-top: 30px;
 }
 
 .result-item {
-    background-color: var(--bg-color);
+    background-color: white;
     padding: 15px;
     border-radius: 4px;
     margin-bottom: 10px;

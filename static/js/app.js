@@ -5,6 +5,14 @@ let currentRepos = [];
 let selectedRepo = null;
 let queuedModsInterval = null;
 
+// Track which mods belong to which repos (persisted in localStorage)
+let modToRepoMap = JSON.parse(localStorage.getItem('modToRepoMap') || '{}');
+
+// Helper to save modToRepoMap to localStorage
+function saveModToRepoMap() {
+    localStorage.setItem('modToRepoMap', JSON.stringify(modToRepoMap));
+}
+
 // Modal Management
 const modal = document.getElementById('add-repo-modal');
 const addRepoBtn = document.getElementById('add-repo-btn');
@@ -66,6 +74,7 @@ function showScreen(screenId) {
         stopQueuedModsUpdates();
     } else if (screenId === 'mods') {
         loadAvailableMods();
+        loadSuccessfulMods();
         startQueuedModsUpdates();
     }
 }
@@ -292,10 +301,14 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
 
         if (response.ok) {
             const mod = await response.json();
+            // Track which repo this mod belongs to
+            modToRepoMap[mod.id] = selectedRepo.name;
+            saveModToRepoMap();
             showNotification('Mod submitted successfully', 'success');
             e.target.reset();
             trackModStatus(mod.id);
             loadQueuedMods(); // Refresh queued mods list
+            loadSuccessfulMods(); // Refresh successful mods list
         } else {
             showNotification('Failed to submit mod', 'error');
         }
@@ -341,24 +354,16 @@ function createResultItem(id, result) {
 
 // Status Tracking
 async function trackModStatus(modId) {
-    const container = document.getElementById('mod-results');
     const checkStatus = async () => {
         try {
             const response = await fetch(`${API_BASE}/mods/${modId}/status`);
             const status = await response.json();
-            
-            // Update or add result item
-            let item = container.querySelector(`[data-mod-id="${modId}"]`);
-            if (!item) {
-                item = createResultItem(modId, status);
-                item.dataset.modId = modId;
-                container.prepend(item);
-            } else {
-                const newItem = createResultItem(modId, status);
-                newItem.dataset.modId = modId;
-                item.replaceWith(newItem);
+
+            // If mod becomes successful, refresh the successful mods list
+            if (status.status === 'success') {
+                loadSuccessfulMods();
             }
-            
+
             // Continue checking if still processing
             if (status.status === 'processing' || status.status === 'queued') {
                 setTimeout(checkStatus, 2000);
@@ -367,7 +372,7 @@ async function trackModStatus(modId) {
             console.error('Error checking mod status:', error);
         }
     };
-    
+
     checkStatus();
 }
 
@@ -405,6 +410,47 @@ function displayQueuedMods(status) {
         list.appendChild(item);
     });
     container.appendChild(list);
+}
+
+// Successful Mods Management
+async function loadSuccessfulMods() {
+    if (!selectedRepo) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/queue/status`);
+        const status = await response.json();
+        displaySuccessfulMods(status);
+    } catch (error) {
+        console.error('Error loading successful mods:', error);
+    }
+}
+
+function displaySuccessfulMods(status) {
+    const container = document.getElementById('mod-results');
+    container.innerHTML = '';
+
+    if (!selectedRepo) {
+        container.innerHTML = '<p class="no-items">No repository selected</p>';
+        return;
+    }
+
+    // Filter for successful items that belong to the current repo
+    const successfulItems = Object.entries(status.results)
+        .filter(([id, result]) => {
+            return result.status === 'success' && modToRepoMap[id] === selectedRepo.name;
+        })
+        .sort((a, b) => new Date(b[1].timestamp) - new Date(a[1].timestamp)); // Most recent first
+
+    if (successfulItems.length === 0) {
+        container.innerHTML = '<p class="no-items">No successful mods yet</p>';
+        return;
+    }
+
+    successfulItems.forEach(([id, result]) => {
+        const item = createResultItem(id, result);
+        item.dataset.modId = id;
+        container.appendChild(item);
+    });
 }
 
 function startQueuedModsUpdates() {
