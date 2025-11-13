@@ -33,14 +33,36 @@ pip install -r requirements.txt
 **Flask Server (app.py)**
 - Main entry point and API server
 - Manages async mod queue using Python's `queue.Queue` and threading
-- Routes defined: `/api/repos`, `/api/mods`, `/api/queue/status`, `/api/cppdev/commit`
+- Routes defined: `/api/repos`, `/api/mods`, `/api/queue/status`, `/api/available/*`
 - Uses a single worker thread (`mod_worker`) to process mods from queue
 - Results stored in-memory dict `results` keyed by mod_id
+- Factory pattern with enums for compilers, mods, and validators
 
 **ModProcessor Class (app.py:55-156)**
 - Processes mods asynchronously
 - Orchestrates: GitHandler → ModHandler → Compiler → Validators
 - Each mod goes through: clone/pull → checkout work branch → apply changes → validate → commit or revert
+
+### Factory Pattern
+
+**Compiler Factory (utils/compiler_factory.py)**
+- Enum-based registry: `CompilerType` enum maps to compiler classes
+- `from_id()` creates compiler instance from stable ID string
+- `get_available_compilers()` returns list with id and name for each compiler
+- Each compiler class has static `get_id()` and `get_name()` methods
+
+**Mod Factory (mods/mod_factory.py)**
+- Enum-based registry: `ModType` enum maps to mod classes
+- `from_id()` creates mod instance from stable ID string
+- `get_available_mods()` returns list with id and name for each mod
+- Each mod class has static `get_id()` and `get_name()` methods
+- No string literals in factory - all IDs come from class methods
+
+**Validator Factory (validators/validator_factory.py)**
+- Enum-based registry: `ValidatorType` enum maps to validator classes
+- `from_id()` creates validator instance from stable ID string
+- `get_available_validators()` returns list with id and name for each validator
+- Each validator class has static `get_id()` and `get_name()` methods
 
 ### Module Organization
 
@@ -67,25 +89,26 @@ pip install -r requirements.txt
 - Conservative approach: rejects changes if uncertain about equivalence
 
 **mods/mod_handler.py**
-- Applies code transformations to C++ files
-- Built-in mods: `remove_inline`, `add_const`, `modernize_for`, `add_override`, `replace_ms_specific`
-- Each mod operates via regex patterns on temporary file copies
-- `create_mod_from_diff()` can infer mod type from file differences
+- Orchestrates mod application using factory-created mod instances
+- Delegates to mod classes: RemoveInlineMod, AddOverrideMod, ReplaceMSSpecificMod
+- Each mod class handles its own logic via `apply()` and `can_apply()` methods
+- Records mod history with metadata from each mod instance
 
 ### Web UI Architecture
 
 **Frontend (templates/index.html + static/js/app.js)**
-- Tab-based interface: Repos, Mods, Queue Status, CppDev Tools
-- Requires repo selection before accessing other tabs
+- Screen-based navigation: Repos screen → Mods screen (with back button)
+- Modal dialog for adding repositories
 - No SPA framework - uses vanilla JavaScript with fetch API
 - Forms submit to Flask API endpoints
 - Real-time status updates via polling for queue and mod status
+- Dynamically loads available mods from `/api/available/mods`
 
 **State Management (static/js/app.js)**
 - `selectedRepo` tracks current working repository
 - `currentRepos` array synchronized with server
-- Repository selection enables/disables other tabs
-- Polling intervals for queue status updates (5s interval)
+- Clicking repo navigates to Mods screen
+- Polling intervals for queued mods updates while on Mods screen
 
 ### Data Flow
 
@@ -165,16 +188,23 @@ The system supports multiple validators:
 ## Common Development Patterns
 
 **Adding a New Validator**:
-1. Create validator class in `validators/` following ASMValidator pattern
-2. Add initialization in ModProcessor.__init__()
-3. Add validation logic in ModProcessor.process_mod()
-4. Update UI to allow selecting new validator type
+1. Create validator class in `validators/` inheriting from BaseValidator
+2. Implement abstract methods: `get_id()`, `get_name()`, `validate()`, `get_diff_report()`
+3. Add to `ValidatorType` enum in `validators/validator_factory.py`
+4. ID from `get_id()` is automatically available in UI via `/api/available/validators`
 
 **Adding a New Mod Type**:
-1. Add method to ModHandler (e.g., `_modernize_xyz()`)
-2. Register in `supported_mods` dict
-3. Add UI option in templates/index.html builtin-mod select
-4. Pattern: read file → apply regex/transformations → write file
+1. Create mod class in `mods/` inheriting from BaseMod
+2. Implement abstract methods: `get_id()`, `get_name()`, `apply()`, `can_apply()`
+3. Add to `ModType` enum in `mods/mod_factory.py`
+4. ID from `get_id()` is automatically available in UI via `/api/available/mods`
+5. Pattern: check `can_apply()` → create temp copy → apply transformations → return path
+
+**Adding a New Compiler**:
+1. Create compiler class in `utils/` inheriting from BaseCompiler
+2. Implement abstract methods: `get_id()`, `get_name()`, `compile()`, `compile_to_asm()`, etc.
+3. Add to `CompilerType` enum in `utils/compiler_factory.py`
+4. ID from `get_id()` is automatically available in UI via `/api/available/compilers`
 
 **Understanding Validation Results**:
 - Check `results[mod_id]` dict for status: queued → processing → success/failed/error

@@ -149,11 +149,23 @@ To test LevelUp with your 7zip repository:
 
 ## API Endpoints
 
+### Repository Management
 - `GET /api/repos` - List repositories
 - `POST /api/repos` - Add repository
+
+### Mod Management
 - `POST /api/mods` - Submit modification
 - `GET /api/mods/<id>/status` - Get mod status
+
+### Available Resources
+- `GET /api/available/mods` - List available mod types
+- `GET /api/available/validators` - List available validator types
+- `GET /api/available/compilers` - List available compiler types
+
+### Queue Management
 - `GET /api/queue/status` - Get queue status
+
+### CppDev Tools
 - `POST /api/cppdev/commit` - Submit cppDev commit
 
 ## Future Enhancements
