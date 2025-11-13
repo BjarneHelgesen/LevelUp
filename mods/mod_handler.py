@@ -47,6 +47,35 @@ class ModHandler:
 
         return modified_file
 
+    def apply_mod_instance(self, cpp_file, mod_instance):
+        """
+        Apply a mod instance to a C++ file.
+
+        Args:
+            cpp_file: Path to C++ file
+            mod_instance: Already-created mod instance (not string ID!)
+
+        Returns:
+            Path to modified file
+        """
+        # Validate before applying
+        is_valid, message = mod_instance.validate_before_apply(Path(cpp_file))
+        if not is_valid:
+            raise ValueError(f"Mod validation failed: {message}")
+
+        # Apply the mod
+        modified_file = mod_instance.apply(Path(cpp_file))
+
+        # Record in history
+        self.mod_history.append({
+            'file': str(cpp_file),
+            'mod_class': mod_instance.__class__.__name__,
+            'timestamp': datetime.now().isoformat(),
+            'mod_metadata': mod_instance.get_metadata()
+        })
+
+        return modified_file
+
     def get_mod_history(self):
         """Get the history of applied mods"""
         return self.mod_history

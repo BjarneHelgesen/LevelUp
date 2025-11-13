@@ -25,6 +25,7 @@ from mods.mod_handler import ModHandler
 from mods.mod_factory import ModFactory
 from result import Result, ResultStatus
 from repo import Repo
+from mod_request import ModRequest, ModSourceType
 
 app = Flask(__name__)
 app.secret_key = 'levelup-secret-key-change-in-production'
@@ -56,10 +57,10 @@ class ModProcessor:
         self.asm_validator = ASMValidator(self.compiler)
         self.mod_handler = ModHandler()
         
-    def process_mod(self, mod_data):
-        """Process a single mod"""
-        mod_id = mod_data['id']
-        
+    def process_mod(self, mod_request: ModRequest):
+        """Process a single mod request"""
+        mod_id = mod_request.id
+
         try:
             # Update status
             results[mod_id] = Result(
@@ -69,37 +70,39 @@ class ModProcessor:
 
             # Initialize repository
             repo = Repo(
-                url=mod_data['repo_url'],
-                work_branch=mod_data['work_branch'],
-                repo_path=CONFIG['repos'] / secure_filename(mod_data['repo_name']),
+                url=mod_request.repo_url,
+                work_branch=mod_request.work_branch,
+                repo_path=CONFIG['repos'] / secure_filename(mod_request.repo_name),
                 git_path=CONFIG['git_path']
             )
             repo.ensure_cloned()
             repo.prepare_work_branch()
-            
-            # Apply the mod (changes from cppDev)
-            if mod_data['type'] == 'commit':
+
+            # Apply the mod based on source type
+            if mod_request.source_type == ModSourceType.COMMIT:
                 # Apply commit from cppDev
-                commit_hash = mod_data['commit_hash']
-                repo.cherry_pick(commit_hash)
-            elif mod_data['type'] == 'patch':
+                repo.cherry_pick(mod_request.commit_hash)
+            elif mod_request.source_type == ModSourceType.PATCH:
                 # Apply patch file
-                patch_path = Path(mod_data['patch_path'])
-                repo.apply_patch(patch_path)
+                repo.apply_patch(mod_request.patch_path)
 
             # Compile and generate ASM for validation
             cpp_files = list(repo.repo_path.glob('**/*.cpp'))
             validation_results = []
-            
+
             for cpp_file in cpp_files:
                 # Compile original
                 original_asm = self.compiler.compile_to_asm(
-                    cpp_file, 
+                    cpp_file,
                     CONFIG['temp'] / f'original_{cpp_file.stem}.asm'
                 )
-                
-                # Apply mod changes
-                modified_cpp = self.mod_handler.apply_mod(cpp_file, mod_data)
+
+                # Apply mod changes (if BUILTIN)
+                if mod_request.source_type == ModSourceType.BUILTIN:
+                    modified_cpp = self.mod_handler.apply_mod_instance(cpp_file, mod_request.mod_instance)
+                else:
+                    # For COMMIT/PATCH, changes are already applied via git
+                    modified_cpp = cpp_file
                 
                 # Compile modified
                 modified_asm = self.compiler.compile_to_asm(
@@ -120,7 +123,7 @@ class ModProcessor:
             if all_valid:
                 # Rebase changes to work branch
                 repo.commit(
-                    f"LevelUp: Applied mod {mod_id} - {mod_data['description']}"
+                    f"LevelUp: Applied mod {mod_id} - {mod_request.description}"
                 )
 
                 results[mod_id] = Result(
@@ -227,41 +230,79 @@ def delete_repo(repo_id):
 def submit_mod():
     """Submit a new mod for processing"""
     data = request.json
-    
-    mod_data = {
-        'id': str(uuid.uuid4()),
-        'repo_name': data['repo_name'],
-        'repo_url': data['repo_url'],
-        'work_branch': data['work_branch'],
-        'type': data['type'],  # 'commit' or 'patch'
-        'description': data['description'],
-        'validators': data.get('validators', ['asm']),
-        'allow_reorder': data.get('allow_reorder', False),
-        'timestamp': datetime.now().isoformat()
-    }
-    
-    # Add type-specific data
-    if data['type'] == 'commit':
-        mod_data['commit_hash'] = data['commit_hash']
-    elif data['type'] == 'patch':
+    mod_id = str(uuid.uuid4())
+
+    # Determine source type and create appropriate objects
+    type_str = data['type']
+    if type_str == 'builtin':
+        source_type = ModSourceType.BUILTIN
+        # Create mod instance from string ID (only place string ID is used!)
+        mod_type_id = data['mod_type']
+        mod_instance = ModFactory.from_id(mod_type_id)
+        commit_hash = None
+        patch_path = None
+    elif type_str == 'commit':
+        source_type = ModSourceType.COMMIT
+        mod_instance = None
+        commit_hash = data['commit_hash']
+        patch_path = None
+    elif type_str == 'patch':
+        source_type = ModSourceType.PATCH
+        mod_instance = None
+        commit_hash = None
         # Handle file upload
         if 'patch_file' in request.files:
             patch_file = request.files['patch_file']
             filename = secure_filename(patch_file.filename)
             patch_path = CONFIG['temp'] / filename
             patch_file.save(patch_path)
-            mod_data['patch_path'] = str(patch_path)
-    
+        else:
+            patch_path = None
+    else:
+        return jsonify({'error': f'Invalid type: {type_str}'}), 400
+
+    # Create type-safe ModRequest
+    mod_request = ModRequest(
+        id=mod_id,
+        repo_url=data['repo_url'],
+        repo_name=data['repo_name'],
+        work_branch=data['work_branch'],
+        source_type=source_type,
+        description=data['description'],
+        mod_instance=mod_instance,
+        commit_hash=commit_hash,
+        patch_path=patch_path,
+        allow_reorder=data.get('allow_reorder', False),
+        timestamp=datetime.now().isoformat()
+    )
+
     # Initialize result
-    results[mod_data['id']] = Result(
+    results[mod_id] = Result(
         status=ResultStatus.QUEUED,
         message='Mod queued for processing'
     )
-    
-    # Add to queue
-    mod_queue.put(mod_data)
-    
-    return jsonify(mod_data)
+
+    # Queue the ModRequest object (not dict!)
+    mod_queue.put(mod_request)
+
+    # Return JSON response with string IDs for frontend
+    response_data = {
+        'id': mod_id,
+        'repo_name': data['repo_name'],
+        'repo_url': data['repo_url'],
+        'work_branch': data['work_branch'],
+        'type': type_str,
+        'description': data['description'],
+        'validators': data.get('validators', ['asm']),
+        'allow_reorder': data.get('allow_reorder', False),
+        'timestamp': mod_request.timestamp
+    }
+    if type_str == 'builtin':
+        response_data['mod_type'] = data['mod_type']
+    elif type_str == 'commit':
+        response_data['commit_hash'] = commit_hash
+
+    return jsonify(response_data)
 
 @app.route('/api/mods/<mod_id>/status')
 def get_mod_status(mod_id):
