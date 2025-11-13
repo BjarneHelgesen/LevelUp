@@ -20,6 +20,30 @@ class BaseCompiler(ABC):
         """
         self.compiler_path = compiler_path
 
+    @staticmethod
+    @abstractmethod
+    def get_id() -> str:
+        """
+        Get the stable identifier for this compiler
+
+        IMPORTANT: This string is used in APIs and databases. Do not change once set.
+
+        Returns:
+            Stable identifier string
+        """
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_name() -> str:
+        """
+        Get the human-readable name of the compiler
+
+        Returns:
+            Human-readable name of the compiler
+        """
+        pass
+
     @abstractmethod
     def compile(self, source_file: Path, output_file: Optional[Path] = None,
                 additional_flags: Optional[List[str]] = None) -> any:

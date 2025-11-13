@@ -19,6 +19,17 @@ class AddOverrideMod(BaseMod):
             description='Add override keyword to virtual functions'
         )
 
+    @staticmethod
+    def get_id() -> str:
+        """Get the stable identifier for this mod"""
+        # STABLE: This ID is used in APIs and databases. Do not change.
+        return 'add_override'
+
+    @staticmethod
+    def get_name() -> str:
+        """Get the human-readable name of the mod"""
+        return 'Add Override Keywords'
+
     def can_apply(self, source_file: Path) -> bool:
         """Check if file contains virtual functions without override"""
         if not source_file.exists():

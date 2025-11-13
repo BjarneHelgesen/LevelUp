@@ -29,7 +29,7 @@ class ModHandler:
 
         # Create the mod instance using the factory
         try:
-            mod_instance = self.mod_factory.create_mod(mod_type)
+            mod_instance = self.mod_factory.from_id(mod_type)
         except (ValueError, NotImplementedError) as e:
             raise ValueError(f"Cannot create mod: {e}")
 

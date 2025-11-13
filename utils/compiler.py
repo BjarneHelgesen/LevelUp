@@ -23,6 +23,17 @@ class MSVCCompiler(BaseCompiler):
             '/nologo',  # Suppress banner
             '/W3',  # Warning level 3
         ]
+
+    @staticmethod
+    def get_id() -> str:
+        """Get the stable identifier for this compiler"""
+        # STABLE: This ID is used in APIs and databases. Do not change.
+        return 'msvc'
+
+    @staticmethod
+    def get_name() -> str:
+        """Get the human-readable name of the compiler"""
+        return "Microsoft Visual C++"
     
     def _run_cl(self, args, cwd=None, check=True):
         """Run cl.exe with arguments"""

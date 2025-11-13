@@ -19,6 +19,17 @@ class RemoveInlineMod(BaseMod):
             description='Remove inline keywords from functions'
         )
 
+    @staticmethod
+    def get_id() -> str:
+        """Get the stable identifier for this mod"""
+        # STABLE: This ID is used in APIs and databases. Do not change.
+        return 'remove_inline'
+
+    @staticmethod
+    def get_name() -> str:
+        """Get the human-readable name of the mod"""
+        return 'Remove Inline Keywords'
+
     def can_apply(self, source_file: Path) -> bool:
         """Check if file contains inline keywords"""
         if not source_file.exists():

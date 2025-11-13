@@ -3,6 +3,7 @@ Mod Factory for LevelUp
 Creates mod instances based on mod type
 """
 
+from enum import Enum
 from typing import List, Dict, Any
 
 from .base_mod import BaseMod
@@ -11,71 +12,54 @@ from .add_override_mod import AddOverrideMod
 from .replace_ms_specific_mod import ReplaceMSSpecificMod
 
 
+class ModType(Enum):
+    """Enum of available mod types"""
+    REMOVE_INLINE = RemoveInlineMod
+    ADD_OVERRIDE = AddOverrideMod
+    REPLACE_MS_SPECIFIC = ReplaceMSSpecificMod
+
+
 class ModFactory:
     """Factory for creating mod instances"""
 
-    # Registry of available mods with their metadata
-    _MOD_REGISTRY = {
-        'remove_inline': {
-            'class': RemoveInlineMod,
-            'name': 'Remove Inline Keywords',
-            'description': 'Remove inline keywords from functions'
-        },
-        'add_override': {
-            'class': AddOverrideMod,
-            'name': 'Add Override Keywords',
-            'description': 'Add override keyword to virtual functions'
-        },
-        'replace_ms_specific': {
-            'class': ReplaceMSSpecificMod,
-            'name': 'Replace MS-Specific Syntax',
-            'description': 'Replace Microsoft-specific syntax with standard C++'
-        }
-    }
-
     @staticmethod
-    def create_mod(mod_type: str) -> BaseMod:
+    def from_id(mod_id: str) -> BaseMod:
         """
-        Create a mod instance
+        Create a mod instance from its stable ID
 
         Args:
-            mod_type: Type of mod ('remove_inline', 'add_override', etc.)
+            mod_id: Stable mod identifier (e.g., 'remove_inline')
 
         Returns:
             Mod instance
 
         Raises:
-            ValueError: If mod_type is not supported
+            ValueError: If mod_id is not supported
         """
-        mod_type = mod_type.lower()
-
-        if mod_type not in ModFactory._MOD_REGISTRY:
-            raise ValueError(f"Unsupported mod type: {mod_type}")
-
-        mod_class = ModFactory._MOD_REGISTRY[mod_type]['class']
-        return mod_class()
+        for mod_type in ModType:
+            if mod_type.value.get_id() == mod_id:
+                return mod_type.value()
+        raise ValueError(f"Unsupported mod: {mod_id}")
 
     @staticmethod
     def get_available_mods() -> List[Dict[str, Any]]:
         """
-        Get list of available mods with their metadata
+        Get list of available mods
 
         Returns:
             List of dictionaries containing mod information:
             [
                 {
                     'id': 'remove_inline',
-                    'name': 'Remove Inline Keywords',
-                    'description': 'Remove inline keywords from functions'
+                    'name': 'Remove Inline Keywords'
                 },
                 ...
             ]
         """
         return [
             {
-                'id': mod_id,
-                'name': info['name'],
-                'description': info['description']
+                'id': mod_type.value.get_id(),
+                'name': mod_type.value.get_name()
             }
-            for mod_id, info in ModFactory._MOD_REGISTRY.items()
+            for mod_type in ModType
         ]

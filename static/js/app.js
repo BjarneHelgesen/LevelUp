@@ -89,7 +89,6 @@ function populateModSelect(mods) {
             const option = document.createElement('option');
             option.value = `builtin:${mod.id}`;
             option.textContent = mod.name;
-            option.title = mod.description;
             builtinOptgroup.appendChild(option);
         });
 

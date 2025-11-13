@@ -3,68 +3,60 @@ Validator Factory for LevelUp
 Creates validator instances based on validator type
 """
 
+from enum import Enum
 from typing import List, Dict, Any
 
 from .base_validator import BaseValidator
 from .asm_validator import ASMValidator
 
 
+class ValidatorType(Enum):
+    """Enum of available validator types"""
+    ASM = ASMValidator
+
+
 class ValidatorFactory:
     """Factory for creating validator instances"""
 
-    # Registry of available validators with their metadata
-    _VALIDATOR_REGISTRY = {
-        'asm': {
-            'class': ASMValidator,
-            'name': 'Assembly Comparison',
-            'description': 'Validates that assembly output remains identical'
-        }
-    }
-
     @staticmethod
-    def create_validator(validator_type: str, compiler) -> BaseValidator:
+    def from_id(validator_id: str, compiler) -> BaseValidator:
         """
-        Create a validator instance
+        Create a validator instance from its stable ID
 
         Args:
-            validator_type: Type of validator ('asm', 'ast', 'warnings', etc.)
+            validator_id: Stable validator identifier (e.g., 'asm')
             compiler: Compiler instance to use for validation
 
         Returns:
             Validator instance
 
         Raises:
-            ValueError: If validator_type is not supported
+            ValueError: If validator_id is not supported
         """
-        validator_type = validator_type.lower()
-
-        if validator_type not in ValidatorFactory._VALIDATOR_REGISTRY:
-            raise ValueError(f"Unsupported validator type: {validator_type}")
-
-        validator_class = ValidatorFactory._VALIDATOR_REGISTRY[validator_type]['class']
-        return validator_class(compiler=compiler)
+        for validator_type in ValidatorType:
+            if validator_type.value.get_id() == validator_id:
+                return validator_type.value(compiler=compiler)
+        raise ValueError(f"Unsupported validator: {validator_id}")
 
     @staticmethod
     def get_available_validators() -> List[Dict[str, Any]]:
         """
-        Get list of available validators with their metadata
+        Get list of available validators
 
         Returns:
             List of dictionaries containing validator information:
             [
                 {
                     'id': 'asm',
-                    'name': 'Assembly Comparison',
-                    'description': 'Validates that assembly output remains identical'
+                    'name': 'Assembly Comparison'
                 },
                 ...
             ]
         """
         return [
             {
-                'id': validator_id,
-                'name': info['name'],
-                'description': info['description']
+                'id': validator_type.value.get_id(),
+                'name': validator_type.value.get_name()
             }
-            for validator_id, info in ValidatorFactory._VALIDATOR_REGISTRY.items()
+            for validator_type in ValidatorType
         ]

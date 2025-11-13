@@ -35,6 +35,17 @@ class ReplaceMSSpecificMod(BaseMod):
             r'__int8': 'char',
         }
 
+    @staticmethod
+    def get_id() -> str:
+        """Get the stable identifier for this mod"""
+        # STABLE: This ID is used in APIs and databases. Do not change.
+        return 'replace_ms_specific'
+
+    @staticmethod
+    def get_name() -> str:
+        """Get the human-readable name of the mod"""
+        return 'Replace MS-Specific Syntax'
+
     def can_apply(self, source_file: Path) -> bool:
         """Check if file contains MS-specific syntax"""
         if not source_file.exists():

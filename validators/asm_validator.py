@@ -29,7 +29,18 @@ class ASMValidator(BaseValidator):
             re.compile(r'^\s*DD\s+__real@.*$'),  # Floating point constants
             re.compile(r'^\s*DD\s+__mask@.*$'),  # Mask constants
         ]
-    
+
+    @staticmethod
+    def get_id() -> str:
+        """Get the stable identifier for this validator"""
+        # STABLE: This ID is used in APIs and databases. Do not change.
+        return 'asm'
+
+    @staticmethod
+    def get_name() -> str:
+        """Get the human-readable name of the validator"""
+        return "Assembly Comparison"
+
     def validate(self, original_asm_path, modified_asm_path):
         """
         Validate that two ASM files are functionally identical

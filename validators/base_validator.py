@@ -11,6 +11,30 @@ from typing import Dict, Any, Tuple
 class BaseValidator(ABC):
     """Abstract base class for validator implementations"""
 
+    @staticmethod
+    @abstractmethod
+    def get_id() -> str:
+        """
+        Get the stable identifier for this validator
+
+        IMPORTANT: This string is used in APIs and databases. Do not change once set.
+
+        Returns:
+            Stable identifier string
+        """
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_name() -> str:
+        """
+        Get the human-readable name of the validator
+
+        Returns:
+            Human-readable name of the validator
+        """
+        pass
+
     @abstractmethod
     def validate(self, original_file: Path, modified_file: Path) -> bool:
         """

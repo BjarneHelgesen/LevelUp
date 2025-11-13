@@ -22,6 +22,30 @@ class BaseMod(ABC):
         self.mod_id = mod_id
         self.description = description
 
+    @staticmethod
+    @abstractmethod
+    def get_id() -> str:
+        """
+        Get the stable identifier for this mod
+
+        IMPORTANT: This string is used in APIs and databases. Do not change once set.
+
+        Returns:
+            Stable identifier string
+        """
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_name() -> str:
+        """
+        Get the human-readable name of the mod
+
+        Returns:
+            Human-readable name of the mod
+        """
+        pass
+
     @abstractmethod
     def apply(self, source_file: Path) -> Path:
         """
