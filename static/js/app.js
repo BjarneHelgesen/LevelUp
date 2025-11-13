@@ -58,8 +58,59 @@ function showScreen(screenId) {
         if (selectedRepo) {
             repoNameEl.textContent = `Mods - ${selectedRepo.name}`;
         }
+        loadAvailableMods();
         startQueuedModsUpdates();
     }
+}
+
+// Load available mods from API
+async function loadAvailableMods() {
+    try {
+        const response = await fetch(`${API_BASE}/available/mods`);
+        const mods = await response.json();
+        populateModSelect(mods);
+    } catch (error) {
+        console.error('Error loading available mods:', error);
+    }
+}
+
+function populateModSelect(mods) {
+    const select = document.getElementById('mod-select');
+
+    // Clear existing options except the first one
+    select.innerHTML = '<option value="">Select a mod...</option>';
+
+    // Add Built-in Mods optgroup
+    if (mods.length > 0) {
+        const builtinOptgroup = document.createElement('optgroup');
+        builtinOptgroup.label = 'Built-in Mods';
+
+        mods.forEach(mod => {
+            const option = document.createElement('option');
+            option.value = `builtin:${mod.id}`;
+            option.textContent = mod.name;
+            option.title = mod.description;
+            builtinOptgroup.appendChild(option);
+        });
+
+        select.appendChild(builtinOptgroup);
+    }
+
+    // Add Other options
+    const otherOptgroup = document.createElement('optgroup');
+    otherOptgroup.label = 'Other';
+
+    const commitOption = document.createElement('option');
+    commitOption.value = 'commit';
+    commitOption.textContent = 'Git Commit';
+    otherOptgroup.appendChild(commitOption);
+
+    const patchOption = document.createElement('option');
+    patchOption.value = 'patch';
+    patchOption.textContent = 'Patch File';
+    otherOptgroup.appendChild(patchOption);
+
+    select.appendChild(otherOptgroup);
 }
 
 // Back to repos button

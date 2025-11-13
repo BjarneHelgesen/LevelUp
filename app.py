@@ -18,8 +18,11 @@ import uuid
 
 from utils.git_handler import GitHandler
 from utils.compiler import MSVCCompiler
+from utils.compiler_factory import CompilerFactory
 from validators.asm_validator import ASMValidator
+from validators.validator_factory import ValidatorFactory
 from mods.mod_handler import ModHandler
+from mods.mod_factory import ModFactory
 
 def extract_repo_name(repo_url):
     """Extract repository name from URL"""
@@ -289,6 +292,21 @@ def get_queue_status():
         'results': results,
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/api/available/mods')
+def get_available_mods():
+    """Get list of available mods"""
+    return jsonify(ModFactory.get_available_mods())
+
+@app.route('/api/available/validators')
+def get_available_validators():
+    """Get list of available validators"""
+    return jsonify(ValidatorFactory.get_available_validators())
+
+@app.route('/api/available/compilers')
+def get_available_compilers():
+    """Get list of available compilers"""
+    return jsonify(CompilerFactory.get_available_compilers())
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

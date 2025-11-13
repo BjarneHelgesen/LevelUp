@@ -3,12 +3,23 @@ Validator Factory for LevelUp
 Creates validator instances based on validator type
 """
 
+from typing import List, Dict, Any
+
 from .base_validator import BaseValidator
 from .asm_validator import ASMValidator
 
 
 class ValidatorFactory:
     """Factory for creating validator instances"""
+
+    # Registry of available validators with their metadata
+    _VALIDATOR_REGISTRY = {
+        'asm': {
+            'class': ASMValidator,
+            'name': 'Assembly Comparison',
+            'description': 'Validates that assembly output remains identical'
+        }
+    }
 
     @staticmethod
     def create_validator(validator_type: str, compiler) -> BaseValidator:
@@ -27,21 +38,33 @@ class ValidatorFactory:
         """
         validator_type = validator_type.lower()
 
-        if validator_type == 'asm':
-            return ASMValidator(compiler=compiler)
-        elif validator_type == 'ast':
-            # Placeholder for AST validator
-            raise NotImplementedError("AST validator not yet implemented")
-        elif validator_type == 'warnings':
-            # Placeholder for Warnings validator
-            raise NotImplementedError("Warnings validator not yet implemented")
-        elif validator_type == 'unit_test':
-            # Placeholder for Unit Test validator
-            raise NotImplementedError("Unit test validator not yet implemented")
-        else:
+        if validator_type not in ValidatorFactory._VALIDATOR_REGISTRY:
             raise ValueError(f"Unsupported validator type: {validator_type}")
 
+        validator_class = ValidatorFactory._VALIDATOR_REGISTRY[validator_type]['class']
+        return validator_class(compiler=compiler)
+
     @staticmethod
-    def get_supported_validators():
-        """Get list of supported validator types"""
-        return ['asm']  # 'ast', 'warnings', 'unit_test' to be added later
+    def get_available_validators() -> List[Dict[str, Any]]:
+        """
+        Get list of available validators with their metadata
+
+        Returns:
+            List of dictionaries containing validator information:
+            [
+                {
+                    'id': 'asm',
+                    'name': 'Assembly Comparison',
+                    'description': 'Validates that assembly output remains identical'
+                },
+                ...
+            ]
+        """
+        return [
+            {
+                'id': validator_id,
+                'name': info['name'],
+                'description': info['description']
+            }
+            for validator_id, info in ValidatorFactory._VALIDATOR_REGISTRY.items()
+        ]
