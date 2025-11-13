@@ -48,16 +48,19 @@ function showScreen(screenId) {
     });
     document.getElementById(screenId).classList.add('active');
 
+    // Toggle top bar visibility
+    const topBar = document.getElementById('top-bar');
+    if (screenId === 'mods') {
+        topBar.classList.add('visible');
+    } else {
+        topBar.classList.remove('visible');
+    }
+
     // Load screen-specific data
     if (screenId === 'repos') {
         loadRepositories();
         stopQueuedModsUpdates();
     } else if (screenId === 'mods') {
-        // Update the mods header with selected repo name
-        const repoNameEl = document.getElementById('mods-repo-name');
-        if (selectedRepo) {
-            repoNameEl.textContent = `Mods - ${selectedRepo.name}`;
-        }
         loadAvailableMods();
         startQueuedModsUpdates();
     }

@@ -7,12 +7,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>LevelUp</h1>
-            <p>Modernize Legacy C++</p>
-        </header>
+    <!-- Top Bar (visible on Mods screen) -->
+    <div class="top-bar" id="top-bar">
+        <div class="top-bar-content">
+            <img src="{{ url_for('static', filename='images/LevelUp_logo.png') }}" alt="LevelUp Logo" class="top-bar-logo">
+            <span class="top-bar-slogan">Modernize Legacy C++</span>
+            <button id="back-to-repos-btn" class="top-bar-back-btn">← Back to Repos</button>
+        </div>
+    </div>
 
+    <div class="container">
         <main>
             <!-- Repositories Screen -->
             <section id="repos" class="screen active">
@@ -28,10 +32,6 @@
 
             <!-- Mods Screen -->
             <section id="mods" class="screen">
-                <div class="screen-header">
-                    <button id="back-to-repos-btn" class="back-btn">← Back to Repos</button>
-                    <h2 id="mods-repo-name">Mods</h2>
-                </div>
 
                 <!-- Queued Items List -->
                 <div class="queued-items">
