@@ -17,15 +17,13 @@ from werkzeug.utils import secure_filename
 import uuid
 from typing import Dict
 
-from utils.compiler import MSVCCompiler
 from utils.compiler_factory import CompilerFactory
-from validators.asm_validator import ASMValidator
 from validators.validator_factory import ValidatorFactory
-from mods.mod_handler import ModHandler
 from mods.mod_factory import ModFactory
 from result import Result, ResultStatus
 from repo import Repo
 from mod_request import ModRequest, ModSourceType
+from mod_processor import ModProcessor
 
 app = Flask(__name__)
 app.secret_key = 'levelup-secret-key-change-in-production'
@@ -49,112 +47,31 @@ for path in CONFIG.values():
     if isinstance(path, Path):
         path.mkdir(parents=True, exist_ok=True)
 
-class ModProcessor:
-    """Processes Mods asynchronously"""
+def mod_worker():
+    """Worker thread for processing mods"""
+    processor = ModProcessor(
+        msvc_path=CONFIG['msvc_path'],
+        repos_path=CONFIG['repos'],
+        temp_path=CONFIG['temp'],
+        git_path=CONFIG['git_path']
+    )
     
-    def __init__(self):
-        self.compiler = MSVCCompiler(CONFIG['msvc_path'])
-        self.asm_validator = ASMValidator(self.compiler)
-        self.mod_handler = ModHandler()
-        
-    def process_mod(self, mod_request: ModRequest):
-        """Process a single mod request"""
-        mod_id = mod_request.id
-
+    while True:
         try:
-            # Update status
-            results[mod_id] = Result(
+            mod_request = mod_queue.get(timeout=1)
+
+            # Set initial processing status
+            results[mod_request.id] = Result(
                 status=ResultStatus.PROCESSING,
                 message='Starting mod processing...'
             )
 
-            # Initialize repository
-            repo = Repo(
-                url=mod_request.repo_url,
-                work_branch=mod_request.work_branch,
-                repo_path=CONFIG['repos'] / secure_filename(mod_request.repo_name),
-                git_path=CONFIG['git_path']
-            )
-            repo.ensure_cloned()
-            repo.prepare_work_branch()
+            # Process mod and get result
+            result = processor.process_mod(mod_request)
 
-            # Apply the mod based on source type
-            if mod_request.source_type == ModSourceType.COMMIT:
-                # Apply commit from cppDev
-                repo.cherry_pick(mod_request.commit_hash)
-            elif mod_request.source_type == ModSourceType.PATCH:
-                # Apply patch file
-                repo.apply_patch(mod_request.patch_path)
+            # Update results with returned result
+            results[mod_request.id] = result
 
-            # Compile and generate ASM for validation
-            cpp_files = list(repo.repo_path.glob('**/*.cpp'))
-            validation_results = []
-
-            for cpp_file in cpp_files:
-                # Compile original
-                original_asm = self.compiler.compile_to_asm(
-                    cpp_file,
-                    CONFIG['temp'] / f'original_{cpp_file.stem}.asm'
-                )
-
-                # Apply mod changes (if BUILTIN)
-                if mod_request.source_type == ModSourceType.BUILTIN:
-                    modified_cpp = self.mod_handler.apply_mod_instance(cpp_file, mod_request.mod_instance)
-                else:
-                    # For COMMIT/PATCH, changes are already applied via git
-                    modified_cpp = cpp_file
-                
-                # Compile modified
-                modified_asm = self.compiler.compile_to_asm(
-                    modified_cpp,
-                    CONFIG['temp'] / f'modified_{cpp_file.stem}.asm'
-                )
-                
-                # Validate ASM
-                is_valid = self.asm_validator.validate(original_asm, modified_asm)
-                validation_results.append({
-                    'file': str(cpp_file),
-                    'valid': is_valid
-                })
-            
-            # Check if all validations passed
-            all_valid = all(v['valid'] for v in validation_results)
-            
-            if all_valid:
-                # Rebase changes to work branch
-                repo.commit(
-                    f"LevelUp: Applied mod {mod_id} - {mod_request.description}"
-                )
-
-                results[mod_id] = Result(
-                    status=ResultStatus.SUCCESS,
-                    message='Mod successfully validated and applied',
-                    validation_results=validation_results
-                )
-            else:
-                # Revert changes
-                repo.reset_hard()
-
-                results[mod_id] = Result(
-                    status=ResultStatus.FAILED,
-                    message='Validation failed - changes not applied',
-                    validation_results=validation_results
-                )
-                
-        except Exception as e:
-            results[mod_id] = Result(
-                status=ResultStatus.ERROR,
-                message=str(e)
-            )
-
-def mod_worker():
-    """Worker thread for processing mods"""
-    processor = ModProcessor()
-    
-    while True:
-        try:
-            mod_data = mod_queue.get(timeout=1)
-            processor.process_mod(mod_data)
             mod_queue.task_done()
         except queue.Empty:
             continue
