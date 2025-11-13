@@ -15,6 +15,7 @@ from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
 import uuid
+from typing import Dict
 
 from utils.git_handler import GitHandler
 from utils.compiler import MSVCCompiler
@@ -23,6 +24,7 @@ from validators.asm_validator import ASMValidator
 from validators.validator_factory import ValidatorFactory
 from mods.mod_handler import ModHandler
 from mods.mod_factory import ModFactory
+from result import Result, ResultStatus
 
 def extract_repo_name(repo_url):
     """Extract repository name from URL"""
@@ -39,7 +41,7 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Global queue for async processing
 mod_queue = queue.Queue()
-results = {}  # Store results by mod_id
+results: Dict[str, Result] = {}  # Store results by mod_id
 
 # Configuration
 CONFIG = {
@@ -69,11 +71,10 @@ class ModProcessor:
         
         try:
             # Update status
-            results[mod_id] = {
-                'status': 'processing',
-                'message': 'Starting mod processing...',
-                'timestamp': datetime.now().isoformat()
-            }
+            results[mod_id] = Result(
+                status=ResultStatus.PROCESSING,
+                message='Starting mod processing...'
+            )
             
             # Clone or update repository
             repo_path = CONFIG['repos'] / secure_filename(mod_data['repo_name'])
@@ -131,30 +132,27 @@ class ModProcessor:
                 git_handler.commit(
                     f"LevelUp: Applied mod {mod_id} - {mod_data['description']}"
                 )
-                
-                results[mod_id] = {
-                    'status': 'success',
-                    'message': 'Mod successfully validated and applied',
-                    'validation_results': validation_results,
-                    'timestamp': datetime.now().isoformat()
-                }
+
+                results[mod_id] = Result(
+                    status=ResultStatus.SUCCESS,
+                    message='Mod successfully validated and applied',
+                    validation_results=validation_results
+                )
             else:
                 # Revert changes
                 git_handler.reset_hard()
-                
-                results[mod_id] = {
-                    'status': 'failed',
-                    'message': 'Validation failed - changes not applied',
-                    'validation_results': validation_results,
-                    'timestamp': datetime.now().isoformat()
-                }
+
+                results[mod_id] = Result(
+                    status=ResultStatus.FAILED,
+                    message='Validation failed - changes not applied',
+                    validation_results=validation_results
+                )
                 
         except Exception as e:
-            results[mod_id] = {
-                'status': 'error',
-                'message': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            results[mod_id] = Result(
+                status=ResultStatus.ERROR,
+                message=str(e)
+            )
 
 def mod_worker():
     """Worker thread for processing mods"""
@@ -265,11 +263,10 @@ def submit_mod():
             mod_data['patch_path'] = str(patch_path)
     
     # Initialize result
-    results[mod_data['id']] = {
-        'status': 'queued',
-        'message': 'Mod queued for processing',
-        'timestamp': datetime.now().isoformat()
-    }
+    results[mod_data['id']] = Result(
+        status=ResultStatus.QUEUED,
+        message='Mod queued for processing'
+    )
     
     # Add to queue
     mod_queue.put(mod_data)
@@ -280,7 +277,7 @@ def submit_mod():
 def get_mod_status(mod_id):
     """Get the status of a specific mod"""
     if mod_id in results:
-        return jsonify(results[mod_id])
+        return jsonify(results[mod_id].to_dict())
     return jsonify({'status': 'not_found'}), 404
 
 @app.route('/api/queue/status')
@@ -288,7 +285,7 @@ def get_queue_status():
     """Get overall queue status"""
     return jsonify({
         'queue_size': mod_queue.qsize(),
-        'results': results,
+        'results': {k: v.to_dict() for k, v in results.items()},
         'timestamp': datetime.now().isoformat()
     })
 
