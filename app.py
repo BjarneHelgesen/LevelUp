@@ -17,7 +17,6 @@ from werkzeug.utils import secure_filename
 import uuid
 from typing import Dict
 
-from utils.git_handler import GitHandler
 from utils.compiler import MSVCCompiler
 from utils.compiler_factory import CompilerFactory
 from validators.asm_validator import ASMValidator
@@ -25,15 +24,7 @@ from validators.validator_factory import ValidatorFactory
 from mods.mod_handler import ModHandler
 from mods.mod_factory import ModFactory
 from result import Result, ResultStatus
-
-def extract_repo_name(repo_url):
-    """Extract repository name from URL"""
-    # Remove .git suffix if present
-    url = repo_url.rstrip('/')
-    if url.endswith('.git'):
-        url = url[:-4]
-    # Get the last part of the URL path
-    return url.split('/')[-1]
+from repo import Repo
 
 app = Flask(__name__)
 app.secret_key = 'levelup-secret-key-change-in-production'
@@ -75,30 +66,29 @@ class ModProcessor:
                 status=ResultStatus.PROCESSING,
                 message='Starting mod processing...'
             )
-            
-            # Clone or update repository
-            repo_path = CONFIG['repos'] / secure_filename(mod_data['repo_name'])
-            if not repo_path.exists():
-                git_handler = GitHandler.clone(mod_data['repo_url'], repo_path, CONFIG['git_path'])
-            else:
-                git_handler = GitHandler(repo_path, CONFIG['git_path'])
-                git_handler.pull()
 
-            # Checkout work branch
-            git_handler.checkout_branch(mod_data['work_branch'])
+            # Initialize repository
+            repo = Repo(
+                url=mod_data['repo_url'],
+                work_branch=mod_data['work_branch'],
+                repo_path=CONFIG['repos'] / secure_filename(mod_data['repo_name']),
+                git_path=CONFIG['git_path']
+            )
+            repo.ensure_cloned()
+            repo.prepare_work_branch()
             
             # Apply the mod (changes from cppDev)
             if mod_data['type'] == 'commit':
                 # Apply commit from cppDev
                 commit_hash = mod_data['commit_hash']
-                git_handler.cherry_pick(commit_hash)
+                repo.cherry_pick(commit_hash)
             elif mod_data['type'] == 'patch':
                 # Apply patch file
                 patch_path = Path(mod_data['patch_path'])
-                git_handler.apply_patch(patch_path)
-            
+                repo.apply_patch(patch_path)
+
             # Compile and generate ASM for validation
-            cpp_files = list(repo_path.glob('**/*.cpp'))
+            cpp_files = list(repo.repo_path.glob('**/*.cpp'))
             validation_results = []
             
             for cpp_file in cpp_files:
@@ -129,7 +119,7 @@ class ModProcessor:
             
             if all_valid:
                 # Rebase changes to work branch
-                git_handler.commit(
+                repo.commit(
                     f"LevelUp: Applied mod {mod_id} - {mod_data['description']}"
                 )
 
@@ -140,7 +130,7 @@ class ModProcessor:
                 )
             else:
                 # Revert changes
-                git_handler.reset_hard()
+                repo.reset_hard()
 
                 results[mod_id] = Result(
                     status=ResultStatus.FAILED,
@@ -183,7 +173,7 @@ def manage_repos():
     if request.method == 'POST':
         data = request.json
         # Extract repo name from URL
-        repo_name = extract_repo_name(data['url'])
+        repo_name = Repo.get_repo_name(data['url'])
 
         repo_config = {
             'id': str(uuid.uuid4()),

@@ -1,0 +1,206 @@
+"""
+Repository class for LevelUp - manages git operations and repo configuration
+"""
+
+import subprocess
+from pathlib import Path
+from typing import Optional, Dict, Any
+
+
+class Repo:
+    """
+    Represents a repository with git operations and configuration.
+
+    Merges GitHandler functionality with repository metadata management.
+    """
+
+    def __init__(
+        self,
+        url: str,
+        work_branch: str,
+        repo_path: Path,
+        git_path: str = 'git',
+        post_checkout: str = ''
+    ):
+        """
+        Initialize a Repo instance.
+
+        Args:
+            url: Git repository URL
+            work_branch: Branch to work on
+            repo_path: Local filesystem path for the repository
+            git_path: Path to git executable
+            post_checkout: Commands to run after checkout
+        """
+        self.url = url
+        self.work_branch = work_branch
+        self.repo_path = Path(repo_path)
+        self.git_path = git_path
+        self.post_checkout = post_checkout
+
+    @staticmethod
+    def get_repo_name(repo_url: str) -> str:
+        """
+        Extract repository name from URL.
+
+        Args:
+            repo_url: Git repository URL
+
+        Returns:
+            Repository name (last part of URL without .git suffix)
+        """
+        # Remove .git suffix if present
+        url = repo_url.rstrip('/')
+        if url.endswith('.git'):
+            url = url[:-4]
+        # Get the last part of the URL path
+        return url.split('/')[-1]
+
+    @classmethod
+    def from_config(
+        cls,
+        config: Dict[str, Any],
+        repos_base_path: Path,
+        git_path: str = 'git'
+    ) -> 'Repo':
+        """
+        Create a Repo instance from a configuration dictionary.
+
+        Args:
+            config: Repository configuration dict (from repos.json)
+            repos_base_path: Base path where repos are stored
+            git_path: Path to git executable
+
+        Returns:
+            Repo instance
+        """
+        from werkzeug.utils import secure_filename
+        repo_name = config['name']
+        repo_path = repos_base_path / secure_filename(repo_name)
+
+        return cls(
+            url=config['url'],
+            work_branch=config['work_branch'],
+            repo_path=repo_path,
+            git_path=git_path,
+            post_checkout=config.get('post_checkout', '')
+        )
+
+    def _run_git(self, args, cwd=None, check=True):
+        """Run a git command and return output"""
+        cmd = [self.git_path] + args
+        result = subprocess.run(
+            cmd,
+            cwd=cwd or self.repo_path,
+            capture_output=True,
+            text=True,
+            check=check
+        )
+        return result.stdout.strip()
+
+    def _run_shell_command(self, command: str):
+        """Run a shell command in the repository directory"""
+        result = subprocess.run(
+            command,
+            cwd=self.repo_path,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout.strip()
+
+    def clone(self) -> 'Repo':
+        """Clone the repository to repo_path"""
+        cmd = [self.git_path, 'clone', self.url, str(self.repo_path)]
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return self
+
+    def ensure_cloned(self) -> None:
+        """Ensure repository is cloned locally. Clone if not present, pull if exists."""
+        if not self.repo_path.exists():
+            self.clone()
+        else:
+            self.pull()
+
+    def pull(self):
+        """Pull latest changes"""
+        return self._run_git(['pull'])
+
+    def checkout_branch(self, branch_name: Optional[str] = None, create: bool = False):
+        """
+        Checkout a branch, optionally creating it.
+
+        Args:
+            branch_name: Branch to checkout (defaults to self.work_branch)
+            create: Whether to create the branch if it doesn't exist
+        """
+        branch = branch_name or self.work_branch
+
+        if create:
+            # Check if branch exists
+            branches = self._run_git(['branch', '-a'])
+            if branch not in branches:
+                self._run_git(['checkout', '-b', branch])
+            else:
+                self._run_git(['checkout', branch])
+        else:
+            self._run_git(['checkout', branch])
+
+        # Execute post-checkout commands if configured
+        if self.post_checkout:
+            self._run_shell_command(self.post_checkout)
+
+    def prepare_work_branch(self) -> None:
+        """Checkout the work branch for this repository and run post-checkout commands."""
+        self.checkout_branch()
+
+    def cherry_pick(self, commit_hash: str):
+        """Cherry-pick a commit"""
+        return self._run_git(['cherry-pick', commit_hash])
+
+    def apply_patch(self, patch_path: Path):
+        """Apply a patch file"""
+        return self._run_git(['apply', str(patch_path)])
+
+    def commit(self, message: str):
+        """Create a commit with all changes"""
+        self._run_git(['add', '-A'])
+        return self._run_git(['commit', '-m', message])
+
+    def reset_hard(self, ref: str = 'HEAD'):
+        """Hard reset to a reference"""
+        return self._run_git(['reset', '--hard', ref])
+
+    def get_current_branch(self):
+        """Get current branch name"""
+        return self._run_git(['rev-parse', '--abbrev-ref', 'HEAD'])
+
+    def get_commit_hash(self, ref: str = 'HEAD'):
+        """Get commit hash for a reference"""
+        return self._run_git(['rev-parse', ref])
+
+    def create_patch(self, from_ref: str, to_ref: str = 'HEAD'):
+        """Create a patch between two references"""
+        return self._run_git(['diff', from_ref, to_ref])
+
+    def rebase(self, onto_branch: str):
+        """Rebase current branch onto another branch"""
+        return self._run_git(['rebase', onto_branch])
+
+    def merge(self, branch: str):
+        """Merge a branch into current branch"""
+        return self._run_git(['merge', branch])
+
+    def stash(self):
+        """Stash current changes"""
+        return self._run_git(['stash'])
+
+    def stash_pop(self):
+        """Pop stashed changes"""
+        return self._run_git(['stash', 'pop'])
+
+    def __repr__(self) -> str:
+        """String representation for debugging"""
+        name = self.get_repo_name(self.url)
+        return f"Repo(name={name}, url={self.url}, path={self.repo_path})"
