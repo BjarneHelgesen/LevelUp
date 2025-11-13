@@ -47,7 +47,7 @@ body {
 .top-bar-content {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 10px 20px;
+    padding: 5px 20px;
     display: flex;
     align-items: center;
     gap: 20px;
@@ -55,7 +55,7 @@ body {
 }
 
 .top-bar-logo {
-    height: 35px;
+    height: 48px;
     width: auto;
 }
 

@@ -48,12 +48,16 @@ function showScreen(screenId) {
     });
     document.getElementById(screenId).classList.add('active');
 
-    // Toggle top bar visibility
+    // Show top bar on all screens
     const topBar = document.getElementById('top-bar');
+    topBar.classList.add('visible');
+
+    // Toggle back button visibility based on screen
+    const backButton = document.getElementById('back-to-repos-btn');
     if (screenId === 'mods') {
-        topBar.classList.add('visible');
+        backButton.style.display = 'block';
     } else {
-        topBar.classList.remove('visible');
+        backButton.style.display = 'none';
     }
 
     // Load screen-specific data
@@ -496,5 +500,13 @@ document.head.appendChild(style);
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    // Show top bar on initial load (Repos screen)
+    const topBar = document.getElementById('top-bar');
+    topBar.classList.add('visible');
+
+    // Hide back button on Repos screen
+    const backButton = document.getElementById('back-to-repos-btn');
+    backButton.style.display = 'none';
+
     loadRepositories();
 });
