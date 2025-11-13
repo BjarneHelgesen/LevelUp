@@ -1,7 +1,3 @@
-"""
-Add Override Mod - Adds override keyword to virtual functions
-"""
-
 import re
 import tempfile
 import shutil
@@ -11,8 +7,6 @@ from .base_mod import BaseMod
 
 
 class AddOverrideMod(BaseMod):
-    """Adds override keyword to virtual functions"""
-
     def __init__(self):
         super().__init__(
             mod_id='add_override',
@@ -21,31 +15,25 @@ class AddOverrideMod(BaseMod):
 
     @staticmethod
     def get_id() -> str:
-        """Get the stable identifier for this mod"""
-        # STABLE: This ID is used in APIs and databases. Do not change.
+        """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
         return 'add_override'
 
     @staticmethod
     def get_name() -> str:
-        """Get the human-readable name of the mod"""
         return 'Add Override Keywords'
 
     def can_apply(self, source_file: Path) -> bool:
-        """Check if file contains virtual functions without override"""
         if not source_file.exists():
             return False
 
         try:
             with open(source_file, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
-                # Check if there are virtual functions
                 return 'virtual' in content
         except Exception:
             return False
 
     def apply(self, source_file: Path) -> Path:
-        """Add override keyword to virtual functions"""
-        # Create a temporary copy
         temp_file = Path(tempfile.mktemp(suffix=source_file.suffix))
         shutil.copy2(source_file, temp_file)
 

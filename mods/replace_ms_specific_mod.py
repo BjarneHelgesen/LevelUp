@@ -1,7 +1,3 @@
-"""
-Replace MS-Specific Mod - Replaces Microsoft-specific syntax with standard C++
-"""
-
 import re
 import tempfile
 import shutil
@@ -11,8 +7,6 @@ from .base_mod import BaseMod
 
 
 class ReplaceMSSpecificMod(BaseMod):
-    """Replaces Microsoft-specific syntax with standard C++"""
-
     def __init__(self):
         super().__init__(
             mod_id='replace_ms_specific',
@@ -37,32 +31,26 @@ class ReplaceMSSpecificMod(BaseMod):
 
     @staticmethod
     def get_id() -> str:
-        """Get the stable identifier for this mod"""
-        # STABLE: This ID is used in APIs and databases. Do not change.
+        """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
         return 'replace_ms_specific'
 
     @staticmethod
     def get_name() -> str:
-        """Get the human-readable name of the mod"""
         return 'Replace MS-Specific Syntax'
 
     def can_apply(self, source_file: Path) -> bool:
-        """Check if file contains MS-specific syntax"""
         if not source_file.exists():
             return False
 
         try:
             with open(source_file, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
-                # Check if any MS-specific keywords are present
                 return any(re.search(r'\b' + pattern + r'\b', content)
                           for pattern in self.replacements.keys())
         except Exception:
             return False
 
     def apply(self, source_file: Path) -> Path:
-        """Replace MS-specific syntax with standard C++"""
-        # Create a temporary copy
         temp_file = Path(tempfile.mktemp(suffix=source_file.suffix))
         shutil.copy2(source_file, temp_file)
 

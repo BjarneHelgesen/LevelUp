@@ -1,7 +1,3 @@
-"""
-Remove Inline Mod - Removes inline keywords from C++ code
-"""
-
 import re
 import tempfile
 import shutil
@@ -11,8 +7,6 @@ from .base_mod import BaseMod
 
 
 class RemoveInlineMod(BaseMod):
-    """Removes inline keywords from functions"""
-
     def __init__(self):
         super().__init__(
             mod_id='remove_inline',
@@ -21,17 +15,14 @@ class RemoveInlineMod(BaseMod):
 
     @staticmethod
     def get_id() -> str:
-        """Get the stable identifier for this mod"""
-        # STABLE: This ID is used in APIs and databases. Do not change.
+        """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
         return 'remove_inline'
 
     @staticmethod
     def get_name() -> str:
-        """Get the human-readable name of the mod"""
         return 'Remove Inline Keywords'
 
     def can_apply(self, source_file: Path) -> bool:
-        """Check if file contains inline keywords"""
         if not source_file.exists():
             return False
 
@@ -43,8 +34,6 @@ class RemoveInlineMod(BaseMod):
             return False
 
     def apply(self, source_file: Path) -> Path:
-        """Remove inline keywords from the source file"""
-        # Create a temporary copy
         temp_file = Path(tempfile.mktemp(suffix=source_file.suffix))
         shutil.copy2(source_file, temp_file)
 
