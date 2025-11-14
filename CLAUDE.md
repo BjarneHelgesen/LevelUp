@@ -17,7 +17,7 @@ LevelUp is a Flask-based server that modernizes legacy C++ code with zero regres
 
 ### Running the Server
 ```bash
-python app.py
+python levelup_server/app.py
 ```
 Server runs on `http://0.0.0.0:5000` by default.
 
@@ -30,7 +30,7 @@ pip install -r requirements.txt
 
 ### Core Components
 
-**Flask Server (app.py)**
+**Flask Server (levelup_server/app.py)**
 - Main entry point and API server
 - Manages async mod queue using Python's `queue.Queue` and threading
 - Routes defined: `/api/repos`, `/api/mods`, `/api/queue/status`, `/api/available/*`
@@ -39,26 +39,26 @@ pip install -r requirements.txt
 - Factory pattern with enums for compilers, mods, and validators
 - **String IDs only used here**: Converts JSON to type-safe objects (ModRequest) for backend
 
-**ModProcessor Class (mod_processor.py)**
+**ModProcessor Class (levelup/mod_processor.py)**
 - Processes mods asynchronously in separate module
 - Orchestrates: Repo → ModHandler → Compiler → Validators
 - Each mod goes through: clone/pull → checkout work branch → apply changes → validate → commit or revert
 - Returns `Result` object (not dict) for type safety
 - Uses only enums and objects internally - no string IDs
 
-**Result Class (result.py)**
+**Result Class (levelup/result.py)**
 - Type-safe result tracking with `ResultStatus` enum (QUEUED, PROCESSING, SUCCESS, FAILED, ERROR)
 - Replaces dict-based results for better error detection
 - `to_dict()` method for JSON serialization to frontend
 - Raises `TypeError` if status is not a `ResultStatus` enum value
 
-**ModRequest Class (mod_request.py)**
+**ModRequest Class (levelup/mod_request.py)**
 - Type-safe mod processing request with `ModSourceType` enum (BUILTIN, COMMIT, PATCH)
 - Replaces dict-based mod_data for type safety
 - Validates required fields in `__post_init__` (e.g., mod_instance for BUILTIN)
 - Used internally by backend - app.py converts JSON to ModRequest
 
-**Repo Class (repo.py)**
+**Repo Class (levelup/repo.py)**
 - Unified repository management merging all git operations
 - Combines repository metadata with git command execution
 - Fields: url, work_branch, repo_path, git_path, post_checkout
@@ -68,20 +68,20 @@ pip install -r requirements.txt
 
 ### Factory Pattern
 
-**Compiler Factory (utils/compiler_factory.py)**
+**Compiler Factory (levelup/utils/compiler_factory.py)**
 - Enum-based registry: `CompilerType` enum maps to compiler classes
 - `from_id()` creates compiler instance from stable ID string
 - `get_available_compilers()` returns list with id and name for each compiler
 - Each compiler class has static `get_id()` and `get_name()` methods
 
-**Mod Factory (mods/mod_factory.py)**
+**Mod Factory (levelup/mods/mod_factory.py)**
 - Enum-based registry: `ModType` enum maps to mod classes
 - `from_id()` creates mod instance from stable ID string
 - `get_available_mods()` returns list with id and name for each mod
 - Each mod class has static `get_id()` and `get_name()` methods
 - No string literals in factory - all IDs come from class methods
 
-**Validator Factory (validators/validator_factory.py)**
+**Validator Factory (levelup/validators/validator_factory.py)**
 - Enum-based registry: `ValidatorType` enum maps to validator classes
 - `from_id()` creates validator instance from stable ID string
 - `get_available_validators()` returns list with id and name for each validator
@@ -89,25 +89,29 @@ pip install -r requirements.txt
 
 ### Module Organization
 
-**repo.py**
+The codebase is organized into two main packages:
+- **`levelup/`** - Core business logic (mods, validators, compilers, processing)
+- **`levelup_server/`** - Flask web server (app, templates, static files)
+
+**levelup/repo.py**
 - Unified repository and git operations class
 - Wrapper around git commands via subprocess
 - Operations: clone, pull, checkout, cherry-pick, apply patch, commit, rebase, reset
 - All operations use `_run_git()` helper with `subprocess.run()`
 - Includes repository metadata and post-checkout hook execution
 
-**utils/git_handler.py** (Legacy - being phased out in favor of Repo)
+**levelup/utils/git_handler.py** (Legacy - being phased out in favor of Repo)
 - Original git wrapper - functionality merged into Repo class
 - May still be referenced in some places during transition
 
-**utils/compiler.py**
+**levelup/utils/compiler.py**
 - MSVC compiler wrapper (cl.exe)
 - Key method: `compile_to_asm()` generates assembly output for validation
 - Uses `/FA` flag for assembly generation, `/O2` for optimization
 - Includes `_normalize_asm()` for removing comments/metadata before comparison
 - `get_warnings()` captures warning output for warning diff validation
 
-**validators/asm_validator.py**
+**levelup/validators/asm_validator.py**
 - Assembly comparison validator (primary regression detection method)
 - Normalizes ASM files by removing comments, timestamps, metadata
 - Compares normalized assembly line-by-line
@@ -117,7 +121,7 @@ pip install -r requirements.txt
   - NOPs and alignment changes
 - Conservative approach: rejects changes if uncertain about equivalence
 
-**mods/mod_handler.py**
+**levelup/mods/mod_handler.py**
 - Minimal orchestration class with single method: `apply_mod_instance()`
 - Takes mod instance directly (no string IDs)
 - Delegates to mod classes: RemoveInlineMod, AddOverrideMod, ReplaceMSSpecificMod
@@ -134,7 +138,7 @@ pip install -r requirements.txt
 
 ### Web UI Architecture
 
-**Frontend (templates/index.html + static/js/app.js)**
+**Frontend (levelup_server/templates/index.html + levelup_server/static/js/app.js)**
 - Screen-based navigation: Repos screen → Mods screen (with back button)
 - Modal dialog for adding repositories
 - No SPA framework - uses vanilla JavaScript with fetch API
@@ -142,7 +146,7 @@ pip install -r requirements.txt
 - Real-time status updates via polling for queue and mod status
 - Dynamically loads available mods from `/api/available/mods`
 
-**State Management (static/js/app.js)**
+**State Management (levelup_server/static/js/app.js)**
 - `selectedRepo` tracks current working repository
 - `currentRepos` array synchronized with server
 - Clicking repo navigates to Mods screen
@@ -250,7 +254,10 @@ The system supports multiple validators:
 **Example Flow**:
 ```python
 # Frontend: {"type": "builtin", "mod_type": "remove_inline"}
-# app.py converts:
+# levelup_server/app.py converts:
+from levelup.mod_request import ModRequest, ModSourceType
+from levelup.mods.mod_factory import ModFactory
+
 source_type = ModSourceType.BUILTIN
 mod_instance = ModFactory.from_id("remove_inline")  # Only string usage
 mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
@@ -260,22 +267,22 @@ mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
 ## Common Development Patterns
 
 **Adding a New Validator**:
-1. Create validator class in `validators/` inheriting from BaseValidator
+1. Create validator class in `levelup/validators/` inheriting from BaseValidator
 2. Implement abstract methods: `get_id()`, `get_name()`, `validate()`, `get_diff_report()`
-3. Add to `ValidatorType` enum in `validators/validator_factory.py`
+3. Add to `ValidatorType` enum in `levelup/validators/validator_factory.py`
 4. ID from `get_id()` is automatically available in UI via `/api/available/validators`
 
 **Adding a New Mod Type**:
-1. Create mod class in `mods/` inheriting from BaseMod
+1. Create mod class in `levelup/mods/` inheriting from BaseMod
 2. Implement abstract methods: `get_id()`, `get_name()`, `apply()`, `can_apply()`
-3. Add to `ModType` enum in `mods/mod_factory.py`
+3. Add to `ModType` enum in `levelup/mods/mod_factory.py`
 4. ID from `get_id()` is automatically available in UI via `/api/available/mods`
 5. Pattern: check `can_apply()` → create temp copy → apply transformations → return path
 
 **Adding a New Compiler**:
-1. Create compiler class in `utils/` inheriting from BaseCompiler
+1. Create compiler class in `levelup/utils/` inheriting from BaseCompiler
 2. Implement abstract methods: `get_id()`, `get_name()`, `compile()`, `compile_to_asm()`, etc.
-3. Add to `CompilerType` enum in `utils/compiler_factory.py`
+3. Add to `CompilerType` enum in `levelup/utils/compiler_factory.py`
 4. ID from `get_id()` is automatically available in UI via `/api/available/compilers`
 
 **Understanding Validation Results**:
@@ -285,10 +292,10 @@ mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
 - Result.to_dict() serializes to JSON for frontend
 
 **Key Files and Their Roles**:
-- `app.py`: Web layer - converts JSON ↔ type-safe objects
-- `mod_processor.py`: Business logic - processes ModRequest, returns Result
-- `repo.py`: Git operations with repository context
-- `result.py`: Type-safe result tracking with status enum
-- `mod_request.py`: Type-safe mod request with source type enum
-- `mods/mod_handler.py`: Applies mod instances to files
-- `*_factory.py`: Convert string IDs to instances (only used in app.py)
+- `levelup_server/app.py`: Web layer - converts JSON ↔ type-safe objects
+- `levelup/mod_processor.py`: Business logic - processes ModRequest, returns Result
+- `levelup/repo.py`: Git operations with repository context
+- `levelup/result.py`: Type-safe result tracking with status enum
+- `levelup/mod_request.py`: Type-safe mod request with source type enum
+- `levelup/mods/mod_handler.py`: Applies mod instances to files
+- `levelup/*_factory.py`: Convert string IDs to instances (only used in app.py)

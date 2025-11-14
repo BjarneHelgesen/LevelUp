@@ -17,13 +17,13 @@ from werkzeug.utils import secure_filename
 import uuid
 from typing import Dict
 
-from utils.compiler_factory import CompilerFactory
-from validators.validator_factory import ValidatorFactory
-from mods.mod_factory import ModFactory
-from result import Result, ResultStatus
-from repo import Repo
-from mod_request import ModRequest, ModSourceType
-from mod_processor import ModProcessor
+from levelup.utils.compiler_factory import CompilerFactory
+from levelup.validators.validator_factory import ValidatorFactory
+from levelup.mods.mod_factory import ModFactory
+from levelup.result import Result, ResultStatus
+from levelup.repo import Repo
+from levelup.mod_request import ModRequest, ModSourceType
+from levelup.mod_processor import ModProcessor
 
 app = Flask(__name__)
 app.secret_key = 'levelup-secret-key-change-in-production'

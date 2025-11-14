@@ -1,12 +1,12 @@
 from pathlib import Path
 from werkzeug.utils import secure_filename
 
-from utils.compiler import MSVCCompiler
-from validators.asm_validator import ASMValidator
-from mods.mod_handler import ModHandler
-from result import Result, ResultStatus
-from repo import Repo
-from mod_request import ModRequest, ModSourceType
+from .utils.compiler import MSVCCompiler
+from .validators.asm_validator import ASMValidator
+from .mods.mod_handler import ModHandler
+from .result import Result, ResultStatus
+from .repo import Repo
+from .mod_request import ModRequest, ModSourceType
 
 
 class ModProcessor:
