@@ -1,3 +1,4 @@
+LevelUp should support Mods such as: 
 1. Document functions and classes using doxygen syntax in the header files.
 2. Add override keyword to methods
 3. Add explicit keyword to constructors
