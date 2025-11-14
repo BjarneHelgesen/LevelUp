@@ -157,24 +157,10 @@ def submit_mod():
         mod_type_id = data['mod_type']
         mod_instance = ModFactory.from_id(mod_type_id)
         commit_hash = None
-        patch_path = None
     elif type_str == 'commit':
         source_type = ModSourceType.COMMIT
         mod_instance = None
         commit_hash = data['commit_hash']
-        patch_path = None
-    elif type_str == 'patch':
-        source_type = ModSourceType.PATCH
-        mod_instance = None
-        commit_hash = None
-        # Handle file upload
-        if 'patch_file' in request.files:
-            patch_file = request.files['patch_file']
-            filename = secure_filename(patch_file.filename)
-            patch_path = CONFIG['temp'] / filename
-            patch_file.save(patch_path)
-        else:
-            patch_path = None
     else:
         return jsonify({'error': f'Invalid type: {type_str}'}), 400
 
@@ -188,7 +174,6 @@ def submit_mod():
         description=data['description'],
         mod_instance=mod_instance,
         commit_hash=commit_hash,
-        patch_path=patch_path,
         allow_reorder=data.get('allow_reorder', False),
         timestamp=datetime.now().isoformat()
     )

@@ -3,6 +3,7 @@ Repository class for LevelUp - manages git operations and repo configuration
 """
 
 import subprocess
+import unicodedata
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -18,7 +19,7 @@ class Repo:
         self,
         url: str,
         work_branch: str,
-        repo_path: Path,
+        repos_folder: Path,
         git_path: str = 'git',
         post_checkout: str = ''
     ):
@@ -34,7 +35,8 @@ class Repo:
         """
         self.url = url
         self.work_branch = work_branch
-        self.repo_path = Path(repo_path)
+        repo_name = get_repo_name(url)
+        self.repo_path = Path(repos_folder / repo_filename(repo_name))
         self.git_path = git_path
         self.post_checkout = post_checkout
 
@@ -42,12 +44,7 @@ class Repo:
     def get_repo_name(repo_url: str) -> str:
         """
         Extract repository name from URL.
-
-        Args:
-            repo_url: Git repository URL
-
-        Returns:
-            Repository name (last part of URL without .git suffix)
+        Returns: Repository name (last part of URL without .git suffix)
         """
         # Remove .git suffix if present
         url = repo_url.rstrip('/')
@@ -55,6 +52,17 @@ class Repo:
             url = url[:-4]
         # Get the last part of the URL path
         return url.split('/')[-1]
+        
+    def repo_filename(repo_name):
+        '''Accept subset of ASCII characters in the filename '''
+        allowed_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#()-.=[]{}~" 
+
+        filename = []
+        for char in unicodedata.normalize('NFD', repo_name):
+            if char in allowed_chars :
+                filename.append(char)
+        return filename
+
 
     @classmethod
     def from_config(
@@ -76,12 +84,11 @@ class Repo:
         """
         from werkzeug.utils import secure_filename
         repo_name = config['name']
-        repo_path = repos_base_path / secure_filename(repo_name)
 
         return cls(
             url=config['url'],
             work_branch=config['work_branch'],
-            repo_path=repo_path,
+            repos_folder=repos_base_path,
             git_path=git_path,
             post_checkout=config.get('post_checkout', '')
         )
@@ -158,10 +165,6 @@ class Repo:
     def cherry_pick(self, commit_hash: str):
         """Cherry-pick a commit"""
         return self._run_git(['cherry-pick', commit_hash])
-
-    def apply_patch(self, patch_path: Path):
-        """Apply a patch file"""
-        return self._run_git(['apply', str(patch_path)])
 
     def commit(self, message: str):
         """Create a commit with all changes"""

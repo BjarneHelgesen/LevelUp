@@ -1,5 +1,5 @@
+from curses.ascii import isascii
 from pathlib import Path
-from werkzeug.utils import secure_filename
 
 from .utils.compiler import MSVCCompiler
 from .validators.asm_validator import ASMValidator
@@ -18,6 +18,7 @@ class ModProcessor:
         self.temp_path = Path(temp_path)
         self.git_path = git_path
 
+
     def process_mod(self, mod_request: ModRequest) -> Result:
         mod_id = mod_request.id
 
@@ -26,7 +27,7 @@ class ModProcessor:
             repo = Repo(
                 url=mod_request.repo_url,
                 work_branch=mod_request.work_branch,
-                repo_path=self.repos_path / secure_filename(mod_request.repo_name),
+                repo_path=self.repos_path,
                 git_path=self.git_path
             )
             repo.ensure_cloned()
@@ -34,8 +35,6 @@ class ModProcessor:
 
             if mod_request.source_type == ModSourceType.COMMIT:
                 repo.cherry_pick(mod_request.commit_hash)
-            elif mod_request.source_type == ModSourceType.PATCH:
-                repo.apply_patch(mod_request.patch_path)
 
             cpp_files = list(repo.repo_path.glob('**/*.cpp'))
             validation_results = []

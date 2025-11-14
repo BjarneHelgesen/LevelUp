@@ -63,7 +63,7 @@ User (Web UI)
 4. Mod queued with unique UUID, initial `Result` object created
 5. `levelup/ModProcessor` processes in worker thread:
    - Clone/pull repo → checkout work branch
-   - Apply mod based on source type (BUILTIN/COMMIT/PATCH)
+   - Apply mod based on source type (BUILTIN/COMMIT)
    - Compile original → compile modified → validate
    - If valid: commit to work branch; if invalid: hard reset
 6. Returns `Result` object with SUCCESS/FAILED status
@@ -96,7 +96,6 @@ The system supports multiple validators:
 
 **Custom Mods**:
 - CppDev commits (validated and rebased)
-- Patch files
 - Regex-based transformations
 
 ## Important Constraints

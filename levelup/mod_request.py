@@ -1,13 +1,11 @@
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional
-from pathlib import Path
 
 
 class ModSourceType(Enum):
     BUILTIN = "builtin"
     COMMIT = "commit"
-    PATCH = "patch"
 
 
 @dataclass
@@ -20,7 +18,6 @@ class ModRequest:
     description: str
     mod_instance: Optional[object] = None
     commit_hash: Optional[str] = None
-    patch_path: Optional[Path] = None
     allow_reorder: bool = False
     timestamp: Optional[str] = None
 
@@ -31,6 +28,3 @@ class ModRequest:
         elif self.source_type == ModSourceType.COMMIT:
             if self.commit_hash is None:
                 raise ValueError("commit_hash required for COMMIT source")
-        elif self.source_type == ModSourceType.PATCH:
-            if self.patch_path is None:
-                raise ValueError("patch_path required for PATCH source")

@@ -30,7 +30,7 @@ The `levelup` package implements:
 - Raises `TypeError` if status is not a `ResultStatus` enum value
 
 **ModRequest (mod_request.py)**
-- Type-safe mod processing request with `ModSourceType` enum (BUILTIN, COMMIT, PATCH)
+- Type-safe mod processing request with `ModSourceType` enum (BUILTIN, COMMIT)
 - Replaces dict-based mod_data for type safety
 - Validates required fields in `__post_init__` (e.g., mod_instance for BUILTIN)
 - Used internally by backend - app.py converts JSON to ModRequest
@@ -39,7 +39,7 @@ The `levelup` package implements:
 - Unified repository management merging all git operations
 - Combines repository metadata with git command execution
 - Fields: url, work_branch, repo_path, git_path, post_checkout
-- Methods: ensure_cloned(), prepare_work_branch(), cherry_pick(), apply_patch(), commit(), reset_hard()
+- Methods: ensure_cloned(), prepare_work_branch(), cherry_pick(), commit(), reset_hard()
 - Executes post_checkout commands automatically after branch operations
 - Static method `get_repo_name()` extracts repo name from URL
 - Wrapper around git commands via subprocess

@@ -120,11 +120,6 @@ function populateModSelect(mods) {
     commitOption.textContent = 'Git Commit';
     otherOptgroup.appendChild(commitOption);
 
-    const patchOption = document.createElement('option');
-    patchOption.value = 'patch';
-    patchOption.textContent = 'Patch File';
-    otherOptgroup.appendChild(patchOption);
-
     select.appendChild(otherOptgroup);
 }
 
@@ -228,8 +223,6 @@ document.getElementById('mod-select').addEventListener('change', (e) => {
 
     if (value === 'commit') {
         document.getElementById('commit-options').style.display = 'block';
-    } else if (value === 'patch') {
-        document.getElementById('patch-options').style.display = 'block';
     }
 });
 
@@ -251,7 +244,7 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
         type = 'builtin';
         modType = modSelect.replace('builtin:', '');
     } else {
-        type = modSelect; // 'commit' or 'patch'
+        type = modSelect; // 'commit'
     }
 
     const data = {
@@ -272,32 +265,13 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
     }
 
     try {
-        let response;
-        if (type === 'patch') {
-            // Handle file upload
-            const patchFormData = new FormData();
-            Object.keys(data).forEach(key => {
-                if (Array.isArray(data[key])) {
-                    data[key].forEach(v => patchFormData.append(key, v));
-                } else {
-                    patchFormData.append(key, data[key]);
-                }
-            });
-            patchFormData.append('patch_file', document.getElementById('patch-file').files[0]);
-
-            response = await fetch(`${API_BASE}/mods`, {
-                method: 'POST',
-                body: patchFormData
-            });
-        } else {
-            response = await fetch(`${API_BASE}/mods`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            });
-        }
+        const response = await fetch(`${API_BASE}/mods`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
 
         if (response.ok) {
             const mod = await response.json();
