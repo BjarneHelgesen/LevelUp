@@ -82,7 +82,6 @@ class Repo:
         Returns:
             Repo instance
         """
-        from werkzeug.utils import secure_filename
         repo_name = config['name']
 
         return cls(

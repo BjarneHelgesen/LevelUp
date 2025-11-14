@@ -1,4 +1,3 @@
-from curses.ascii import isascii
 from pathlib import Path
 
 from .utils.compiler import MSVCCompiler

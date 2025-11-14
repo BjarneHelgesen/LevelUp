@@ -13,7 +13,6 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session
-from werkzeug.utils import secure_filename
 import uuid
 from typing import Dict
 
