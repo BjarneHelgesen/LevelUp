@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 from .utils.compiler import MSVCCompiler
 from .validators.asm_validator import ASMValidator
@@ -20,6 +21,7 @@ class ModProcessor:
 
     def process_mod(self, mod_request: ModRequest) -> Result:
         mod_id = mod_request.id
+        temp_files = []  # Track temp files for cleanup
 
         try:
             # Initialize repository
@@ -43,12 +45,14 @@ class ModProcessor:
                     cpp_file,
                     self.temp_path / f'original_{cpp_file.stem}.asm'
                 )
+                temp_files.append(original_asm)
 
                 if mod_request.source_type == ModSourceType.BUILTIN:
                     modified_cpp = self.mod_handler.apply_mod_instance(
                         cpp_file,
                         mod_request.mod_instance
                     )
+                    temp_files.append(modified_cpp)
                 else:
                     modified_cpp = cpp_file
 
@@ -56,6 +60,7 @@ class ModProcessor:
                     modified_cpp,
                     self.temp_path / f'modified_{cpp_file.stem}.asm'
                 )
+                temp_files.append(modified_asm)
 
                 is_valid = self.asm_validator.validate(original_asm, modified_asm)
                 validation_results.append({
@@ -89,3 +94,11 @@ class ModProcessor:
                 status=ResultStatus.ERROR,
                 message=str(e)
             )
+        finally:
+            # Clean up temporary files
+            for temp_file in temp_files:
+                try:
+                    if temp_file and Path(temp_file).exists():
+                        os.remove(temp_file)
+                except Exception:
+                    pass  # Best effort cleanup
