@@ -17,7 +17,7 @@ LevelUp is a Flask-based server that modernizes legacy C++ code with zero regres
 
 ### Running the Server
 ```bash
-python levelup_server/app.py
+python server/app.py
 ```
 Server runs on `http://0.0.0.0:5000` by default.
 
@@ -29,39 +29,39 @@ pip install -r requirements.txt
 ## Architecture Overview
 
 The codebase is organized into two main packages:
-- **`levelup_core/`** - Core business logic (mods, validators, compilers, processing)
-- **`levelup_server/`** - Flask web server (app, templates, static files)
+- **`core/`** - Core business logic (mods, validators, compilers, processing)
+- **`server/`** - Flask web server (app, templates, static files)
 
 See package-specific CLAUDE.md files for detailed documentation:
-- `levelup_core/CLAUDE.md` - Core business logic components and patterns
-- `levelup_server/CLAUDE.md` - Web server, API, and UI details
+- `core/CLAUDE.md` - Core business logic components and patterns
+- `server/CLAUDE.md` - Web server, API, and UI details
 
 ### High-Level Component Interaction
 
 ```
 User (Web UI)
     ↓ JSON with string IDs
-levelup_server/app.py (Boundary Layer)
+server/app.py (Boundary Layer)
     ↓ Type-safe objects (enums, dataclasses)
-levelup_core/ModProcessor
+core/ModProcessor
     ↓ orchestrates
-levelup_core/Repo + levelup_core/ModHandler + levelup_core/Compiler + levelup_core/Validators
+core/Repo + core/ModHandler + core/Compiler + core/Validators
     ↓ returns
-levelup_core/Result (type-safe)
+core/Result (type-safe)
     ↓ converts to JSON
 User (Web UI)
 ```
 
-**Key Architectural Decision**: String IDs only exist at the API boundary (`levelup_server/app.py`). All internal code uses type-safe enums and objects for better error detection and IDE support.
+**Key Architectural Decision**: String IDs only exist at the API boundary (`server/app.py`). All internal code uses type-safe enums and objects for better error detection and IDE support.
 
 ## Data Flow
 
 **Submitting a Mod** (end-to-end):
 1. Frontend sends JSON with mod details
-2. `levelup_server/app.py` converts JSON to type-safe `ModRequest` object
+2. `server/app.py` converts JSON to type-safe `ModRequest` object
 3. For BUILTIN mods: creates mod instance via factory (only place string IDs used)
 4. Mod queued with unique UUID, initial `Result` object created
-5. `levelup_core/ModProcessor` processes in worker thread:
+5. `core/ModProcessor` processes in worker thread:
    - Clone/pull repo → checkout work branch
    - Apply mod based on source type (BUILTIN/COMMIT)
    - Compile original → compile modified → validate
@@ -111,20 +111,20 @@ The system supports multiple validators:
 
 **String IDs only at API boundary**:
 - Frontend sends/receives JSON with string IDs (e.g., `"mod_type": "remove_inline"`)
-- `levelup_server/app.py` converts strings to enums/objects immediately
-- `levelup_core` package uses only type-safe objects:
+- `server/app.py` converts strings to enums/objects immediately
+- `core` package uses only type-safe objects:
   - `ModRequest` with `ModSourceType` enum (not "builtin" string)
   - `Result` with `ResultStatus` enum (not "success" string)
   - Mod instances from factory (not string IDs)
-- `levelup_server/app.py` converts back to JSON with string IDs for frontend responses
+- `server/app.py` converts back to JSON with string IDs for frontend responses
 - Pattern prevents typos and provides IDE autocomplete
 
 **Example Flow**:
 ```python
 # Frontend: {"type": "builtin", "mod_type": "remove_inline"}
-# levelup_server/app.py converts:
-from levelup_core.mod_request import ModRequest, ModSourceType
-from levelup_core.mods.mod_factory import ModFactory
+# server/app.py converts:
+from core.mod_request import ModRequest, ModSourceType
+from core.mods.mod_factory import ModFactory
 
 source_type = ModSourceType.BUILTIN
 mod_instance = ModFactory.from_id("remove_inline")  # Only string usage
@@ -148,5 +148,5 @@ mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
 - All git operations happen in cloned repos under `workspace/repos/{repo_name}/`
 
 For detailed information about specific packages, see:
-- `levelup_core/CLAUDE.md` - How to add validators, mods, compilers; internal architecture
-- `levelup_server/CLAUDE.md` - API endpoints, web UI, configuration, workspace management
+- `core/CLAUDE.md` - How to add validators, mods, compilers; internal architecture
+- `server/CLAUDE.md` - API endpoints, web UI, configuration, workspace management

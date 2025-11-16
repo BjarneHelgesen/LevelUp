@@ -1,10 +1,10 @@
 import pytest
 import tempfile
 from pathlib import Path
-from levelup_core.mods.remove_inline_mod import RemoveInlineMod
-from levelup_core.mods.add_override_mod import AddOverrideMod
-from levelup_core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
-from levelup_core.mods.base_mod import BaseMod
+from core.mods.remove_inline_mod import RemoveInlineMod
+from core.mods.add_override_mod import AddOverrideMod
+from core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
+from core.mods.base_mod import BaseMod
 
 
 class TestRemoveInlineMod:

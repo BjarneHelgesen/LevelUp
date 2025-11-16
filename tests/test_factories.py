@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import Mock, patch
-from levelup_core.mods.mod_factory import ModFactory, ModType
-from levelup_core.mods.remove_inline_mod import RemoveInlineMod
-from levelup_core.mods.add_override_mod import AddOverrideMod
-from levelup_core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
-from levelup_core.validators.validator_factory import ValidatorFactory, ValidatorType
-from levelup_core.validators.asm_validator import ASMValidator
-from levelup_core.compilers.compiler_factory import CompilerFactory, CompilerType
-from levelup_core.compilers.compiler import MSVCCompiler
+from core.mods.mod_factory import ModFactory, ModType
+from core.mods.remove_inline_mod import RemoveInlineMod
+from core.mods.add_override_mod import AddOverrideMod
+from core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
+from core.validators.validator_factory import ValidatorFactory, ValidatorType
+from core.validators.asm_validator import ASMValidator
+from core.compilers.compiler_factory import CompilerFactory, CompilerType
+from core.compilers.compiler import MSVCCompiler
 
 
 class TestModFactory:

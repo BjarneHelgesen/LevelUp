@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock
-from levelup_core.validators.asm_validator import ASMValidator
+from core.validators.asm_validator import ASMValidator
 
 
 class TestASMValidatorBasics:

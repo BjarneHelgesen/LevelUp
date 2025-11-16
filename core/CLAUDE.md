@@ -1,10 +1,10 @@
-# levelup_core Package
+# core Package
 
 This package contains the core business logic for LevelUp's code modernization system.
 
 ## Package Overview
 
-The `levelup_core` package implements:
+The `core` package implements:
 - Mod processing orchestration
 - Repository and git operations
 - Type-safe request/result handling
@@ -12,7 +12,7 @@ The `levelup_core` package implements:
 - Validators for regression detection
 - Factory patterns for extensibility
 
-**Key Principle**: All operations use type-safe objects (enums, dataclasses) internally. String IDs only exist at the API boundary in `levelup_server/app.py`.
+**Key Principle**: All operations use type-safe objects (enums, dataclasses) internally. String IDs only exist at the API boundary in `server/app.py`.
 
 ## Core Components
 
@@ -38,7 +38,8 @@ The `levelup_core` package implements:
 **Repo (repo.py)**
 - Unified repository management merging all git operations
 - Combines repository metadata with git command execution
-- Fields: url, work_branch, repo_path, git_path, post_checkout
+- Hardcoded work branch: "levelup-work" (WORK_BRANCH constant)
+- Fields: url, repo_path, git_path, post_checkout
 - Methods: ensure_cloned(), prepare_work_branch(), cherry_pick(), commit(), reset_hard()
 - Executes post_checkout commands automatically after branch operations
 - Static method `get_repo_name()` extracts repo name from URL
@@ -140,4 +141,4 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 - `result.py`: Type-safe result tracking with status enum
 - `mod_request.py`: Type-safe mod request with source type enum
 - `mods/mod_handler.py`: Applies mod instances to files
-- `*_factory.py`: Convert string IDs to instances (only used in levelup_server/app.py)
+- `*_factory.py`: Convert string IDs to instances (only used in server/app.py)

@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 from datetime import datetime
-from levelup_core.mods.mod_handler import ModHandler
+from core.mods.mod_handler import ModHandler
 
 
 class TestModHandlerInitialization:
