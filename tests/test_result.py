@@ -1,6 +1,7 @@
 import pytest
 from datetime import datetime
-from levelup_core.result import Result, ResultStatus
+from core.result import Result, ResultStatus
+from core.validation_result import ValidationResult
 
 
 class TestResultStatus:
@@ -48,8 +49,8 @@ class TestResult:
 
     def test_result_with_validation_results(self):
         validation_results = [
-            {"file": "test.cpp", "valid": True},
-            {"file": "test2.cpp", "valid": False}
+            ValidationResult(file="test.cpp", valid=True),
+            ValidationResult(file="test2.cpp", valid=False)
         ]
         result = Result(
             status=ResultStatus.FAILED,
@@ -83,7 +84,7 @@ class TestResult:
         assert d["timestamp"] == "2024-01-01T00:00:00"
 
     def test_to_dict_includes_validation_results_when_present(self):
-        validation_results = [{"file": "a.cpp", "valid": True}]
+        validation_results = [ValidationResult(file="a.cpp", valid=True)]
         result = Result(
             status=ResultStatus.SUCCESS,
             message="OK",
@@ -91,7 +92,7 @@ class TestResult:
         )
         d = result.to_dict()
         assert "validation_results" in d
-        assert d["validation_results"] == validation_results
+        assert d["validation_results"] == [{"file": "a.cpp", "valid": True}]
 
     def test_to_dict_excludes_validation_results_when_none(self):
         result = Result(status=ResultStatus.QUEUED, message="Waiting")

@@ -1,9 +1,9 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call
-from levelup_core.mod_processor import ModProcessor
-from levelup_core.mod_request import ModRequest, ModSourceType
-from levelup_core.result import Result, ResultStatus
+from core.mod_processor import ModProcessor
+from core.mod_request import ModRequest, ModSourceType
+from core.result import Result, ResultStatus
 
 
 class TestModProcessorInitialization:
@@ -88,7 +88,6 @@ class TestModProcessorProcessMod:
             id="test-123",
             repo_url="https://github.com/user/repo.git",
             repo_name="repo",
-            work_branch="main",
             source_type=ModSourceType.BUILTIN,
             description="Test builtin mod",
             mod_instance=mock_mod_instance
@@ -100,13 +99,12 @@ class TestModProcessorProcessMod:
             id="test-456",
             repo_url="https://github.com/user/repo.git",
             repo_name="repo",
-            work_branch="main",
             source_type=ModSourceType.COMMIT,
             description="Test commit mod",
             commit_hash="abc123"
         )
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_creates_repo_with_correct_params(
         self, mock_repo_class, processor, builtin_mod_request
     ):
@@ -118,12 +116,11 @@ class TestModProcessorProcessMod:
 
         mock_repo_class.assert_called_once_with(
             url=builtin_mod_request.repo_url,
-            work_branch=builtin_mod_request.work_branch,
-            repo_path=processor.repos_path,
+            repos_folder=processor.repos_path,
             git_path=processor.git_path
         )
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_ensures_repo_cloned(
         self, mock_repo_class, processor, builtin_mod_request
     ):
@@ -135,7 +132,7 @@ class TestModProcessorProcessMod:
 
         mock_repo.ensure_cloned.assert_called_once()
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_prepares_work_branch(
         self, mock_repo_class, processor, builtin_mod_request
     ):
@@ -147,7 +144,7 @@ class TestModProcessorProcessMod:
 
         mock_repo.prepare_work_branch.assert_called_once()
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_cherry_picks_for_commit_source(
         self, mock_repo_class, processor, commit_mod_request
     ):
@@ -159,7 +156,7 @@ class TestModProcessorProcessMod:
 
         mock_repo.cherry_pick.assert_called_once_with("abc123")
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_does_not_cherry_pick_for_builtin(
         self, mock_repo_class, processor, builtin_mod_request
     ):
@@ -171,7 +168,7 @@ class TestModProcessorProcessMod:
 
         mock_repo.cherry_pick.assert_not_called()
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_returns_success_when_all_valid(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
@@ -191,7 +188,7 @@ class TestModProcessorProcessMod:
         assert result.status == ResultStatus.SUCCESS
         assert "successfully" in result.message.lower()
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_commits_on_success(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
@@ -211,7 +208,7 @@ class TestModProcessorProcessMod:
         commit_msg = mock_repo.commit.call_args[0][0]
         assert builtin_mod_request.id in commit_msg
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_returns_failed_when_validation_fails(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
@@ -230,7 +227,7 @@ class TestModProcessorProcessMod:
         assert result.status == ResultStatus.FAILED
         assert "failed" in result.message.lower()
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_resets_on_failure(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
@@ -248,7 +245,7 @@ class TestModProcessorProcessMod:
 
         mock_repo.reset_hard.assert_called_once()
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_returns_error_on_exception(
         self, mock_repo_class, processor, builtin_mod_request
     ):
@@ -259,7 +256,7 @@ class TestModProcessorProcessMod:
         assert result.status == ResultStatus.ERROR
         assert "Clone failed" in result.message
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_includes_validation_results(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
@@ -277,9 +274,9 @@ class TestModProcessorProcessMod:
 
         assert result.validation_results is not None
         assert len(result.validation_results) == 1
-        assert result.validation_results[0]["valid"] is True
+        assert result.validation_results[0].valid is True
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_validates_each_cpp_file(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
@@ -299,7 +296,7 @@ class TestModProcessorProcessMod:
         assert processor.asm_validator.validate.call_count == 3
         assert len(result.validation_results) == 3
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_fails_if_any_file_invalid(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
@@ -319,7 +316,7 @@ class TestModProcessorProcessMod:
 
         assert result.status == ResultStatus.FAILED
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     @patch("os.remove")
     def test_process_mod_cleans_up_temp_files(
         self, mock_remove, mock_repo_class, processor, builtin_mod_request, temp_dir
@@ -344,7 +341,7 @@ class TestModProcessorProcessMod:
         # Should have attempted to remove temp files
         assert mock_remove.call_count >= 2  # at least original_asm and modified_asm
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_for_commit_uses_original_file(
         self, mock_repo_class, processor, commit_mod_request, temp_dir
     ):
@@ -362,7 +359,7 @@ class TestModProcessorProcessMod:
         # For commit source, mod_handler should NOT be called
         processor.mod_handler.apply_mod_instance.assert_not_called()
 
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     def test_process_mod_handles_empty_repo(
         self, mock_repo_class, processor, builtin_mod_request
     ):
@@ -378,7 +375,7 @@ class TestModProcessorProcessMod:
 
 
 class TestModProcessorTempFileCleanup:
-    @patch("levelup_core.mod_processor.Repo")
+    @patch("core.mod_processor.Repo")
     @patch("os.remove")
     def test_cleanup_occurs_even_on_exception(
         self, mock_remove, mock_repo_class, temp_dir
@@ -407,7 +404,6 @@ class TestModProcessorTempFileCleanup:
             id="test",
             repo_url="url",
             repo_name="name",
-            work_branch="main",
             source_type=ModSourceType.BUILTIN,
             description="test",
             mod_instance=mock_mod

@@ -1,12 +1,13 @@
 from pathlib import Path
 import os
 
-from .utils.compiler import MSVCCompiler
+from .compilers.compiler import MSVCCompiler
 from .validators.asm_validator import ASMValidator
 from .mods.mod_handler import ModHandler
 from .result import Result, ResultStatus
 from .repo import Repo
 from .mod_request import ModRequest, ModSourceType
+from .validation_result import ValidationResult
 
 
 class ModProcessor:
@@ -27,8 +28,7 @@ class ModProcessor:
             # Initialize repository
             repo = Repo(
                 url=mod_request.repo_url,
-                work_branch=mod_request.work_branch,
-                repo_path=self.repos_path,
+                repos_folder=self.repos_path,
                 git_path=self.git_path
             )
             repo.ensure_cloned()
@@ -63,12 +63,12 @@ class ModProcessor:
                 temp_files.append(modified_asm)
 
                 is_valid = self.asm_validator.validate(original_asm, modified_asm)
-                validation_results.append({
-                    'file': str(cpp_file),
-                    'valid': is_valid
-                })
+                validation_results.append(ValidationResult(
+                    file=str(cpp_file),
+                    valid=is_valid
+                ))
 
-            all_valid = all(v['valid'] for v in validation_results)
+            all_valid = all(v.valid for v in validation_results)
 
             if all_valid:
                 repo.commit(

@@ -1,6 +1,9 @@
 from enum import Enum
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .validation_result import ValidationResult
 
 
 class ResultStatus(Enum):
@@ -17,7 +20,7 @@ class Result:
         status: ResultStatus,
         message: str,
         timestamp: Optional[str] = None,
-        validation_results: Optional[List[Dict[str, Any]]] = None
+        validation_results: Optional[List['ValidationResult']] = None
     ):
         if not isinstance(status, ResultStatus):
             raise TypeError(f"status must be ResultStatus enum, got {type(status)}")
@@ -35,7 +38,7 @@ class Result:
         }
 
         if self.validation_results is not None:
-            result_dict['validation_results'] = self.validation_results
+            result_dict['validation_results'] = [vr.to_dict() for vr in self.validation_results]
 
         return result_dict
 
