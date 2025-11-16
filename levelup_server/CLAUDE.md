@@ -11,7 +11,7 @@ The `levelup_server` package implements:
 - Static web UI with vanilla JavaScript
 - Real-time status polling
 
-**Key Role**: This is the only place where string IDs are used. The server converts between JSON (with string IDs) and type-safe objects (enums, dataclasses) used by the `levelup` package.
+**Key Role**: This is the only place where string IDs are used. The server converts between JSON (with string IDs) and type-safe objects (enums, dataclasses) used by the `levelup_core` package.
 
 ## Flask Server (app.py)
 
@@ -34,7 +34,7 @@ The `levelup_server` package implements:
 
 **Worker Thread**:
 - Runs continuously with `queue.get(timeout=1)`
-- Processes mods using ModProcessor from `levelup` package
+- Processes mods using ModProcessor from `levelup_core` package
 - Updates `results` dict with Result objects
 - Each mod gets unique UUID for tracking through queue/results lifecycle
 
@@ -49,7 +49,7 @@ The `levelup_server` package implements:
 
 Environment variables `MSVC_PATH` and `GIT_PATH` override defaults.
 
-ModProcessor accepts these paths in constructor - no global CONFIG access in `levelup` package.
+ModProcessor accepts these paths in constructor - no global CONFIG access in `levelup_core` package.
 
 ## Web UI Architecture
 
@@ -95,7 +95,7 @@ ModProcessor accepts these paths in constructor - no global CONFIG access in `le
 **String IDs only in app.py**:
 - Frontend sends/receives JSON with string IDs (e.g., `"mod_type": "remove_inline"`)
 - app.py converts strings to enums/objects immediately
-- Backend code (levelup package) uses only type-safe objects:
+- Backend code (levelup_core package) uses only type-safe objects:
   - `ModRequest` with `ModSourceType` enum (not "builtin" string)
   - `Result` with `ResultStatus` enum (not "success" string)
   - Mod instances from factory (not string IDs)
@@ -106,8 +106,8 @@ ModProcessor accepts these paths in constructor - no global CONFIG access in `le
 ```python
 # Frontend: {"type": "builtin", "mod_type": "remove_inline"}
 # app.py converts:
-from levelup.mod_request import ModRequest, ModSourceType
-from levelup.mods.mod_factory import ModFactory
+from levelup_core.mod_request import ModRequest, ModSourceType
+from levelup_core.mods.mod_factory import ModFactory
 
 source_type = ModSourceType.BUILTIN
 mod_instance = ModFactory.from_id("remove_inline")  # Only string usage

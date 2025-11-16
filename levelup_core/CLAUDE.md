@@ -1,10 +1,10 @@
-# levelup Package
+# levelup_core Package
 
 This package contains the core business logic for LevelUp's code modernization system.
 
 ## Package Overview
 
-The `levelup` package implements:
+The `levelup_core` package implements:
 - Mod processing orchestration
 - Repository and git operations
 - Type-safe request/result handling

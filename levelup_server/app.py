@@ -16,13 +16,13 @@ from flask import Flask, render_template, request, jsonify, session
 import uuid
 from typing import Dict
 
-from levelup.utils.compiler_factory import CompilerFactory
-from levelup.validators.validator_factory import ValidatorFactory
-from levelup.mods.mod_factory import ModFactory
-from levelup.result import Result, ResultStatus
-from levelup.repo import Repo
-from levelup.mod_request import ModRequest, ModSourceType
-from levelup.mod_processor import ModProcessor
+from levelup_core.utils.compiler_factory import CompilerFactory
+from levelup_core.validators.validator_factory import ValidatorFactory
+from levelup_core.mods.mod_factory import ModFactory
+from levelup_core.result import Result, ResultStatus
+from levelup_core.repo import Repo
+from levelup_core.mod_request import ModRequest, ModSourceType
+from levelup_core.mod_processor import ModProcessor
 
 app = Flask(__name__)
 app.secret_key = 'levelup-secret-key-change-in-production'

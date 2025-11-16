@@ -29,11 +29,11 @@ pip install -r requirements.txt
 ## Architecture Overview
 
 The codebase is organized into two main packages:
-- **`levelup/`** - Core business logic (mods, validators, compilers, processing)
+- **`levelup_core/`** - Core business logic (mods, validators, compilers, processing)
 - **`levelup_server/`** - Flask web server (app, templates, static files)
 
 See package-specific CLAUDE.md files for detailed documentation:
-- `levelup/CLAUDE.md` - Core business logic components and patterns
+- `levelup_core/CLAUDE.md` - Core business logic components and patterns
 - `levelup_server/CLAUDE.md` - Web server, API, and UI details
 
 ### High-Level Component Interaction
@@ -43,11 +43,11 @@ User (Web UI)
     ↓ JSON with string IDs
 levelup_server/app.py (Boundary Layer)
     ↓ Type-safe objects (enums, dataclasses)
-levelup/ModProcessor
+levelup_core/ModProcessor
     ↓ orchestrates
-levelup/Repo + levelup/ModHandler + levelup/Compiler + levelup/Validators
+levelup_core/Repo + levelup_core/ModHandler + levelup_core/Compiler + levelup_core/Validators
     ↓ returns
-levelup/Result (type-safe)
+levelup_core/Result (type-safe)
     ↓ converts to JSON
 User (Web UI)
 ```
@@ -61,7 +61,7 @@ User (Web UI)
 2. `levelup_server/app.py` converts JSON to type-safe `ModRequest` object
 3. For BUILTIN mods: creates mod instance via factory (only place string IDs used)
 4. Mod queued with unique UUID, initial `Result` object created
-5. `levelup/ModProcessor` processes in worker thread:
+5. `levelup_core/ModProcessor` processes in worker thread:
    - Clone/pull repo → checkout work branch
    - Apply mod based on source type (BUILTIN/COMMIT)
    - Compile original → compile modified → validate
@@ -112,7 +112,7 @@ The system supports multiple validators:
 **String IDs only at API boundary**:
 - Frontend sends/receives JSON with string IDs (e.g., `"mod_type": "remove_inline"`)
 - `levelup_server/app.py` converts strings to enums/objects immediately
-- `levelup` package uses only type-safe objects:
+- `levelup_core` package uses only type-safe objects:
   - `ModRequest` with `ModSourceType` enum (not "builtin" string)
   - `Result` with `ResultStatus` enum (not "success" string)
   - Mod instances from factory (not string IDs)
@@ -123,8 +123,8 @@ The system supports multiple validators:
 ```python
 # Frontend: {"type": "builtin", "mod_type": "remove_inline"}
 # levelup_server/app.py converts:
-from levelup.mod_request import ModRequest, ModSourceType
-from levelup.mods.mod_factory import ModFactory
+from levelup_core.mod_request import ModRequest, ModSourceType
+from levelup_core.mods.mod_factory import ModFactory
 
 source_type = ModSourceType.BUILTIN
 mod_instance = ModFactory.from_id("remove_inline")  # Only string usage
@@ -148,5 +148,5 @@ mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
 - All git operations happen in cloned repos under `workspace/repos/{repo_name}/`
 
 For detailed information about specific packages, see:
-- `levelup/CLAUDE.md` - How to add validators, mods, compilers; internal architecture
+- `levelup_core/CLAUDE.md` - How to add validators, mods, compilers; internal architecture
 - `levelup_server/CLAUDE.md` - API endpoints, web UI, configuration, workspace management
