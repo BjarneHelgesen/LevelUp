@@ -1,3 +1,3 @@
 """
-Utility classes for compilation and git operations
+Utility classes for git operations
 """

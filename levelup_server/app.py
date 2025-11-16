@@ -16,7 +16,7 @@ from flask import Flask, render_template, request, jsonify, session
 import uuid
 from typing import Dict
 
-from levelup_core.utils.compiler_factory import CompilerFactory
+from levelup_core.compilers.compiler_factory import CompilerFactory
 from levelup_core.validators.validator_factory import ValidatorFactory
 from levelup_core.mods.mod_factory import ModFactory
 from levelup_core.result import Result, ResultStatus

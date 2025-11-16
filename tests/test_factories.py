@@ -6,8 +6,8 @@ from levelup_core.mods.add_override_mod import AddOverrideMod
 from levelup_core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
 from levelup_core.validators.validator_factory import ValidatorFactory, ValidatorType
 from levelup_core.validators.asm_validator import ASMValidator
-from levelup_core.utils.compiler_factory import CompilerFactory, CompilerType
-from levelup_core.utils.compiler import MSVCCompiler
+from levelup_core.compilers.compiler_factory import CompilerFactory, CompilerType
+from levelup_core.compilers.compiler import MSVCCompiler
 
 
 class TestModFactory:

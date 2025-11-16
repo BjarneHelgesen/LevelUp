@@ -49,7 +49,7 @@ The `levelup_core` package implements:
 
 All factories use the same pattern: enum-based registry with `from_id()` and `get_available_*()` methods.
 
-**Compiler Factory (utils/compiler_factory.py)**
+**Compiler Factory (compilers/compiler_factory.py)**
 - Enum-based registry: `CompilerType` enum maps to compiler classes
 - `from_id()` creates compiler instance from stable ID string
 - `get_available_compilers()` returns list with id and name for each compiler
@@ -70,7 +70,7 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 
 ## Module Details
 
-**utils/compiler.py**
+**compilers/compiler.py**
 - MSVC compiler wrapper (cl.exe)
 - Key method: `compile_to_asm()` generates assembly output for validation
 - Uses `/FA` flag for assembly generation, `/O2` for optimization
@@ -122,9 +122,9 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 5. Pattern: check `can_apply()` → create temp copy → apply transformations → return path
 
 **Adding a New Compiler**:
-1. Create compiler class in `utils/` inheriting from BaseCompiler
+1. Create compiler class in `compilers/` inheriting from BaseCompiler
 2. Implement abstract methods: `get_id()`, `get_name()`, `compile()`, `compile_to_asm()`, etc.
-3. Add to `CompilerType` enum in `utils/compiler_factory.py`
+3. Add to `CompilerType` enum in `compilers/compiler_factory.py`
 4. ID from `get_id()` is automatically available in UI via `/api/available/compilers`
 
 **Understanding Validation Results**:
