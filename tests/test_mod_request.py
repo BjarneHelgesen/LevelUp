@@ -1,5 +1,5 @@
 import pytest
-from levelup_core.mod_request import ModRequest, ModSourceType
+from core.mod_request import ModRequest, ModSourceType
 
 
 class TestModSourceType:
@@ -17,7 +17,6 @@ class TestModRequest:
             id="test-123",
             repo_url="https://github.com/test/repo.git",
             repo_name="repo",
-            work_branch="feature",
             source_type=ModSourceType.BUILTIN,
             description="Test mod",
             mod_instance=mock_mod
@@ -31,7 +30,6 @@ class TestModRequest:
             id="test-456",
             repo_url="https://github.com/test/repo.git",
             repo_name="repo",
-            work_branch="main",
             source_type=ModSourceType.COMMIT,
             description="Apply commit",
             commit_hash="abc123def456"
@@ -45,7 +43,6 @@ class TestModRequest:
                 id="test",
                 repo_url="https://github.com/test/repo.git",
                 repo_name="repo",
-                work_branch="main",
                 source_type=ModSourceType.BUILTIN,
                 description="Missing mod instance"
             )
@@ -57,43 +54,16 @@ class TestModRequest:
                 id="test",
                 repo_url="https://github.com/test/repo.git",
                 repo_name="repo",
-                work_branch="main",
                 source_type=ModSourceType.COMMIT,
                 description="Missing commit hash"
             )
         assert "commit_hash required" in str(exc_info.value)
-
-    def test_default_allow_reorder_is_false(self):
-        request = ModRequest(
-            id="test",
-            repo_url="url",
-            repo_name="name",
-            work_branch="branch",
-            source_type=ModSourceType.COMMIT,
-            description="desc",
-            commit_hash="abc123"
-        )
-        assert request.allow_reorder is False
-
-    def test_allow_reorder_can_be_set_true(self):
-        request = ModRequest(
-            id="test",
-            repo_url="url",
-            repo_name="name",
-            work_branch="branch",
-            source_type=ModSourceType.COMMIT,
-            description="desc",
-            commit_hash="abc123",
-            allow_reorder=True
-        )
-        assert request.allow_reorder is True
 
     def test_timestamp_defaults_to_none(self):
         request = ModRequest(
             id="test",
             repo_url="url",
             repo_name="name",
-            work_branch="branch",
             source_type=ModSourceType.COMMIT,
             description="desc",
             commit_hash="abc123"
@@ -106,7 +76,6 @@ class TestModRequest:
             id="test",
             repo_url="url",
             repo_name="name",
-            work_branch="branch",
             source_type=ModSourceType.COMMIT,
             description="desc",
             commit_hash="abc123",
@@ -120,7 +89,6 @@ class TestModRequest:
             id="test",
             repo_url=url,
             repo_name="project",
-            work_branch="dev",
             source_type=ModSourceType.COMMIT,
             description="test",
             commit_hash="hash"
@@ -132,24 +100,11 @@ class TestModRequest:
             id="test",
             repo_url="url",
             repo_name="my-project",
-            work_branch="branch",
             source_type=ModSourceType.COMMIT,
             description="desc",
             commit_hash="hash"
         )
         assert request.repo_name == "my-project"
-
-    def test_work_branch_stored_correctly(self):
-        request = ModRequest(
-            id="test",
-            repo_url="url",
-            repo_name="name",
-            work_branch="feature/new-thing",
-            source_type=ModSourceType.COMMIT,
-            description="desc",
-            commit_hash="hash"
-        )
-        assert request.work_branch == "feature/new-thing"
 
     def test_description_stored_correctly(self):
         desc = "Add const correctness to all methods"
@@ -157,7 +112,6 @@ class TestModRequest:
             id="test",
             repo_url="url",
             repo_name="name",
-            work_branch="branch",
             source_type=ModSourceType.COMMIT,
             description=desc,
             commit_hash="hash"
@@ -170,7 +124,6 @@ class TestModRequest:
             id="test",
             repo_url="url",
             repo_name="name",
-            work_branch="branch",
             source_type=ModSourceType.BUILTIN,
             description="desc",
             mod_instance=mock_mod,
@@ -185,7 +138,6 @@ class TestModRequest:
             id="test",
             repo_url="url",
             repo_name="name",
-            work_branch="branch",
             source_type=ModSourceType.COMMIT,
             description="desc",
             commit_hash="abc123",

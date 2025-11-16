@@ -13,12 +13,10 @@ class ModRequest:
     id: str
     repo_url: str
     repo_name: str
-    work_branch: str
     source_type: ModSourceType
     description: str
     mod_instance: Optional[object] = None
     commit_hash: Optional[str] = None
-    allow_reorder: bool = False
     timestamp: Optional[str] = None
 
     def __post_init__(self):

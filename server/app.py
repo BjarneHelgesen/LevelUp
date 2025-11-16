@@ -16,13 +16,13 @@ from flask import Flask, render_template, request, jsonify, session
 import uuid
 from typing import Dict
 
-from levelup_core.compilers.compiler_factory import CompilerFactory
-from levelup_core.validators.validator_factory import ValidatorFactory
-from levelup_core.mods.mod_factory import ModFactory
-from levelup_core.result import Result, ResultStatus
-from levelup_core.repo import Repo
-from levelup_core.mod_request import ModRequest, ModSourceType
-from levelup_core.mod_processor import ModProcessor
+from core.compilers.compiler_factory import CompilerFactory
+from core.validators.validator_factory import ValidatorFactory
+from core.mods.mod_factory import ModFactory
+from core.result import Result, ResultStatus
+from core.repo import Repo
+from core.mod_request import ModRequest, ModSourceType
+from core.mod_processor import ModProcessor
 
 app = Flask(__name__)
 app.secret_key = 'levelup-secret-key-change-in-production'
@@ -98,7 +98,6 @@ def manage_repos():
             'id': str(uuid.uuid4()),
             'name': repo_name,
             'url': data['url'],
-            'work_branch': data['work_branch'],
             'post_checkout': data.get('post_checkout', ''),
             'build_command': data.get('build_command', ''),
             'single_tu_command': data.get('single_tu_command', ''),
@@ -168,12 +167,10 @@ def submit_mod():
         id=mod_id,
         repo_url=data['repo_url'],
         repo_name=data['repo_name'],
-        work_branch=data['work_branch'],
         source_type=source_type,
         description=data['description'],
         mod_instance=mod_instance,
         commit_hash=commit_hash,
-        allow_reorder=data.get('allow_reorder', False),
         timestamp=datetime.now().isoformat()
     )
 
@@ -191,11 +188,9 @@ def submit_mod():
         'id': mod_id,
         'repo_name': data['repo_name'],
         'repo_url': data['repo_url'],
-        'work_branch': data['work_branch'],
         'type': type_str,
         'description': data['description'],
         'validators': data.get('validators', ['asm']),
-        'allow_reorder': data.get('allow_reorder', False),
         'timestamp': mod_request.timestamp
     }
     if type_str == 'builtin':

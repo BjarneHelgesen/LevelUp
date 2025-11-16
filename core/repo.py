@@ -15,10 +15,11 @@ class Repo:
     Merges GitHandler functionality with repository metadata management.
     """
 
+    WORK_BRANCH = "levelup-work"
+
     def __init__(
         self,
         url: str,
-        work_branch: str,
         repos_folder: Path,
         git_path: str = 'git',
         post_checkout: str = ''
@@ -28,13 +29,12 @@ class Repo:
 
         Args:
             url: Git repository URL
-            work_branch: Branch to work on
             repo_path: Local filesystem path for the repository
             git_path: Path to git executable
             post_checkout: Commands to run after checkout
         """
         self.url = url
-        self.work_branch = work_branch
+        self.work_branch = self.WORK_BRANCH
         repo_name = get_repo_name(url)
         self.repo_path = Path(repos_folder / repo_filename(repo_name))
         self.git_path = git_path
@@ -86,7 +86,6 @@ class Repo:
 
         return cls(
             url=config['url'],
-            work_branch=config['work_branch'],
             repos_folder=repos_base_path,
             git_path=git_path,
             post_checkout=config.get('post_checkout', '')

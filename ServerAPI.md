@@ -18,7 +18,6 @@
     "id": "uuid",
     "name": "string",
     "url": "string",
-    "work_branch": "string",
     "post_checkout": "string",
     "build_command": "string",
     "single_tu_command": "string",
@@ -27,20 +26,22 @@
 ]
 ```
 
+**Note**: Work branch is hardcoded to "levelup-work" and is not configurable.
+
 #### `POST /api/repos`
 **Description**: Add a new repository configuration
 
 **Request Body**:
 ```json
 {
-  "name": "string (required)",
   "url": "string (required)",
-  "work_branch": "string (required)",
   "post_checkout": "string (optional)",
   "build_command": "string (optional)",
   "single_tu_command": "string (optional)"
 }
 ```
+
+**Note**: Repository name is automatically extracted from the URL.
 
 **Response**: Same as single repository object above
 
@@ -56,19 +57,24 @@
 {
   "repo_name": "string (required)",
   "repo_url": "string (required)",
-  "work_branch": "string (required)",
   "type": "commit",
   "commit_hash": "string (required for commit type)",
   "description": "string (required)",
-  "validators": ["asm", "ast", "warnings"],
-  "allow_reorder": true/false
+  "validators": ["asm", "ast", "warnings"]
 }
 ```
 
-**Request Body** (for patch type):
-- Content-Type: `multipart/form-data`
-- Fields: Same as above (except commit_hash)
-- File: `patch_file` (required for patch type)
+**Request Body** (for builtin type):
+```json
+{
+  "repo_name": "string (required)",
+  "repo_url": "string (required)",
+  "type": "builtin",
+  "mod_type": "string (required for builtin type)",
+  "description": "string (required)",
+  "validators": ["asm", "ast", "warnings"]
+}
+```
 
 **Response**:
 ```json
@@ -76,14 +82,12 @@
   "id": "uuid",
   "repo_name": "string",
   "repo_url": "string",
-  "work_branch": "string",
   "type": "string",
   "description": "string",
   "validators": ["string"],
-  "allow_reorder": boolean,
   "timestamp": "ISO datetime",
   "commit_hash": "string (if type=commit)",
-  "patch_path": "string (if type=patch)"
+  "mod_type": "string (if type=builtin)"
 }
 ```
 
@@ -193,7 +197,6 @@
 {
   "repo_name": "string (required)",
   "repo_url": "string (required)",
-  "work_branch": "string (required)",
   "commit_hash": "string (required)",
   "message": "string (optional)"
 }

@@ -169,7 +169,6 @@ function displayRepositories(repos) {
             <div class="repo-info">
                 <h4>${repo.name}</h4>
                 <p>URL: ${repo.url}</p>
-                <p>Work Branch: ${repo.work_branch}</p>
             </div>
             <div class="repo-actions">
                 <button class="delete-repo-btn" onclick="event.stopPropagation(); removeRepo('${repo.id}')" title="Remove repository"></button>
@@ -250,11 +249,9 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
     const data = {
         repo_name: selectedRepo.name,
         repo_url: selectedRepo.url,
-        work_branch: selectedRepo.work_branch,
         type: type,
         description: formData.get('description'),
-        validators: ['asm'], // Always use ASM validator
-        allow_reorder: formData.has('allow_reorder')
+        validators: ['asm'] // Always use ASM validator
     };
 
     // Add type-specific data

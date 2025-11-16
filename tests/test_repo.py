@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call
-from levelup_core.repo import Repo
+from core.repo import Repo
 
 
 class TestRepoGetRepoName:
@@ -42,23 +42,20 @@ class TestRepoInitialization:
     def test_init_sets_url(self, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         assert repo.url == "https://github.com/user/project.git"
 
-    def test_init_sets_work_branch(self, temp_dir):
+    def test_init_sets_hardcoded_work_branch(self, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="feature",
             repos_folder=temp_dir
         )
-        assert repo.work_branch == "feature"
+        assert repo.work_branch == "levelup-work"
 
     def test_init_sets_repo_path_from_repos_folder(self, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         # repo_path should be a subdirectory of repos_folder
@@ -67,7 +64,6 @@ class TestRepoInitialization:
     def test_init_sets_default_git_path(self, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         assert repo.git_path == "git"
@@ -75,7 +71,6 @@ class TestRepoInitialization:
     def test_init_accepts_custom_git_path(self, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir,
             git_path="/usr/local/bin/git"
         )
@@ -84,7 +79,6 @@ class TestRepoInitialization:
     def test_init_sets_empty_post_checkout_by_default(self, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         assert repo.post_checkout == ""
@@ -92,7 +86,6 @@ class TestRepoInitialization:
     def test_init_accepts_post_checkout_commands(self, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir,
             post_checkout="npm install"
         )
@@ -104,18 +97,16 @@ class TestRepoFromConfig:
         config = {
             "name": "my-project",
             "url": "https://github.com/user/my-project.git",
-            "work_branch": "develop",
             "post_checkout": ""
         }
         repo = Repo.from_config(config, temp_dir)
         assert repo.url == config["url"]
-        assert repo.work_branch == config["work_branch"]
+        assert repo.work_branch == "levelup-work"
 
     def test_uses_post_checkout_from_config(self, temp_dir):
         config = {
             "name": "project",
             "url": "https://github.com/user/project.git",
-            "work_branch": "main",
             "post_checkout": "make setup"
         }
         repo = Repo.from_config(config, temp_dir)
@@ -124,8 +115,7 @@ class TestRepoFromConfig:
     def test_defaults_post_checkout_to_empty_string(self, temp_dir):
         config = {
             "name": "project",
-            "url": "https://github.com/user/project.git",
-            "work_branch": "main"
+            "url": "https://github.com/user/project.git"
         }
         repo = Repo.from_config(config, temp_dir)
         assert repo.post_checkout == ""
@@ -133,8 +123,7 @@ class TestRepoFromConfig:
     def test_uses_provided_git_path(self, temp_dir):
         config = {
             "name": "project",
-            "url": "https://github.com/user/project.git",
-            "work_branch": "main"
+            "url": "https://github.com/user/project.git"
         }
         repo = Repo.from_config(config, temp_dir, git_path="/custom/git")
         assert repo.git_path == "/custom/git"
@@ -146,7 +135,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="output\n", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo._run_git(["status"])
@@ -159,7 +147,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="output\n", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo._run_git(["status"])
@@ -171,7 +158,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="output\n", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo._run_git(["status"])
@@ -184,7 +170,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="  output with spaces  \n", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         result = repo._run_git(["status"])
@@ -195,7 +180,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.clone()
@@ -208,7 +192,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         result = repo.clone()
@@ -219,7 +202,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="Already up to date.\n", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.pull()
@@ -231,7 +213,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.commit("Test commit message")
@@ -247,7 +228,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.reset_hard()
@@ -260,7 +240,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.reset_hard()
@@ -272,7 +251,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.reset_hard("abc123")
@@ -284,7 +262,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.cherry_pick("abc123def456")
@@ -297,7 +274,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="main\n", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         branch = repo.get_current_branch()
@@ -308,7 +284,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="abc123def456\n", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         hash_val = repo.get_commit_hash()
@@ -319,7 +294,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.stash()
@@ -331,7 +305,6 @@ class TestRepoGitOperations:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.stash_pop()
@@ -346,7 +319,6 @@ class TestRepoEnsureCloned:
     def test_clones_if_repo_path_does_not_exist(self, mock_pull, mock_clone, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         # Ensure repo_path doesn't exist
@@ -361,7 +333,6 @@ class TestRepoEnsureCloned:
     def test_pulls_if_repo_path_exists(self, mock_pull, mock_clone, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         # Create the repo path so it exists
@@ -377,7 +348,6 @@ class TestRepoCheckoutBranch:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.checkout_branch("feature")
@@ -390,19 +360,17 @@ class TestRepoCheckoutBranch:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="develop",
             repos_folder=temp_dir
         )
         repo.checkout_branch()
         args, kwargs = mock_run.call_args
-        assert "develop" in args[0]
+        assert "levelup-work" in args[0]
 
     @patch("subprocess.run")
     def test_checkout_runs_post_checkout_command(self, mock_run, temp_dir):
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir,
             post_checkout="npm install"
         )
@@ -416,7 +384,6 @@ class TestRepoCheckoutBranch:
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repo.checkout_branch()
@@ -429,7 +396,6 @@ class TestRepoRepr:
     def test_repr_includes_url(self, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repr_str = repr(repo)
@@ -438,7 +404,6 @@ class TestRepoRepr:
     def test_repr_includes_name(self, temp_dir):
         repo = Repo(
             url="https://github.com/user/myproject.git",
-            work_branch="main",
             repos_folder=temp_dir
         )
         repr_str = repr(repo)
