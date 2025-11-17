@@ -8,15 +8,45 @@ from .base_compiler import BaseCompiler
 
 
 class MSVCCompiler(BaseCompiler):
-    def __init__(self, cl_path='cl.exe'):
-        super().__init__(cl_path)
-        self.cl_path = cl_path
+    def __init__(self, arch="x64"):
+        self.arch = arch
         self.default_flags = [
             '/O2',
             '/EHsc',
             '/nologo',
             '/W3',
         ]
+
+        # Locate vswhere
+        vswhere = r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+        if not Path(vswhere).exists():
+            raise FileNotFoundError("vswhere.exe not found at expected location.")
+
+        # Query VS installation path
+        result = subprocess.run(
+            [vswhere, "-latest", "-products", "*", "-property", "installationPath"],
+            capture_output=True,
+            text=True
+        )
+        install_path = result.stdout.strip()
+        if not install_path:
+            raise RuntimeError("Unable to locate Visual Studio installation via vswhere.")
+
+        # Locate vcvarsall.bat
+        self.vcvarsall = Path(install_path) / "VC" / "Auxiliary" / "Build" / "vcvarsall.bat"
+        if not self.vcvarsall.exists():
+            raise FileNotFoundError(f"vcvarsall.bat not found at: {self.vcvarsall}")
+
+        # Extract environment variables set by vcvarsall
+        self.env = self._load_msvc_environment()
+
+        # Locate cl.exe
+        cl_path = self._find_cl()
+        if not cl_path:
+            raise RuntimeError("cl.exe was not found in configured environment.")
+        self.cl_path = cl_path
+
+        super().__init__(self.cl_path)
 
     @staticmethod
     def get_id() -> str:
@@ -27,9 +57,33 @@ class MSVCCompiler(BaseCompiler):
     def get_name() -> str:
         return "Microsoft Visual C++"
 
+    def _load_msvc_environment(self):
+        cmd = f'"{self.vcvarsall}" {self.arch} && set'
+
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError("Failed to run vcvarsall.bat")
+
+        env = {}
+        for line in result.stdout.splitlines():
+            if "=" in line:
+                key, val = line.split("=", 1)
+                env[key.upper()] = val
+        return env
+
+    def _find_cl(self):
+        path_dirs = self.env.get("PATH", "").split(";")
+        for p in path_dirs:
+            cl = Path(p) / "cl.exe"
+            if cl.exists():
+                return str(cl)
+        return None
+
     def _run_cl(self, args, cwd=None, check=True):
         cmd = [self.cl_path] + args
-        env = os.environ.copy()
 
         result = subprocess.run(
             cmd,
@@ -37,7 +91,7 @@ class MSVCCompiler(BaseCompiler):
             capture_output=True,
             text=True,
             check=check,
-            env=env
+            env=self.env
         )
         return result
 
