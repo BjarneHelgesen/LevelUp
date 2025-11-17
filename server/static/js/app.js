@@ -18,6 +18,7 @@ const modal = document.getElementById('add-repo-modal');
 const addRepoBtn = document.getElementById('add-repo-btn');
 const closeModalBtn = modal.querySelector('.close-modal');
 const cancelBtn = modal.querySelector('.cancel-btn');
+let editingRepoId = null; // Track if we're editing a repo
 
 function openModal() {
     modal.classList.add('active');
@@ -26,6 +27,10 @@ function openModal() {
 function closeModal() {
     modal.classList.remove('active');
     document.getElementById('repo-form').reset();
+    editingRepoId = null;
+    // Reset modal title and button text
+    modal.querySelector('.modal-header h3').textContent = 'Add New Repository';
+    modal.querySelector('.primary-btn').textContent = 'Add Repo';
 }
 
 // Open modal
@@ -171,6 +176,7 @@ function displayRepositories(repos) {
                 <p>URL: ${repo.url}</p>
             </div>
             <div class="repo-actions">
+                <button class="edit-repo-btn" onclick="event.stopPropagation(); editRepo('${repo.id}')" title="Edit repository"></button>
                 <button class="delete-repo-btn" onclick="event.stopPropagation(); removeRepo('${repo.id}')" title="Remove repository"></button>
             </div>
         `;
@@ -189,27 +195,44 @@ document.getElementById('repo-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
-    
+
     try {
-        const response = await fetch(`${API_BASE}/repos`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
-        
+        let response;
+        let successMessage;
+
+        if (editingRepoId) {
+            // Update existing repo
+            response = await fetch(`${API_BASE}/repos/${editingRepoId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            successMessage = 'Repository updated successfully';
+        } else {
+            // Add new repo
+            response = await fetch(`${API_BASE}/repos`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            successMessage = 'Repository added successfully';
+        }
+
         if (response.ok) {
             const repo = await response.json();
-            showNotification('Repository added successfully', 'success');
+            showNotification(successMessage, 'success');
             closeModal();
             loadRepositories();
         } else {
-            showNotification('Failed to add repository', 'error');
+            showNotification(editingRepoId ? 'Failed to update repository' : 'Failed to add repository', 'error');
         }
     } catch (error) {
-        console.error('Error adding repository:', error);
-        showNotification('Error adding repository', 'error');
+        console.error('Error saving repository:', error);
+        showNotification('Error saving repository', 'error');
     }
 });
 
@@ -435,6 +458,30 @@ function stopQueuedModsUpdates() {
         clearInterval(queuedModsInterval);
         queuedModsInterval = null;
     }
+}
+
+// Edit Repository
+function editRepo(repoId) {
+    const repo = currentRepos.find(r => r.id === repoId);
+    if (!repo) {
+        showNotification('Repository not found', 'error');
+        return;
+    }
+
+    // Set editing mode
+    editingRepoId = repoId;
+
+    // Update modal title and button text
+    modal.querySelector('.modal-header h3').textContent = 'Edit Repository';
+    modal.querySelector('.primary-btn').textContent = 'Update Repo';
+
+    // Populate form with current values
+    document.getElementById('repo-url').value = repo.url || '';
+    document.getElementById('post-checkout').value = repo.post_checkout || '';
+    document.getElementById('build-command').value = repo.build_command || '';
+    document.getElementById('single-tu-command').value = repo.single_tu_command || '';
+
+    openModal();
 }
 
 // Remove Repository

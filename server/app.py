@@ -141,6 +141,43 @@ def delete_repo(repo_id):
         return jsonify({'success': True})
     return jsonify({'success': False}), 404
 
+@app.route('/api/repos/<repo_id>', methods=['PUT'])
+def update_repo(repo_id):
+    """Update a repository configuration"""
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if not config_file.exists():
+        return jsonify({'error': 'No repositories found'}), 404
+
+    with open(config_file, 'r') as f:
+        configs = json.load(f)
+
+    # Find and update the repo
+    data = request.json
+    updated = False
+    for repo in configs:
+        if repo['id'] == repo_id:
+            # Update repo name from URL if URL changed
+            if 'url' in data:
+                repo['url'] = data['url']
+                repo['name'] = Repo.get_repo_name(data['url'])
+            if 'post_checkout' in data:
+                repo['post_checkout'] = data['post_checkout']
+            if 'build_command' in data:
+                repo['build_command'] = data['build_command']
+            if 'single_tu_command' in data:
+                repo['single_tu_command'] = data['single_tu_command']
+            updated = True
+            updated_repo = repo
+            break
+
+    if not updated:
+        return jsonify({'error': 'Repository not found'}), 404
+
+    with open(config_file, 'w') as f:
+        json.dump(configs, f, indent=2)
+
+    return jsonify(updated_repo)
+
 @app.route('/api/mods', methods=['POST'])
 def submit_mod():
     """Submit a new mod for processing"""

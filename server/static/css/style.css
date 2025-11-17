@@ -212,6 +212,26 @@ button:hover {
     gap: 10px;
 }
 
+.edit-repo-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: #6b7280;
+    transition: color 0.2s, transform 0.1s;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.edit-repo-btn:hover {
+    color: var(--primary-color);
+    transform: scale(1.1);
+}
+
+.edit-repo-btn::before {
+    content: "✏️";
+}
+
 .delete-repo-btn {
     background: none;
     border: none;
