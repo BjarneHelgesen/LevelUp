@@ -1,4 +1,3 @@
-import re
 import tempfile
 import shutil
 from pathlib import Path
@@ -40,9 +39,7 @@ class RemoveInlineMod(BaseMod):
         with open(temp_file, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
 
-        # Pattern to match inline keyword
-        pattern = r'\binline\s+'
-        content = re.sub(pattern, '', content)
+        content = content.replace('inline', '')
 
         with open(temp_file, 'w', encoding='utf-8') as f:
             f.write(content)
