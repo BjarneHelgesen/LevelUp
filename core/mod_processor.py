@@ -11,8 +11,8 @@ from .validation_result import ValidationResult
 
 
 class ModProcessor:
-    def __init__(self, msvc_path: str, repos_path: Path, temp_path: Path, git_path: str = 'git'):
-        self.compiler = MSVCCompiler(msvc_path)
+    def __init__(self, repos_path: Path, temp_path: Path, git_path: str = 'git'):
+        self.compiler = MSVCCompiler()
         self.asm_validator = ASMValidator(self.compiler)
         self.mod_handler = ModHandler()
         self.repos_path = Path(repos_path)

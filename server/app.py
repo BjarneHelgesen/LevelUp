@@ -37,7 +37,6 @@ CONFIG = {
     'workspace': Path('workspace'),
     'repos': Path('workspace/repos'),
     'temp': Path('workspace/temp'),
-    'msvc_path': os.environ.get('MSVC_PATH', 'cl.exe'),
     'git_path': os.environ.get('GIT_PATH', 'git'),
 }
 
@@ -49,7 +48,6 @@ for path in CONFIG.values():
 def mod_worker():
     """Worker thread for processing mods"""
     processor = ModProcessor(
-        msvc_path=CONFIG['msvc_path'],
         repos_path=CONFIG['repos'],
         temp_path=CONFIG['temp'],
         git_path=CONFIG['git_path']
