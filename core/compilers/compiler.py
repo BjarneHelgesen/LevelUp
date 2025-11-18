@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 from .base_compiler import BaseCompiler
+from ..compiled_file import CompiledFile
 
 
 class MSVCCompiler(BaseCompiler):
@@ -129,20 +130,48 @@ class MSVCCompiler(BaseCompiler):
         else:
             raise RuntimeError(f"Failed to generate ASM: {result.stderr}")
 
-    def compile_to_obj(self, source_file, obj_output_file, additional_flags=None):
+    def compile_file(self, source_file, output_dir, additional_flags=None):
+        source_path = Path(source_file)
+        output_path = Path(output_dir)
+
+        base_name = source_path.stem
+        asm_file = output_path / f"{base_name}.asm"
+        obj_file = output_path / f"{base_name}.obj"
+
+        # Compile to ASM
         args = self.default_flags.copy()
-        
         args.extend([
-            '/c',  # Compile only
-            '/Fo' + str(obj_output_file),
+            '/FA',
+            '/Fa' + str(asm_file),
+            '/c',
+            '/Fo' + str(obj_file),
         ])
-        
+
         if additional_flags:
             args.extend(additional_flags)
-        
+
         args.append(str(source_file))
-        
-        return self._run_cl(args, cwd=source_file.parent)
+
+        result = self._run_cl(args, cwd=source_path.parent)
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Compilation failed: {result.stderr}")
+
+        asm_output = None
+        if asm_file.exists():
+            asm_output = asm_file.read_text()
+
+        obj_path = None
+        if obj_file.exists():
+            obj_path = obj_file
+
+        return CompiledFile(
+            source_file=source_path,
+            asm_output=asm_output,
+            ast=None,
+            ir=None,
+            obj_file=obj_path
+        )
 
     def get_preprocessed(self, source_file, output_file=None):
         args = [
@@ -177,7 +206,7 @@ class MSVCCompiler(BaseCompiler):
             '/c',
             str(source_file)
         ])
-        
+
         result = self._run_cl(args, cwd=source_file.parent, check=False)
 
         warnings = []
@@ -186,39 +215,3 @@ class MSVCCompiler(BaseCompiler):
                 warnings.append(line.strip())
 
         return warnings
-
-    def compare_asm_output(self, source1, source2, normalize=True):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            asm1 = Path(tmpdir) / 'asm1.asm'
-            asm2 = Path(tmpdir) / 'asm2.asm'
-
-            self.compile_to_asm(source1, asm1)
-            self.compile_to_asm(source2, asm2)
-
-            content1 = asm1.read_text()
-            content2 = asm2.read_text()
-
-            if normalize:
-                content1 = self._normalize_asm(content1)
-                content2 = self._normalize_asm(content2)
-
-            return content1 == content2, content1, content2
-
-    def _normalize_asm(self, asm_content):
-        lines = []
-        for line in asm_content.split('\n'):
-            if line.startswith(';'):
-                continue
-            if line.startswith('TITLE'):
-                continue
-            if line.startswith('.file'):
-                continue
-            if line.startswith('include'):
-                continue
-
-            line = line.rstrip()
-
-            if line:
-                lines.append(line)
-
-        return '\n'.join(lines)

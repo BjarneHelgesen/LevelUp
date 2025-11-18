@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Tuple, Optional
 
+from ..compiled_file import CompiledFile
+
 
 class BaseCompiler(ABC):
     def __init__(self, compiler_path: str):
@@ -24,13 +26,8 @@ class BaseCompiler(ABC):
         pass
 
     @abstractmethod
-    def compile_to_asm(self, source_file: Path, asm_output_file: Path,
-                       additional_flags: Optional[List[str]] = None) -> Path:
-        pass
-
-    @abstractmethod
-    def compile_to_obj(self, source_file: Path, obj_output_file: Path,
-                       additional_flags: Optional[List[str]] = None) -> any:
+    def compile_file(self, source_file: Path, output_dir: Path,
+                     additional_flags: Optional[List[str]] = None) -> CompiledFile:
         pass
 
     @abstractmethod
