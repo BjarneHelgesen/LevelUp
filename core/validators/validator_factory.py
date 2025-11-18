@@ -3,10 +3,12 @@ from typing import List, Dict, Any
 
 from .base_validator import BaseValidator
 from .asm_validator import ASMValidator
+from .source_diff_validator import SourceDiffValidator
 
 
 class ValidatorType(Enum):
     ASM = ASMValidator
+    SOURCE_DIFF = SourceDiffValidator
 
 
 class ValidatorFactory:
