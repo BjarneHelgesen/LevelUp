@@ -22,9 +22,7 @@ class MSVCCompiler(BaseCompiler):
 
         # Locate vswhere
         vswhere = r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-        if not Path(vswhere).exists():
-            logger.error(f"vswhere.exe not found at {vswhere}")
-            raise FileNotFoundError("vswhere.exe not found at expected location.")
+        logger.assert_true(Path(vswhere).exists(), f"vswhere.exe not found at {vswhere}")
 
         # Query VS installation path
         logger.debug(f"Running vswhere to find VS installation")
@@ -34,17 +32,13 @@ class MSVCCompiler(BaseCompiler):
             text=True
         )
         install_path = result.stdout.strip()
-        if not install_path:
-            logger.error("vswhere returned empty installation path")
-            raise RuntimeError("Unable to locate Visual Studio installation via vswhere.")
+        logger.assert_true(install_path, "vswhere returned empty installation path")
 
         logger.debug(f"Found VS installation at: {install_path}")
 
         # Locate vcvarsall.bat
         self.vcvarsall = Path(install_path) / "VC" / "Auxiliary" / "Build" / "vcvarsall.bat"
-        if not self.vcvarsall.exists():
-            logger.error(f"vcvarsall.bat not found at: {self.vcvarsall}")
-            raise FileNotFoundError(f"vcvarsall.bat not found at: {self.vcvarsall}")
+        logger.assert_true(self.vcvarsall.exists(), f"vcvarsall.bat not found at: {self.vcvarsall}")
 
         # Extract environment variables set by vcvarsall
         logger.debug("Loading MSVC environment variables")
@@ -52,9 +46,7 @@ class MSVCCompiler(BaseCompiler):
 
         # Locate cl.exe
         cl_path = self._find_cl()
-        if not cl_path:
-            logger.error("cl.exe not found in configured environment PATH")
-            raise RuntimeError("cl.exe was not found in configured environment.")
+        logger.assert_true(cl_path, "cl.exe not found in configured environment PATH")
         self.cl_path = cl_path
         logger.info(f"MSVCCompiler initialized with cl.exe at: {self.cl_path}")
 

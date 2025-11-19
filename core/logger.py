@@ -123,3 +123,10 @@ def error(msg: str, *args, **kwargs):
 def exception(msg: str, *args, **kwargs):
     """Log exception with traceback"""
     get_logger().exception(msg, *args, **kwargs)
+
+
+def assert_true(condition, msg: str):
+    """Log error and raise RuntimeError if condition is false"""
+    if not condition:
+        get_logger().error(msg)
+        raise RuntimeError(msg)
