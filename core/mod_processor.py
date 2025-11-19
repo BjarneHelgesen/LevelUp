@@ -40,32 +40,37 @@ class ModProcessor:
             repo.ensure_cloned()
             repo.prepare_work_branch()
 
-            if mod_request.source_type == ModSourceType.COMMIT:
-                logger.debug(f"Cherry-picking commit {mod_request.commit_hash}")
-                repo.cherry_pick(mod_request.commit_hash)
-
             # Find all C/C++ source and header files
             source_files = []
             for pattern in ['**/*.cpp', '**/*.c', '**/*.hpp', '**/*.h']:
                 source_files.extend([f for f in repo.repo_path.glob(pattern)
                                     if not f.name.startswith('_levelup_')])
             logger.info(f"Found {len(source_files)} C/C++ files to process")
-            validation_results = []
 
+            # Compile original versions of all files
+            logger.debug("Compiling original versions")
+            originals = {}
             for source_file in source_files:
-                logger.debug(f"Processing file: {source_file}")
-
                 logger.debug(f"Compiling original {source_file.name}")
-                original = self.compiler.compile_file(source_file)
+                originals[source_file] = self.compiler.compile_file(source_file)
 
-                if mod_request.source_type == ModSourceType.BUILTIN:
+            # Apply the mod changes
+            if mod_request.source_type == ModSourceType.COMMIT:
+                logger.debug(f"Cherry-picking commit {mod_request.commit_hash}")
+                repo.cherry_pick(mod_request.commit_hash)
+            elif mod_request.source_type == ModSourceType.BUILTIN:
+                for source_file in source_files:
                     logger.debug(f"Applying mod {mod_request.mod_instance.get_id()} to {source_file.name}")
                     self.mod_handler.apply_mod_instance(
                         source_file,
                         mod_request.mod_instance
                     )
 
+            # Compile modified versions and validate
+            validation_results = []
+            for source_file in source_files:
                 logger.debug(f"Compiling modified {source_file.name}")
+                original = originals[source_file]
                 modified = self.compiler.compile_file(source_file)
 
                 # Choose validator based on mod type
@@ -87,7 +92,7 @@ class ModProcessor:
                 logger.debug(f"Validation result for {source_file.name}: {'PASS' if is_valid else 'FAIL'}")
 
             # Determine mod name for display
-            if mod_request.source_type == ModSourceType.BUILTIN:
+            if mod_request.mod_instance:
                 mod_name = mod_request.mod_instance.get_name()
             else:
                 mod_name = mod_request.description or 'Commit'

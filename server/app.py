@@ -207,16 +207,19 @@ def submit_mod():
 
     # Determine source type and create appropriate objects
     type_str = data['type']
-    if type_str == 'builtin':
+    mod_type_id = data.get('mod_type')
+
+    # Check if this is a commit validation (either explicit or via 'commit' mod type)
+    if type_str == 'commit' or mod_type_id == 'commit':
+        source_type = ModSourceType.COMMIT
+        mod_instance = ModFactory.from_id('commit')  # For display name
+        # Get commit hash from request or default to HEAD of work branch
+        commit_hash = data.get('commit_hash', 'HEAD')
+    elif type_str == 'builtin':
         source_type = ModSourceType.BUILTIN
         # Create mod instance from string ID (only place string ID is used!)
-        mod_type_id = data['mod_type']
         mod_instance = ModFactory.from_id(mod_type_id)
         commit_hash = None
-    elif type_str == 'commit':
-        source_type = ModSourceType.COMMIT
-        mod_instance = None
-        commit_hash = data['commit_hash']
     else:
         return jsonify({'error': f'Invalid type: {type_str}'}), 400
 
