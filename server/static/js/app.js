@@ -320,9 +320,18 @@ function createResultItem(id, result) {
     const item = document.createElement('div');
     item.className = `result-item ${result.status}`;
 
-    const isSuccess = result.status === 'success';
-    const displayStatus = isSuccess ? 'Success' : 'Failed';
-    const statusClass = isSuccess ? 'status-success' : 'status-fail';
+    let displayStatus, statusClass;
+    if (result.status === 'success') {
+        displayStatus = 'Success';
+        statusClass = 'status-success';
+    } else if (result.status === 'partial') {
+        displayStatus = 'Partial';
+        statusClass = 'status-partial';
+    } else {
+        displayStatus = 'Failed';
+        statusClass = 'status-fail';
+    }
+
     const filesModified = result.validation_results ? result.validation_results.length : 0;
 
     item.innerHTML = `
@@ -346,8 +355,8 @@ async function trackModStatus(modId) {
             const response = await fetch(`${API_BASE}/mods/${modId}/status`);
             const status = await response.json();
 
-            // If mod is completed (success, failed, or error), refresh the completed mods list
-            if (status.status === 'success' || status.status === 'failed' || status.status === 'error') {
+            // If mod is completed (success, partial, failed, or error), refresh the completed mods list
+            if (status.status === 'success' || status.status === 'partial' || status.status === 'failed' || status.status === 'error') {
                 loadSuccessfulMods();
             }
 
@@ -424,7 +433,7 @@ function displayCompletedMods(status) {
     // Filter for completed items (success, failed, or error) that belong to the current repo
     const completedItems = Object.entries(status.results)
         .filter(([id, result]) => {
-            const isCompleted = result.status === 'success' || result.status === 'failed' || result.status === 'error';
+            const isCompleted = result.status === 'success' || result.status === 'partial' || result.status === 'failed' || result.status === 'error';
             return isCompleted && modToRepoMap[id] === selectedRepo.name;
         })
         .sort((a, b) => new Date(b[1].timestamp) - new Date(a[1].timestamp)); // Most recent first

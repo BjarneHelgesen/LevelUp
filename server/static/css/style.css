@@ -361,6 +361,10 @@ button:hover {
     border-left-color: var(--secondary-color);
 }
 
+.result-item.partial {
+    border-left-color: var(--warning-color);
+}
+
 .result-item.failed {
     border-left-color: var(--danger-color);
 }
@@ -387,6 +391,11 @@ button:hover {
 .status-success {
     background-color: #d1fae5;
     color: #065f46;
+}
+
+.status-partial {
+    background-color: #fef3c7;
+    color: #92400e;
 }
 
 .status-failed,

@@ -97,7 +97,17 @@ class ModProcessor:
                 ))
                 logger.debug(f"Validation result for {source_file.name}: {'PASS' if is_valid else 'FAIL'}")
 
-            all_valid = all(v.valid for v in validation_results)
+            # Determine mod name for display
+            if mod_request.source_type == ModSourceType.BUILTIN:
+                mod_name = mod_request.mod_instance.get_name()
+            else:
+                mod_name = mod_request.description or 'Commit'
+
+            # Count valid and invalid results
+            valid_count = sum(1 for v in validation_results if v.valid)
+            total_count = len(validation_results)
+            all_valid = valid_count == total_count
+            any_valid = valid_count > 0
 
             if all_valid:
                 logger.info(f"All validations passed for mod {mod_id}, committing changes")
@@ -107,7 +117,19 @@ class ModProcessor:
 
                 return Result(
                     status=ResultStatus.SUCCESS,
-                    message='Mod successfully validated and applied',
+                    message=mod_name,
+                    validation_results=validation_results
+                )
+            elif any_valid:
+                # Partial success - some files passed, some failed
+                logger.info(f"Partial success for mod {mod_id}: {valid_count}/{total_count} files passed")
+                repo.commit(
+                    f"LevelUp: Partially applied mod {mod_id} - {mod_request.description}"
+                )
+
+                return Result(
+                    status=ResultStatus.PARTIAL,
+                    message=mod_name,
                     validation_results=validation_results
                 )
             else:
@@ -117,7 +139,7 @@ class ModProcessor:
 
                 return Result(
                     status=ResultStatus.FAILED,
-                    message='Validation failed - changes not applied',
+                    message=mod_name,
                     validation_results=validation_results
                 )
 

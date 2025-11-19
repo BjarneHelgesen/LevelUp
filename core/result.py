@@ -10,6 +10,7 @@ class ResultStatus(Enum):
     QUEUED = "queued"
     PROCESSING = "processing"
     SUCCESS = "success"
+    PARTIAL = "partial"
     FAILED = "failed"
     ERROR = "error"
 
