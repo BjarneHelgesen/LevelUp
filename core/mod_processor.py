@@ -100,10 +100,8 @@ class ModProcessor:
 
             if all_valid:
                 logger.info(f"All validations passed for mod {mod_id}, committing changes")
-                repo.commit(
-                    f"LevelUp: Applied mod {mod_id} - {mod_request.description}"
-                )
-                repo.push()
+                if repo.commit(f"LevelUp: Applied mod {mod_id} - {mod_request.description}"):
+                    repo.push()
 
                 return Result(
                     status=ResultStatus.SUCCESS,
@@ -113,10 +111,8 @@ class ModProcessor:
             elif any_valid:
                 # Partial success - some files passed, some failed
                 logger.info(f"Partial success for mod {mod_id}: {valid_count}/{total_count} files passed")
-                repo.commit(
-                    f"LevelUp: Partially applied mod {mod_id} - {mod_request.description}"
-                )
-                repo.push()
+                if repo.commit(f"LevelUp: Partially applied mod {mod_id} - {mod_request.description}"):
+                    repo.push()
 
                 return Result(
                     status=ResultStatus.PARTIAL,

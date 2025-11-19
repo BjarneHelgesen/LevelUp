@@ -187,9 +187,17 @@ class Repo:
         return self._run_git(['cherry-pick', commit_hash])
 
     def commit(self, message: str):
-        """Create a commit with all changes"""
+        """Create a commit with all changes. Returns True if commit was made, False if nothing to commit."""
         self._run_git(['add', '-A'])
-        return self._run_git(['commit', '-m', message])
+
+        # Check if there are changes to commit
+        status = self._run_git(['status', '--porcelain'])
+        if not status:
+            logger.info("No changes to commit")
+            return False
+
+        self._run_git(['commit', '-m', message])
+        return True
 
     def push(self, branch: Optional[str] = None):
         """Push branch to remote origin"""
