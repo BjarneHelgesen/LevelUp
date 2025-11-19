@@ -135,14 +135,7 @@ class MSVCCompiler(BaseCompiler):
             if result.returncode != 0:
                 raise RuntimeError(f"Compilation failed: {result.stderr}")
 
-            asm_output = None
-            if asm_file.exists():
-                asm_output = asm_file.read_text()
-
             return CompiledFile(
                 source_file=source_path,
-                asm_output=asm_output,
-                ast=None,
-                ir=None,
-                obj_file=None
+                asm_file=asm_file if asm_file.exists() else None
             )
