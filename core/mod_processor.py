@@ -114,6 +114,7 @@ class ModProcessor:
                 repo.commit(
                     f"LevelUp: Applied mod {mod_id} - {mod_request.description}"
                 )
+                repo.push()
 
                 return Result(
                     status=ResultStatus.SUCCESS,
@@ -126,6 +127,7 @@ class ModProcessor:
                 repo.commit(
                     f"LevelUp: Partially applied mod {mod_id} - {mod_request.description}"
                 )
+                repo.push()
 
                 return Result(
                     status=ResultStatus.PARTIAL,

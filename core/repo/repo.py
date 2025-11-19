@@ -191,6 +191,12 @@ class Repo:
         self._run_git(['add', '-A'])
         return self._run_git(['commit', '-m', message])
 
+    def push(self, branch: Optional[str] = None):
+        """Push branch to remote origin"""
+        branch = branch or self.work_branch
+        logger.info(f"Pushing branch {branch} to origin")
+        return self._run_git(['push', '-u', 'origin', branch])
+
     def reset_hard(self, ref: str = 'HEAD'):
         """Hard reset to a reference"""
         return self._run_git(['reset', '--hard', ref])
