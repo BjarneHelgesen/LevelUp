@@ -40,16 +40,17 @@ The `server` package implements:
 
 ## Configuration
 
-**CONFIG Dict (app.py:36-43)**
+**CONFIG Dict (app.py:37-42)**
 - `workspace`: Base directory for all LevelUp data
 - `repos`: Git repository clones location
 - `temp`: Temporary files for compilation/validation
-- `msvc_path`: Path to cl.exe (default: 'cl.exe')
 - `git_path`: Path to git (default: 'git')
 
-Environment variables `MSVC_PATH` and `GIT_PATH` override defaults.
+Environment variable `GIT_PATH` overrides default.
 
-ModProcessor accepts these paths in constructor - no global CONFIG access in `core` package.
+MSVCCompiler auto-discovers Visual Studio installation via vswhere.exe - no manual path configuration needed.
+
+ModProcessor accepts `repos_path` and `git_path` in constructor - no global CONFIG access in `core` package.
 
 ## Web UI Architecture
 

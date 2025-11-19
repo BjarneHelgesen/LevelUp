@@ -66,7 +66,7 @@ User (Web UI)
    - Apply mod based on source type (BUILTIN/COMMIT)
    - Compile original → compile modified → validate
    - If valid: commit to work branch; if invalid: hard reset
-6. Returns `Result` object with SUCCESS/FAILED status
+6. Returns `Result` object with SUCCESS/PARTIAL/FAILED status
 7. Frontend polls for status updates via `/api/mods/{mod_id}/status`
 
 **Validation Flow**:

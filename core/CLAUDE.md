@@ -24,10 +24,11 @@ The `core` package implements:
 - Uses only enums and objects internally - no string IDs
 
 **Result (result.py)**
-- Type-safe result tracking with `ResultStatus` enum (QUEUED, PROCESSING, SUCCESS, FAILED, ERROR)
+- Type-safe result tracking with `ResultStatus` enum (QUEUED, PROCESSING, SUCCESS, PARTIAL, FAILED, ERROR)
 - Replaces dict-based results for better error detection
 - `to_dict()` method for JSON serialization to frontend
 - Raises `TypeError` if status is not a `ResultStatus` enum value
+- PARTIAL status used when some files pass validation but others fail
 
 **ModRequest (mod_request.py)**
 - Type-safe mod processing request with `ModSourceType` enum (BUILTIN, COMMIT)
@@ -73,14 +74,15 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 
 **compilers/compiler.py**
 - MSVC compiler wrapper (cl.exe)
-- Key method: `compile_to_asm()` generates assembly output for validation
+- Auto-discovers Visual Studio installation via vswhere.exe
+- Key method: `compile_file()` returns `CompiledFile` with assembly output
 - Uses `/FA` flag for assembly generation, `/O2` for optimization
-- Includes `_normalize_asm()` for removing comments/metadata before comparison
-- `get_warnings()` captures warning output for warning diff validation
+- `CompiledFile` class (compiled_file.py) holds source_file and asm_output (string content)
 
 **validators/asm_validator.py**
 - Assembly comparison validator (primary regression detection method)
-- Normalizes ASM files by removing comments, timestamps, metadata
+- `validate(original: CompiledFile, modified: CompiledFile)` compares assembly outputs
+- `_normalize_asm(asm_content: str)` removes comments, timestamps, metadata from string
 - Compares normalized assembly line-by-line
 - Has sophisticated logic for acceptable differences:
   - Register substitution (different register allocation but same operations)
@@ -92,12 +94,8 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 - Minimal orchestration class with single method: `apply_mod_instance()`
 - Takes mod instance directly (no string IDs)
 - Delegates to mod classes: RemoveInlineMod, AddOverrideMod, ReplaceMSSpecificMod
-- Each mod class handles its own logic via `apply()` and `can_apply()` methods
+- Each mod class modifies files in-place via `apply()` method (returns None)
 - Records mod history with metadata from each mod instance
-
-**utils/git_handler.py** (Legacy - being phased out)
-- Original git wrapper - functionality merged into Repo class
-- May still be referenced in some places during transition
 
 ## Code Style
 
@@ -111,27 +109,27 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 
 **Adding a New Validator**:
 1. Create validator class in `validators/` inheriting from BaseValidator
-2. Implement abstract methods: `get_id()`, `get_name()`, `validate()`, `get_diff_report()`
+2. Implement abstract methods: `get_id()`, `get_name()`, `validate(original: CompiledFile, modified: CompiledFile)`
 3. Add to `ValidatorType` enum in `validators/validator_factory.py`
 4. ID from `get_id()` is automatically available in UI via `/api/available/validators`
 
 **Adding a New Mod Type**:
 1. Create mod class in `mods/` inheriting from BaseMod
-2. Implement abstract methods: `get_id()`, `get_name()`, `apply()`, `can_apply()`
+2. Implement abstract methods: `get_id()`, `get_name()`, `apply(source_file: Path) -> None`
 3. Add to `ModType` enum in `mods/mod_factory.py`
 4. ID from `get_id()` is automatically available in UI via `/api/available/mods`
-5. Pattern: check `can_apply()` → create temp copy → apply transformations → return path
+5. Pattern: modify source file in-place, `validate_before_apply()` checks if file exists
 
 **Adding a New Compiler**:
 1. Create compiler class in `compilers/` inheriting from BaseCompiler
-2. Implement abstract methods: `get_id()`, `get_name()`, `compile()`, `compile_to_asm()`, etc.
+2. Implement abstract methods: `get_id()`, `get_name()`, `compile_file()` returning `CompiledFile`
 3. Add to `CompilerType` enum in `compilers/compiler_factory.py`
 4. ID from `get_id()` is automatically available in UI via `/api/available/compilers`
 
 **Understanding Validation Results**:
-- Result object has status enum: QUEUED → PROCESSING → SUCCESS/FAILED/ERROR
+- Result object has status enum: QUEUED → PROCESSING → SUCCESS/PARTIAL/FAILED/ERROR
 - Result.validation_results array contains per-file validation outcomes
-- Failed validations include diff details for debugging
+- PARTIAL status when some files pass but others fail
 - Result.to_dict() serializes to JSON for frontend
 
 ## Key Files
