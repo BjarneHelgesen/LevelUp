@@ -7,6 +7,8 @@ import unicodedata
 from pathlib import Path
 from typing import Optional, Dict, Any
 
+from . import logger
+
 
 class Repo:
     """
@@ -35,8 +37,8 @@ class Repo:
         """
         self.url = url
         self.work_branch = self.WORK_BRANCH
-        repo_name = get_repo_name(url)
-        self.repo_path = Path(repos_folder / repo_filename(repo_name))
+        repo_name = Repo.get_repo_name(url)
+        self.repo_path = Path(repos_folder / Repo.repo_filename(repo_name))
         self.git_path = git_path
         self.post_checkout = post_checkout
 
@@ -53,15 +55,16 @@ class Repo:
         # Get the last part of the URL path
         return url.split('/')[-1]
         
+    @staticmethod
     def repo_filename(repo_name):
         '''Accept subset of ASCII characters in the filename '''
         allowed_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#()-.=[]{}~" 
 
         filename = []
         for char in unicodedata.normalize('NFD', repo_name):
-            if char in allowed_chars :
+            if char in allowed_chars:
                 filename.append(char)
-        return filename
+        return ''.join(filename)
 
 
     @classmethod
@@ -94,14 +97,22 @@ class Repo:
     def _run_git(self, args, cwd=None, check=True):
         """Run a git command and return output"""
         cmd = [self.git_path] + args
-        result = subprocess.run(
-            cmd,
-            cwd=cwd or self.repo_path,
-            capture_output=True,
-            text=True,
-            check=check
-        )
-        return result.stdout.strip()
+        logger.debug(f"Running git: {' '.join(cmd)}")
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=cwd or self.repo_path,
+                capture_output=True,
+                text=True,
+                check=check
+            )
+            if result.stdout.strip():
+                logger.debug(f"git output: {result.stdout.strip()[:200]}")
+            return result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            logger.error(f"git command failed: {' '.join(cmd)}")
+            logger.error(f"stderr: {e.stderr}")
+            raise
 
     def _run_shell_command(self, command: str):
         """Run a shell command in the repository directory"""
@@ -117,15 +128,26 @@ class Repo:
 
     def clone(self) -> 'Repo':
         """Clone the repository to repo_path"""
+        logger.info(f"Cloning repository {self.url} to {self.repo_path}")
         cmd = [self.git_path, 'clone', self.url, str(self.repo_path)]
         subprocess.run(cmd, capture_output=True, text=True, check=True)
+        logger.info(f"Repository cloned successfully")
         return self
 
     def ensure_cloned(self) -> None:
         """Ensure repository is cloned locally. Clone if not present, pull if exists."""
         if not self.repo_path.exists():
+            logger.debug(f"Repo path {self.repo_path} does not exist, cloning")
             self.clone()
         else:
+            logger.debug(f"Repo path {self.repo_path} exists, pulling latest")
+            # Checkout main branch and pull latest
+            try:
+                self._run_git(['checkout', 'main'])
+            except subprocess.CalledProcessError:
+                # Try 'master' if 'main' doesn't exist
+                logger.debug("'main' branch not found, trying 'master'")
+                self._run_git(['checkout', 'master'])
             self.pull()
 
     def pull(self):
@@ -158,7 +180,7 @@ class Repo:
 
     def prepare_work_branch(self) -> None:
         """Checkout the work branch for this repository and run post-checkout commands."""
-        self.checkout_branch()
+        self.checkout_branch(create=True)
 
     def cherry_pick(self, commit_hash: str):
         """Cherry-pick a commit"""

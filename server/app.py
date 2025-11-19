@@ -23,6 +23,7 @@ from core.result import Result, ResultStatus
 from core.repo import Repo
 from core.mod_request import ModRequest, ModSourceType
 from core.mod_processor import ModProcessor
+from core import logger
 
 app = Flask(__name__)
 app.secret_key = 'levelup-secret-key-change-in-production'
@@ -47,15 +48,28 @@ for path in CONFIG.values():
 
 def mod_worker():
     """Worker thread for processing mods"""
-    processor = ModProcessor(
-        repos_path=CONFIG['repos'],
-        temp_path=CONFIG['temp'],
-        git_path=CONFIG['git_path']
-    )
-    
+    logger.info("mod_worker starting")
+    print("=== mod_worker starting ===")
+    try:
+        processor = ModProcessor(
+            repos_path=CONFIG['repos'],
+            temp_path=CONFIG['temp'],
+            git_path=CONFIG['git_path']
+        )
+        logger.info("ModProcessor initialized successfully")
+        print("=== ModProcessor initialized ===")
+    except Exception as e:
+        logger.exception(f"Error initializing ModProcessor: {e}")
+        print(f"=== Error initializing ModProcessor: {e} ===")
+        import traceback
+        traceback.print_exc()
+        return
+
     while True:
         try:
             mod_request = mod_queue.get(timeout=1)
+            logger.info(f"Dequeued mod for processing: {mod_request.id}")
+            print(f"=== Processing mod: {mod_request.id} ===")
 
             # Set initial processing status
             results[mod_request.id] = Result(
@@ -65,6 +79,8 @@ def mod_worker():
 
             # Process mod and get result
             result = processor.process_mod(mod_request)
+            logger.info(f"Mod {mod_request.id} result: {result.status} - {result.message}")
+            print(f"=== Mod result: {result.status} - {result.message} ===")
 
             # Update results with returned result
             results[mod_request.id] = result
@@ -73,7 +89,10 @@ def mod_worker():
         except queue.Empty:
             continue
         except Exception as e:
+            logger.exception(f"Error in mod worker: {e}")
             print(f"Error in mod worker: {e}")
+            import traceback
+            traceback.print_exc()
 
 # Start worker thread
 worker_thread = threading.Thread(target=mod_worker, daemon=True)
@@ -179,8 +198,13 @@ def update_repo(repo_id):
 @app.route('/api/mods', methods=['POST'])
 def submit_mod():
     """Submit a new mod for processing"""
+    logger.info("submit_mod called")
+    print("=== submit_mod called ===")
     data = request.json
+    logger.debug(f"Received mod submission: {data}")
+    print(f"Received data: {data}")
     mod_id = str(uuid.uuid4())
+    logger.info(f"Generated mod_id: {mod_id}")
 
     # Determine source type and create appropriate objects
     type_str = data['type']
@@ -267,4 +291,4 @@ def get_available_compilers():
     return jsonify(CompilerFactory.get_available_compilers())
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)

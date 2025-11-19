@@ -6,10 +6,12 @@ from typing import List, Tuple, Optional
 
 from .base_compiler import BaseCompiler
 from ..compiled_file import CompiledFile
+from .. import logger
 
 
 class MSVCCompiler(BaseCompiler):
     def __init__(self, arch="x64"):
+        logger.info(f"Initializing MSVCCompiler with arch={arch}")
         self.arch = arch
         self.default_flags = [
             '/O2',
@@ -21,9 +23,11 @@ class MSVCCompiler(BaseCompiler):
         # Locate vswhere
         vswhere = r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
         if not Path(vswhere).exists():
+            logger.error(f"vswhere.exe not found at {vswhere}")
             raise FileNotFoundError("vswhere.exe not found at expected location.")
 
         # Query VS installation path
+        logger.debug(f"Running vswhere to find VS installation")
         result = subprocess.run(
             [vswhere, "-latest", "-products", "*", "-property", "installationPath"],
             capture_output=True,
@@ -31,21 +35,28 @@ class MSVCCompiler(BaseCompiler):
         )
         install_path = result.stdout.strip()
         if not install_path:
+            logger.error("vswhere returned empty installation path")
             raise RuntimeError("Unable to locate Visual Studio installation via vswhere.")
+
+        logger.debug(f"Found VS installation at: {install_path}")
 
         # Locate vcvarsall.bat
         self.vcvarsall = Path(install_path) / "VC" / "Auxiliary" / "Build" / "vcvarsall.bat"
         if not self.vcvarsall.exists():
+            logger.error(f"vcvarsall.bat not found at: {self.vcvarsall}")
             raise FileNotFoundError(f"vcvarsall.bat not found at: {self.vcvarsall}")
 
         # Extract environment variables set by vcvarsall
+        logger.debug("Loading MSVC environment variables")
         self.env = self._load_msvc_environment()
 
         # Locate cl.exe
         cl_path = self._find_cl()
         if not cl_path:
+            logger.error("cl.exe not found in configured environment PATH")
             raise RuntimeError("cl.exe was not found in configured environment.")
         self.cl_path = cl_path
+        logger.info(f"MSVCCompiler initialized with cl.exe at: {self.cl_path}")
 
         super().__init__(self.cl_path)
 
@@ -85,6 +96,7 @@ class MSVCCompiler(BaseCompiler):
 
     def _run_cl(self, args, cwd=None, check=True):
         cmd = [self.cl_path] + args
+        logger.debug(f"Running cl.exe: {' '.join(cmd)}")
 
         result = subprocess.run(
             cmd,
@@ -94,6 +106,15 @@ class MSVCCompiler(BaseCompiler):
             check=check,
             env=self.env
         )
+
+        if result.returncode != 0:
+            logger.error(f"cl.exe failed with return code {result.returncode}")
+            logger.error(f"stderr: {result.stderr}")
+            if result.stdout:
+                logger.debug(f"stdout: {result.stdout}")
+        else:
+            logger.debug(f"cl.exe completed successfully")
+
         return result
 
     def compile(self, source_file, output_file=None, additional_flags=None):
@@ -117,14 +138,14 @@ class MSVCCompiler(BaseCompiler):
             '/Fa' + str(asm_output_file),
             '/c',
         ])
-        
+
         if additional_flags:
             args.extend(additional_flags)
-        
+
         args.append(str(source_file))
-        
-        result = self._run_cl(args, cwd=source_file.parent)
-        
+
+        result = self._run_cl(args, cwd=source_file.parent, check=False)
+
         if result.returncode == 0 and Path(asm_output_file).exists():
             return Path(asm_output_file)
         else:
