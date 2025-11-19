@@ -15,12 +15,12 @@ LevelUp is a tool for modernizing legacy C++ code with zero regression risk. It 
 ## Architecture
 
 ### Components
-- **Flask Server** (`app.py`): Main application server
-- **Git Handler** (`utils/git_handler.py`): Manages git operations
-- **MSVC Compiler** (`utils/compiler.py`): Wrapper for MSVC compilation
-- **ASM Validator** (`validators/asm_validator.py`): Validates assembly output
-- **Mod Handler** (`mods/mod_handler.py`): Applies modifications to code
-- **Web UI** (`templates/index.html`): User interface
+- **Flask Server** (`server/app.py`): Main application server
+- **Repo** (`core/repo.py`): Git repository management
+- **MSVC Compiler** (`core/compilers/compiler.py`): Wrapper for MSVC compilation
+- **ASM Validator** (`core/validators/asm_validator.py`): Validates assembly output
+- **Mod Handler** (`core/mods/mod_handler.py`): Applies modifications to code
+- **Web UI** (`server/templates/index.html`): User interface
 
 ### Extensibility
 The architecture supports future additions:
@@ -53,13 +53,14 @@ pip install -r requirements.txt
 
 3. Set environment variables (optional):
 ```bash
-set MSVC_PATH=C:\Path\To\cl.exe
 set GIT_PATH=C:\Path\To\git.exe
 ```
 
+Note: MSVC compiler (cl.exe) is auto-discovered via vswhere.exe.
+
 4. Run the server:
 ```bash
-python app.py
+python server/app.py
 ```
 
 5. Access the web interface at `http://localhost:5000`
@@ -68,18 +69,28 @@ python app.py
 
 ### Setting Up a Repository
 
-1. Navigate to the "Repositories" tab
-2. Enter repository details:
-   - Name: A friendly name for the repository
+1. Navigate to the "Repositories" screen
+2. Click "Add Repository" and enter:
    - URL: Git repository URL
-   - Work Branch: Branch for LevelUp changes (default: levelup-work)
    - Post-Checkout Commands: Optional commands to run after checkout
    - Build Command: Command to build the entire project
    - Single TU Command: Command to compile a single translation unit
 
 3. Click "Add Repository"
 
-### CppDev Workflow
+Note: Repository name is automatically extracted from the URL. Work branch is hardcoded to "levelup-work".
+
+### Applying Built-in Mods
+
+1. Select a repository from the Repositories screen
+2. In the Mods screen, select a mod type:
+   - Remove Inline Keywords
+   - Add Override Keywords
+   - Replace MS-Specific Syntax
+3. Enter a description
+4. Click "Submit"
+
+### CppDev Workflow (Commit Validation)
 
 1. Make changes to your C++ code locally
 2. Commit your changes:
@@ -91,25 +102,25 @@ python app.py
    ```bash
    git rev-parse HEAD
    ```
-4. Go to the "CppDev Tools" tab in LevelUp
-5. Select your repository
-6. Enter the commit hash
-7. Click "Validate & Rebase"
+4. In LevelUp, select your repository
+5. Select "Validate Commit" mod type
+6. Enter the commit hash and description
+7. Click "Submit"
 
 LevelUp will:
 - Apply your changes to a test environment
 - Compile both original and modified code to assembly
 - Compare the assembly output
-- If validation passes, rebase changes to the work branch
+- If validation passes, commit and push changes to the work branch
 - Update the UI with the result
 
 ### Monitoring Progress
 
-The "Queue Status" tab shows:
+Poll the queue status endpoint or watch the UI for:
 - Current queue size
 - Processing status
-- Completed validations
-- Failed validations
+- Completed validations (SUCCESS, PARTIAL, FAILED)
+- Error conditions
 
 Results are updated in real-time.
 
@@ -129,29 +140,21 @@ The validator allows:
 - Label reordering (when safe)
 - Register substitution (same operations, different registers)
 - Equivalent operations (e.g., LEA vs MOV for addresses)
+- NOPs and alignment changes
 
-## Testing with 7zip
-
-To test LevelUp with your 7zip repository:
-
-1. Add the 7zip repository in the UI:
-   - Name: "7zip"
-   - URL: Your 7zip repo URL
-   - Work Branch: "levelup-work"
-
-2. Make a simple change to a CPP file (e.g., remove an `inline` keyword)
-
-3. Commit and submit through CppDev tools
-
-4. Watch the validation process
-
-5. Check the work branch for successfully validated changes
+### Result Statuses
+- **SUCCESS**: All files passed validation
+- **PARTIAL**: Some files passed, some failed
+- **FAILED**: No files passed validation
+- **ERROR**: An error occurred during processing
 
 ## API Endpoints
 
 ### Repository Management
 - `GET /api/repos` - List repositories
 - `POST /api/repos` - Add repository
+- `PUT /api/repos/<id>` - Update repository
+- `DELETE /api/repos/<id>` - Delete repository
 
 ### Mod Management
 - `POST /api/mods` - Submit modification
@@ -164,9 +167,6 @@ To test LevelUp with your 7zip repository:
 
 ### Queue Management
 - `GET /api/queue/status` - Get queue status
-
-### CppDev Tools
-- `POST /api/cppdev/commit` - Submit cppDev commit
 
 ## Future Enhancements
 

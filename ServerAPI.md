@@ -45,6 +45,33 @@
 
 **Response**: Same as single repository object above
 
+#### `PUT /api/repos/<repo_id>`
+**Description**: Update an existing repository configuration
+
+**Request Body**:
+```json
+{
+  "url": "string (optional)",
+  "post_checkout": "string (optional)",
+  "build_command": "string (optional)",
+  "single_tu_command": "string (optional)"
+}
+```
+
+**Note**: Repository name is automatically updated if URL changes.
+
+**Response**: Updated repository object
+
+#### `DELETE /api/repos/<repo_id>`
+**Description**: Delete a repository configuration
+
+**Response**:
+```json
+{
+  "success": boolean
+}
+```
+
 ---
 
 ### 2.2 Mod Management
@@ -97,7 +124,7 @@
 **Response**:
 ```json
 {
-  "status": "queued|processing|success|failed|error",
+  "status": "queued|processing|success|partial|failed|error",
   "message": "string",
   "validation_results": [
     {
@@ -108,6 +135,14 @@
   "timestamp": "ISO datetime"
 }
 ```
+
+**Status Values**:
+- `queued`: Mod is waiting to be processed
+- `processing`: Mod is currently being processed
+- `success`: All files passed validation
+- `partial`: Some files passed validation, some failed
+- `failed`: No files passed validation
+- `error`: An error occurred during processing
 
 ---
 
@@ -153,6 +188,10 @@
   {
     "id": "replace_ms_specific",
     "name": "Replace MS-Specific Syntax"
+  },
+  {
+    "id": "commit",
+    "name": "Validate Commit"
   }
 ]
 ```
