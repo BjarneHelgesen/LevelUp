@@ -47,7 +47,8 @@ class ModProcessor:
                 logger.debug(f"Cherry-picking commit {mod_request.commit_hash}")
                 repo.cherry_pick(mod_request.commit_hash)
 
-            cpp_files = list(repo.repo_path.glob('**/*.cpp'))
+            cpp_files = [f for f in repo.repo_path.glob('**/*.cpp')
+                        if not f.name.startswith('_levelup_')]
             logger.info(f"Found {len(cpp_files)} C++ files to process")
             validation_results = []
 
