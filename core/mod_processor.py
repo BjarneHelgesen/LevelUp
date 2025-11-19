@@ -47,32 +47,35 @@ class ModProcessor:
                 logger.debug(f"Cherry-picking commit {mod_request.commit_hash}")
                 repo.cherry_pick(mod_request.commit_hash)
 
-            cpp_files = [f for f in repo.repo_path.glob('**/*.cpp')
-                        if not f.name.startswith('_levelup_')]
-            logger.info(f"Found {len(cpp_files)} C++ files to process")
+            # Find all C/C++ source and header files
+            source_files = []
+            for pattern in ['**/*.cpp', '**/*.c', '**/*.hpp', '**/*.h']:
+                source_files.extend([f for f in repo.repo_path.glob(pattern)
+                                    if not f.name.startswith('_levelup_')])
+            logger.info(f"Found {len(source_files)} C/C++ files to process")
             validation_results = []
 
-            for cpp_file in cpp_files:
-                logger.debug(f"Processing file: {cpp_file}")
+            for source_file in source_files:
+                logger.debug(f"Processing file: {source_file}")
 
-                logger.debug(f"Compiling original {cpp_file.name}")
+                logger.debug(f"Compiling original {source_file.name}")
                 original_asm = self.compiler.compile_to_asm(
-                    cpp_file,
-                    self.temp_path / f'original_{cpp_file.stem}.asm'
+                    source_file,
+                    self.temp_path / f'original_{source_file.stem}.asm'
                 )
                 temp_files.append(original_asm)
 
                 if mod_request.source_type == ModSourceType.BUILTIN:
-                    logger.debug(f"Applying mod {mod_request.mod_instance.get_id()} to {cpp_file.name}")
+                    logger.debug(f"Applying mod {mod_request.mod_instance.get_id()} to {source_file.name}")
                     self.mod_handler.apply_mod_instance(
-                        cpp_file,
+                        source_file,
                         mod_request.mod_instance
                     )
 
-                logger.debug(f"Compiling modified {cpp_file.name}")
+                logger.debug(f"Compiling modified {source_file.name}")
                 modified_asm = self.compiler.compile_to_asm(
-                    cpp_file,
-                    self.temp_path / f'modified_{cpp_file.stem}.asm'
+                    source_file,
+                    self.temp_path / f'modified_{source_file.stem}.asm'
                 )
                 temp_files.append(modified_asm)
 
@@ -81,18 +84,18 @@ class ModProcessor:
                     mod_request.mod_instance.get_id() == 'remove_inline'):
                     # For remove_inline: just check both compiled successfully
                     # Source diff validation not needed since we modified in-place
-                    logger.debug(f"Validation for {cpp_file.name}: compiled successfully")
+                    logger.debug(f"Validation for {source_file.name}: compiled successfully")
                     is_valid = True
                 else:
                     # Default: validate ASM equivalence
-                    logger.debug(f"Validating ASM for {cpp_file.name}")
+                    logger.debug(f"Validating ASM for {source_file.name}")
                     is_valid = self.asm_validator.validate(original_asm, modified_asm)
 
                 validation_results.append(ValidationResult(
-                    file=str(cpp_file),
+                    file=str(source_file),
                     valid=is_valid
                 ))
-                logger.debug(f"Validation result for {cpp_file.name}: {'PASS' if is_valid else 'FAIL'}")
+                logger.debug(f"Validation result for {source_file.name}: {'PASS' if is_valid else 'FAIL'}")
 
             all_valid = all(v.valid for v in validation_results)
 
