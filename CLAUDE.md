@@ -144,6 +144,8 @@ mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
 
 **Always Commit Changes**: After completing any code changes (not just planning), always commit them. Each prompt that results in code modifications should end with a commit.
 
+**Git Commands**: Run any git commands that don't require the `-f` (force) flag without asking for permission.
+
 ## Working with the Codebase
 
 - Workspace directory `workspace/` created on first run, contains repos and temp files
