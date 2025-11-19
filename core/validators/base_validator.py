@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Dict, Any
+
+from ..compilers.compiled_file import CompiledFile
 
 
 class BaseValidator(ABC):
@@ -16,16 +16,5 @@ class BaseValidator(ABC):
         pass
 
     @abstractmethod
-    def validate(self, original_file: Path, modified_file: Path) -> bool:
+    def validate(self, original: CompiledFile, modified: CompiledFile) -> bool:
         pass
-
-    @abstractmethod
-    def get_diff_report(self, original_file: Path, modified_file: Path) -> str:
-        pass
-
-    def get_validation_details(self, original_file: Path, modified_file: Path) -> Dict[str, Any]:
-        is_valid = self.validate(original_file, modified_file)
-        return {
-            'valid': is_valid,
-            'validator_type': self.__class__.__name__
-        }

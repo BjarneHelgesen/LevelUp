@@ -1,8 +1,8 @@
 import difflib
 import re
-from pathlib import Path
 
 from .base_validator import BaseValidator
+from ..compilers.compiled_file import CompiledFile
 
 
 class ASMValidator(BaseValidator):
@@ -33,48 +33,47 @@ class ASMValidator(BaseValidator):
     def get_name() -> str:
         return "Assembly Comparison"
 
-    def validate(self, original_asm_path, modified_asm_path):
-        original_lines = self._normalize_asm_file(original_asm_path)
-        modified_lines = self._normalize_asm_file(modified_asm_path)
+    def validate(self, original: CompiledFile, modified: CompiledFile) -> bool:
+        original_lines = self._normalize_asm(original.asm_output)
+        modified_lines = self._normalize_asm(modified.asm_output)
 
         if original_lines == modified_lines:
             return True
 
         return self._check_acceptable_differences(original_lines, modified_lines)
 
-    def _normalize_asm_file(self, asm_path):
-        if not Path(asm_path).exists():
-            raise FileNotFoundError(f"ASM file not found: {asm_path}")
-        
-        with open(asm_path, 'r', errors='ignore') as f:
-            lines = f.readlines()
-        
+    def _normalize_asm(self, asm_content: str):
+        if not asm_content:
+            return []
+
+        lines = asm_content.splitlines()
+
         normalized = []
         in_function = False
-        
+
         for line in lines:
             line = line.rstrip()
-            
+
             # Skip lines matching ignore patterns
             if any(pattern.match(line) for pattern in self.ignore_patterns):
                 continue
-            
+
             # Skip empty lines outside of functions
             if not line and not in_function:
                 continue
-            
+
             # Track when we're inside a function
             if line.startswith('_TEXT') or line.startswith('.text'):
                 in_function = True
             elif line.startswith('_TEXT ENDS') or line.startswith('.text ENDS'):
                 in_function = False
-            
+
             # Normalize whitespace
             line = ' '.join(line.split())
-            
+
             if line:
                 normalized.append(line)
-        
+
         return normalized
     
     def _check_acceptable_differences(self, original_lines, modified_lines):
@@ -164,17 +163,3 @@ class ASMValidator(BaseValidator):
                 continue
             return False
         return True
-
-    def get_diff_report(self, original_asm_path, modified_asm_path):
-        original_lines = self._normalize_asm_file(original_asm_path)
-        modified_lines = self._normalize_asm_file(modified_asm_path)
-        
-        diff = difflib.unified_diff(
-            original_lines,
-            modified_lines,
-            fromfile=str(original_asm_path),
-            tofile=str(modified_asm_path),
-            lineterm=''
-        )
-        
-        return '\n'.join(diff)
