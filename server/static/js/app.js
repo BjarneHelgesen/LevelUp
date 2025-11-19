@@ -320,33 +320,20 @@ function createResultItem(id, result) {
     const item = document.createElement('div');
     item.className = `result-item ${result.status}`;
 
-    // Display "Success" or "Fail" based on status
     const isSuccess = result.status === 'success';
-    const displayStatus = isSuccess ? 'Success' : 'Fail';
+    const displayStatus = isSuccess ? 'Success' : 'Failed';
     const statusClass = isSuccess ? 'status-success' : 'status-fail';
+    const filesModified = result.validation_results ? result.validation_results.length : 0;
 
     item.innerHTML = `
         <div class="result-header">
             <div>
-                <strong>Mod ID:</strong> ${id}
+                <strong>${result.message}</strong>
                 <br>
-                <small>${result.timestamp}</small>
+                <small>${filesModified} file${filesModified !== 1 ? 's' : ''} modified</small>
             </div>
             <span class="result-status ${statusClass}">${displayStatus}</span>
         </div>
-        <div class="result-message">
-            ${result.message}
-        </div>
-        ${result.validation_results ? `
-            <div class="validation-details">
-                <strong>Validation Results:</strong>
-                <ul>
-                    ${result.validation_results.map(v =>
-                        `<li>${v.file}: ${v.valid ? '✓' : '✗'}</li>`
-                    ).join('')}
-                </ul>
-            </div>
-        ` : ''}
     `;
 
     return item;
