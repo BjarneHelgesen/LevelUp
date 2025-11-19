@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import shutil
 
 from .compilers.compiler import MSVCCompiler
 from .validators.asm_validator import ASMValidator
@@ -50,6 +51,7 @@ class ModProcessor:
             cpp_files = list(repo.repo_path.glob('**/*.cpp'))
             logger.info(f"Found {len(cpp_files)} C++ files to process")
             validation_results = []
+            file_mappings = []  # Track (original, modified) pairs for copying back
 
             for cpp_file in cpp_files:
                 logger.debug(f"Processing file: {cpp_file}")
@@ -68,6 +70,7 @@ class ModProcessor:
                         mod_request.mod_instance
                     )
                     temp_files.append(modified_cpp)
+                    file_mappings.append((cpp_file, modified_cpp))
                 else:
                     modified_cpp = cpp_file
 
@@ -99,6 +102,12 @@ class ModProcessor:
 
             if all_valid:
                 logger.info(f"All validations passed for mod {mod_id}, committing changes")
+
+                # Copy modified files back to original locations
+                for original, modified in file_mappings:
+                    logger.debug(f"Copying {modified} -> {original}")
+                    shutil.copy2(modified, original)
+
                 repo.commit(
                     f"LevelUp: Applied mod {mod_id} - {mod_request.description}"
                 )
