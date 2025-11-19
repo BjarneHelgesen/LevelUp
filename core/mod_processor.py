@@ -3,6 +3,7 @@ import os
 
 from .compilers.compiler import MSVCCompiler
 from .validators.asm_validator import ASMValidator
+from .validators.source_diff_validator import SourceDiffValidator
 from .mods.mod_handler import ModHandler
 from .result import Result, ResultStatus
 from .repo import Repo
@@ -16,6 +17,7 @@ class ModProcessor:
         logger.info(f"ModProcessor initializing with repos_path={repos_path}, temp_path={temp_path}")
         self.compiler = MSVCCompiler()
         self.asm_validator = ASMValidator(self.compiler)
+        self.source_diff_validator = SourceDiffValidator(allowed_removals=['inline'])
         self.mod_handler = ModHandler()
         self.repos_path = Path(repos_path).resolve()
         self.temp_path = Path(temp_path).resolve()
@@ -76,8 +78,17 @@ class ModProcessor:
                 )
                 temp_files.append(modified_asm)
 
-                logger.debug(f"Validating ASM for {cpp_file.name}")
-                is_valid = self.asm_validator.validate(original_asm, modified_asm)
+                # Choose validator based on mod type
+                if (mod_request.source_type == ModSourceType.BUILTIN and
+                    mod_request.mod_instance.get_id() == 'remove_inline'):
+                    # For remove_inline: validate source diff only (binary may differ)
+                    logger.debug(f"Validating source diff for {cpp_file.name}")
+                    is_valid = self.source_diff_validator.validate(cpp_file, modified_cpp)
+                else:
+                    # Default: validate ASM equivalence
+                    logger.debug(f"Validating ASM for {cpp_file.name}")
+                    is_valid = self.asm_validator.validate(original_asm, modified_asm)
+
                 validation_results.append(ValidationResult(
                     file=str(cpp_file),
                     valid=is_valid
