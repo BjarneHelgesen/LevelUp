@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Tuple, Optional
 
-from ..compiled_file import CompiledFile
+from .compiled_file import CompiledFile
 
 
 class BaseCompiler(ABC):
@@ -21,23 +20,5 @@ class BaseCompiler(ABC):
         pass
 
     @abstractmethod
-    def compile(self, source_file: Path, output_file: Optional[Path] = None,
-                additional_flags: Optional[List[str]] = None) -> any:
-        pass
-
-    @abstractmethod
-    def compile_file(self, source_file: Path, output_dir: Path,
-                     additional_flags: Optional[List[str]] = None) -> CompiledFile:
-        pass
-
-    @abstractmethod
-    def get_preprocessed(self, source_file: Path, output_file: Optional[Path] = None) -> any:
-        pass
-
-    @abstractmethod
-    def check_syntax(self, source_file: Path) -> Tuple[bool, str]:
-        pass
-
-    @abstractmethod
-    def get_warnings(self, source_file: Path) -> List[str]:
+    def compile_file(self, source_file: Path, additional_flags: str = None) -> CompiledFile:
         pass

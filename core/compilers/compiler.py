@@ -1,11 +1,9 @@
 import subprocess
-import os
 import tempfile
 from pathlib import Path
-from typing import List, Tuple, Optional
 
 from .base_compiler import BaseCompiler
-from ..compiled_file import CompiledFile
+from .compiled_file import CompiledFile
 from .. import logger
 
 
@@ -109,122 +107,42 @@ class MSVCCompiler(BaseCompiler):
 
         return result
 
-    def compile(self, source_file, output_file=None, additional_flags=None):
-        args = self.default_flags.copy()
-        
-        if additional_flags:
-            args.extend(additional_flags)
-        
-        args.append(str(source_file))
-        
-        if output_file:
-            args.extend(['/Fo' + str(output_file)])
-        
-        return self._run_cl(args, cwd=source_file.parent)
-
-    def compile_to_asm(self, source_file, asm_output_file, additional_flags=None):
-        args = self.default_flags.copy()
-
-        args.extend([
-            '/FA',
-            '/Fa' + str(asm_output_file),
-            '/c',
-        ])
-
-        if additional_flags:
-            args.extend(additional_flags)
-
-        args.append(str(source_file))
-
-        result = self._run_cl(args, cwd=source_file.parent, check=False)
-
-        if result.returncode == 0 and Path(asm_output_file).exists():
-            return Path(asm_output_file)
-        else:
-            raise RuntimeError(f"Failed to generate ASM: {result.stderr}")
-
-    def compile_file(self, source_file, output_dir, additional_flags=None):
+    def compile_file(self, source_file: Path, additional_flags: str = None) -> CompiledFile:
         source_path = Path(source_file)
-        output_path = Path(output_dir)
 
-        base_name = source_path.stem
-        asm_file = output_path / f"{base_name}.asm"
-        obj_file = output_path / f"{base_name}.obj"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            base_name = source_path.stem
+            asm_file = temp_path / f"{base_name}.asm"
+            obj_file = temp_path / f"{base_name}.obj"
 
-        # Compile to ASM
-        args = self.default_flags.copy()
-        args.extend([
-            '/FA',
-            '/Fa' + str(asm_file),
-            '/c',
-            '/Fo' + str(obj_file),
-        ])
+            # Compile to ASM
+            args = self.default_flags.copy()
+            args.extend([
+                '/FA',
+                '/Fa' + str(asm_file),
+                '/c',
+                '/Fo' + str(obj_file),
+            ])
 
-        if additional_flags:
-            args.extend(additional_flags)
+            if additional_flags:
+                args.extend(additional_flags.split())
 
-        args.append(str(source_file))
+            args.append(str(source_file))
 
-        result = self._run_cl(args, cwd=source_path.parent)
+            result = self._run_cl(args, cwd=source_path.parent, check=False)
 
-        if result.returncode != 0:
-            raise RuntimeError(f"Compilation failed: {result.stderr}")
+            if result.returncode != 0:
+                raise RuntimeError(f"Compilation failed: {result.stderr}")
 
-        asm_output = None
-        if asm_file.exists():
-            asm_output = asm_file.read_text()
+            asm_output = None
+            if asm_file.exists():
+                asm_output = asm_file.read_text()
 
-        obj_path = None
-        if obj_file.exists():
-            obj_path = obj_file
-
-        return CompiledFile(
-            source_file=source_path,
-            asm_output=asm_output,
-            ast=None,
-            ir=None,
-            obj_file=obj_path
-        )
-
-    def get_preprocessed(self, source_file, output_file=None):
-        args = [
-            '/E',
-            '/nologo',
-            str(source_file)
-        ]
-        
-        result = self._run_cl(args, cwd=source_file.parent, check=False)
-        
-        if output_file:
-            with open(output_file, 'w') as f:
-                f.write(result.stdout)
-            return Path(output_file)
-        
-        return result.stdout
-
-    def check_syntax(self, source_file):
-        args = [
-            '/Zs',
-            '/nologo',
-            str(source_file)
-        ]
-        
-        result = self._run_cl(args, cwd=source_file.parent, check=False)
-        return result.returncode == 0, result.stderr
-
-    def get_warnings(self, source_file):
-        args = self.default_flags.copy()
-        args.extend([
-            '/Wall',
-            '/c',
-            str(source_file)
-        ])
-
-        result = self._run_cl(args, cwd=source_file.parent, check=False)
-
-        warnings = []
-        for line in result.stderr.split('\n'):
-            if 'warning' in line.lower():
-                warnings.append(line.strip())
-
-        return warnings
+            return CompiledFile(
+                source_file=source_path,
+                asm_output=asm_output,
+                ast=None,
+                ir=None,
+                obj_file=None
+            )

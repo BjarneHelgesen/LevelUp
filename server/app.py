@@ -53,7 +53,6 @@ def mod_worker():
     try:
         processor = ModProcessor(
             repos_path=CONFIG['repos'],
-            temp_path=CONFIG['temp'],
             git_path=CONFIG['git_path']
         )
         logger.info("ModProcessor initialized successfully")

@@ -1,5 +1,4 @@
 from pathlib import Path
-import os
 
 from .compilers.compiler import MSVCCompiler
 from .validators.asm_validator import ASMValidator
@@ -13,21 +12,19 @@ from . import logger
 
 
 class ModProcessor:
-    def __init__(self, repos_path: Path, temp_path: Path, git_path: str = 'git'):
-        logger.info(f"ModProcessor initializing with repos_path={repos_path}, temp_path={temp_path}")
+    def __init__(self, repos_path: Path, git_path: str = 'git'):
+        logger.info(f"ModProcessor initializing with repos_path={repos_path}")
         self.compiler = MSVCCompiler()
         self.asm_validator = ASMValidator(self.compiler)
         self.source_diff_validator = SourceDiffValidator(allowed_removals=['inline'])
         self.mod_handler = ModHandler()
         self.repos_path = Path(repos_path).resolve()
-        self.temp_path = Path(temp_path).resolve()
         self.git_path = git_path
         logger.info("ModProcessor initialized successfully")
 
 
     def process_mod(self, mod_request: ModRequest) -> Result:
         mod_id = mod_request.id
-        temp_files = []  # Track temp ASM files for cleanup
 
         logger.info(f"Processing mod {mod_id}: {mod_request.description}")
         logger.debug(f"Mod details: repo={mod_request.repo_name}, type={mod_request.source_type}")
@@ -59,11 +56,7 @@ class ModProcessor:
                 logger.debug(f"Processing file: {source_file}")
 
                 logger.debug(f"Compiling original {source_file.name}")
-                original_asm = self.compiler.compile_to_asm(
-                    source_file,
-                    self.temp_path / f'original_{source_file.stem}.asm'
-                )
-                temp_files.append(original_asm)
+                original = self.compiler.compile_file(source_file)
 
                 if mod_request.source_type == ModSourceType.BUILTIN:
                     logger.debug(f"Applying mod {mod_request.mod_instance.get_id()} to {source_file.name}")
@@ -73,11 +66,7 @@ class ModProcessor:
                     )
 
                 logger.debug(f"Compiling modified {source_file.name}")
-                modified_asm = self.compiler.compile_to_asm(
-                    source_file,
-                    self.temp_path / f'modified_{source_file.stem}.asm'
-                )
-                temp_files.append(modified_asm)
+                modified = self.compiler.compile_file(source_file)
 
                 # Choose validator based on mod type
                 if (mod_request.source_type == ModSourceType.BUILTIN and
@@ -89,7 +78,7 @@ class ModProcessor:
                 else:
                     # Default: validate ASM equivalence
                     logger.debug(f"Validating ASM for {source_file.name}")
-                    is_valid = self.asm_validator.validate(original_asm, modified_asm)
+                    is_valid = self.asm_validator.validate(original, modified)
 
                 validation_results.append(ValidationResult(
                     file=str(source_file),
@@ -156,11 +145,3 @@ class ModProcessor:
                 status=ResultStatus.ERROR,
                 message=str(e)
             )
-        finally:
-            # Clean up temporary ASM files
-            for temp_file in temp_files:
-                try:
-                    if temp_file and Path(temp_file).exists():
-                        os.remove(temp_file)
-                except Exception:
-                    pass  # Best effort cleanup
