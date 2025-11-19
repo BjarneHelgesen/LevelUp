@@ -7,7 +7,7 @@ import unicodedata
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from . import logger
+from .. import logger
 
 
 class Repo:
