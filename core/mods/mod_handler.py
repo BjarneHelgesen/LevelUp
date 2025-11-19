@@ -11,7 +11,7 @@ class ModHandler:
         if not is_valid:
             raise ValueError(f"Mod validation failed: {message}")
 
-        modified_file = mod_instance.apply(Path(cpp_file))
+        mod_instance.apply(Path(cpp_file))
 
         self.mod_history.append({
             'file': str(cpp_file),
@@ -19,8 +19,6 @@ class ModHandler:
             'timestamp': datetime.now().isoformat(),
             'mod_metadata': mod_instance.get_metadata()
         })
-
-        return modified_file
 
     def get_mod_history(self):
         return self.mod_history

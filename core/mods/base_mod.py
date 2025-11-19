@@ -20,7 +20,8 @@ class BaseMod(ABC):
         pass
 
     @abstractmethod
-    def apply(self, source_file: Path) -> Path:
+    def apply(self, source_file: Path) -> None:
+        """Apply mod to source file in-place"""
         pass
 
     def validate_before_apply(self, source_file: Path) -> tuple[bool, str]:
