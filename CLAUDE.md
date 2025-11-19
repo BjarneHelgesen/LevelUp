@@ -140,6 +140,10 @@ mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
 - Important warnings preserved (e.g., "IMPORTANT: Stable identifier used in APIs")
 - Code should be self-documenting through clear naming and structure
 
+## Workflow
+
+**Always Commit Changes**: After completing any code changes (not just planning), always commit them. Each prompt that results in code modifications should end with a commit.
+
 ## Working with the Codebase
 
 - Workspace directory `workspace/` created on first run, contains repos and temp files
