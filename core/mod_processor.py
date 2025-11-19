@@ -47,12 +47,15 @@ class ModProcessor:
                                     if not f.name.startswith('_levelup_')])
             logger.info(f"Found {len(source_files)} C/C++ files to process")
 
-            # Compile original versions of all files
-            logger.debug("Compiling original versions")
+            # Compile original versions of all files and store original content
+            logger.debug("Compiling original versions and storing content")
             originals = {}
+            original_contents = {}
             for source_file in source_files:
                 logger.debug(f"Compiling original {source_file.name}")
                 originals[source_file] = self.compiler.compile_file(source_file)
+                # Store original content for potential restoration
+                original_contents[source_file] = source_file.read_text(encoding='utf-8', errors='ignore')
 
             # Apply the mod changes
             if mod_request.source_type == ModSourceType.COMMIT:
@@ -116,7 +119,16 @@ class ModProcessor:
             elif any_valid:
                 # Partial success - some files passed, some failed
                 logger.info(f"Partial success for mod {mod_id}: {valid_count}/{total_count} files passed")
-                if repo.commit(f"LevelUp: Partially applied mod {mod_id} - {mod_request.description}"):
+
+                # Restore failed files to original state before committing
+                failed_files = [Path(v.file) for v in validation_results if not v.valid]
+                for failed_file in failed_files:
+                    if failed_file in original_contents:
+                        logger.debug(f"Restoring failed file to original: {failed_file.name}")
+                        failed_file.write_text(original_contents[failed_file], encoding='utf-8')
+
+                # Now commit only the successful changes
+                if repo.commit(f"LevelUp: Applied mod {mod_id} - {mod_request.description} ({valid_count}/{total_count} files)"):
                     repo.push()
 
                 return Result(

@@ -318,6 +318,87 @@ class TestModProcessorProcessMod:
         assert result.status == ResultStatus.PARTIAL  # Some passed, some failed
 
     @patch("core.mod_processor.Repo")
+    def test_process_mod_restores_failed_files_on_partial_success(
+        self, mock_repo_class, processor, builtin_mod_request, temp_dir
+    ):
+        mock_repo = MagicMock()
+        cpp_files = [temp_dir / f"test{i}.cpp" for i in range(3)]
+        original_contents = ["original0", "original1", "original2"]
+        for i, f in enumerate(cpp_files):
+            f.write_text(original_contents[i])
+
+        def glob_side_effect(pattern):
+            if '*.cpp' in pattern:
+                return cpp_files
+            return []
+        mock_repo.repo_path.glob.side_effect = glob_side_effect
+        mock_repo_class.return_value = mock_repo
+
+        # Set up different mod_instance that triggers asm_validator
+        mock_mod = Mock()
+        mock_mod.get_id.return_value = "add_override"  # Not remove_inline
+        mock_mod.get_name.return_value = "Add Override"
+        builtin_mod_request.mod_instance = mock_mod
+
+        mock_compiled = Mock(spec=CompiledFile)
+        mock_compiled.asm_output = "mov eax, 1"
+        processor.compiler.compile_file = Mock(return_value=mock_compiled)
+
+        # File 0 passes, file 1 fails, file 2 passes
+        processor.asm_validator.validate = Mock(side_effect=[True, False, True])
+
+        # Simulate mod modifying the files
+        def apply_side_effect(file, mod):
+            file.write_text(f"modified_{file.name}")
+        processor.mod_handler.apply_mod_instance = Mock(side_effect=apply_side_effect)
+
+        result = processor.process_mod(builtin_mod_request)
+
+        assert result.status == ResultStatus.PARTIAL
+        # Failed file (test1.cpp) should be restored to original content
+        assert cpp_files[1].read_text() == "original1"
+        # Successful files should retain modified content
+        assert "modified" in cpp_files[0].read_text()
+        assert "modified" in cpp_files[2].read_text()
+
+    @patch("core.mod_processor.Repo")
+    def test_process_mod_commits_only_successful_files_on_partial(
+        self, mock_repo_class, processor, builtin_mod_request, temp_dir
+    ):
+        mock_repo = MagicMock()
+        cpp_files = [temp_dir / f"test{i}.cpp" for i in range(2)]
+        for f in cpp_files:
+            f.write_text("original")
+
+        def glob_side_effect(pattern):
+            if '*.cpp' in pattern:
+                return cpp_files
+            return []
+        mock_repo.repo_path.glob.side_effect = glob_side_effect
+        mock_repo_class.return_value = mock_repo
+
+        mock_mod = Mock()
+        mock_mod.get_id.return_value = "add_override"
+        mock_mod.get_name.return_value = "Add Override"
+        builtin_mod_request.mod_instance = mock_mod
+
+        mock_compiled = Mock(spec=CompiledFile)
+        mock_compiled.asm_output = "mov eax, 1"
+        processor.compiler.compile_file = Mock(return_value=mock_compiled)
+
+        # First passes, second fails
+        processor.asm_validator.validate = Mock(side_effect=[True, False])
+        processor.mod_handler.apply_mod_instance = Mock()
+
+        result = processor.process_mod(builtin_mod_request)
+
+        # Should still commit (with successful changes only)
+        mock_repo.commit.assert_called_once()
+        # Commit message should include counts
+        commit_msg = mock_repo.commit.call_args[0][0]
+        assert "1/2" in commit_msg
+
+    @patch("core.mod_processor.Repo")
     def test_process_mod_cleans_up_temp_files(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
