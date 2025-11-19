@@ -1,4 +1,3 @@
-import tempfile
 import shutil
 from pathlib import Path
 
@@ -21,24 +20,15 @@ class RemoveInlineMod(BaseMod):
     def get_name() -> str:
         return 'Remove Inline Keywords'
 
-    def can_apply(self, source_file: Path) -> bool:
-        if not source_file.exists():
-            return False
-
-        try:
-            with open(source_file, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-                return 'inline' in content
-        except Exception:
-            return False
-
     def apply(self, source_file: Path) -> Path:
-        temp_file = Path(tempfile.mktemp(suffix=source_file.suffix))
+        # Create temp file in same directory as original so includes work
+        temp_file = source_file.parent / f"_levelup_modified_{source_file.name}"
         shutil.copy2(source_file, temp_file)
 
         with open(temp_file, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
 
+        # Apply transformation (may result in no changes if 'inline' not present)
         content = content.replace('inline', '')
 
         with open(temp_file, 'w', encoding='utf-8') as f:

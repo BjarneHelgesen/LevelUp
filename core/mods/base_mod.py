@@ -23,15 +23,9 @@ class BaseMod(ABC):
     def apply(self, source_file: Path) -> Path:
         pass
 
-    @abstractmethod
-    def can_apply(self, source_file: Path) -> bool:
-        pass
-
     def validate_before_apply(self, source_file: Path) -> tuple[bool, str]:
         if not source_file.exists():
             return False, f"Source file does not exist: {source_file}"
-        if not self.can_apply(source_file):
-            return False, f"Mod {self.mod_id} cannot be applied to {source_file}"
         return True, "Validation passed"
 
     def get_metadata(self) -> Dict[str, Any]:

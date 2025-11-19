@@ -1,5 +1,4 @@
 import re
-import tempfile
 import shutil
 from pathlib import Path
 
@@ -38,20 +37,9 @@ class ReplaceMSSpecificMod(BaseMod):
     def get_name() -> str:
         return 'Replace MS-Specific Syntax'
 
-    def can_apply(self, source_file: Path) -> bool:
-        if not source_file.exists():
-            return False
-
-        try:
-            with open(source_file, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-                return any(re.search(r'\b' + pattern + r'\b', content)
-                          for pattern in self.replacements.keys())
-        except Exception:
-            return False
-
     def apply(self, source_file: Path) -> Path:
-        temp_file = Path(tempfile.mktemp(suffix=source_file.suffix))
+        # Create temp file in same directory as original so includes work
+        temp_file = source_file.parent / f"_levelup_modified_{source_file.name}"
         shutil.copy2(source_file, temp_file)
 
         with open(temp_file, 'r', encoding='utf-8', errors='ignore') as f:
