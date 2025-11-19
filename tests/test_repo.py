@@ -210,18 +210,26 @@ class TestRepoGitOperations:
 
     @patch("subprocess.run")
     def test_commit_adds_all_files_then_commits(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+        # Mock to return changes to commit when status is checked
+        def mock_run_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if 'status' in cmd and '--porcelain' in cmd:
+                return Mock(stdout="M test.cpp\n", returncode=0)
+            return Mock(stdout="", returncode=0)
+
+        mock_run.side_effect = mock_run_side_effect
         repo = Repo(
             url="https://github.com/user/project.git",
             repos_folder=temp_dir
         )
-        repo.commit("Test commit message")
+        result = repo.commit("Test commit message")
         calls = mock_run.call_args_list
-        # Should have called git add and git commit
+        # Should have called git add, status, and commit
         add_called = any("add" in str(call) for call in calls)
         commit_called = any("commit" in str(call) for call in calls)
         assert add_called
         assert commit_called
+        assert result is True
 
     @patch("subprocess.run")
     def test_reset_hard_calls_git_reset(self, mock_run, temp_dir):
@@ -330,7 +338,8 @@ class TestRepoEnsureCloned:
 
     @patch.object(Repo, "clone")
     @patch.object(Repo, "pull")
-    def test_pulls_if_repo_path_exists(self, mock_pull, mock_clone, temp_dir):
+    @patch.object(Repo, "_run_git")
+    def test_pulls_if_repo_path_exists(self, mock_run_git, mock_pull, mock_clone, temp_dir):
         repo = Repo(
             url="https://github.com/user/project.git",
             repos_folder=temp_dir
@@ -338,8 +347,11 @@ class TestRepoEnsureCloned:
         # Create the repo path so it exists
         repo.repo_path.mkdir(parents=True, exist_ok=True)
         repo.ensure_cloned()
+        # Should have attempted checkout and pull
         mock_pull.assert_called_once()
         mock_clone.assert_not_called()
+        # Should have tried to checkout main/master
+        assert any('checkout' in str(call) for call in mock_run_git.call_args_list)
 
 
 class TestRepoCheckoutBranch:

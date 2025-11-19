@@ -46,10 +46,11 @@ class TestModHandlerApplyModInstance:
         handler.apply_mod_instance(cpp_file, mock_mod)
         mock_mod.apply.assert_called_once_with(cpp_file)
 
-    def test_apply_returns_modified_file_path(self, handler, mock_mod):
+    def test_apply_returns_none_for_in_place_modification(self, handler, mock_mod):
         cpp_file = Path("/path/to/test.cpp")
         result = handler.apply_mod_instance(cpp_file, mock_mod)
-        assert result == Path("/tmp/modified.cpp")
+        # apply_mod_instance modifies in-place and returns None
+        assert result is None
 
     def test_apply_records_history(self, handler, mock_mod):
         cpp_file = Path("/path/to/test.cpp")
