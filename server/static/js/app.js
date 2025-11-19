@@ -101,31 +101,13 @@ function populateModSelect(mods) {
     // Clear existing options except the first one
     select.innerHTML = '<option value="">Select a mod...</option>';
 
-    // Add Built-in Mods optgroup
-    if (mods.length > 0) {
-        const builtinOptgroup = document.createElement('optgroup');
-        builtinOptgroup.label = 'Built-in Mods';
-
-        mods.forEach(mod => {
-            const option = document.createElement('option');
-            option.value = `builtin:${mod.id}`;
-            option.textContent = mod.name;
-            builtinOptgroup.appendChild(option);
-        });
-
-        select.appendChild(builtinOptgroup);
-    }
-
-    // Add Other options
-    const otherOptgroup = document.createElement('optgroup');
-    otherOptgroup.label = 'Other';
-
-    const commitOption = document.createElement('option');
-    commitOption.value = 'commit';
-    commitOption.textContent = 'Git Commit';
-    otherOptgroup.appendChild(commitOption);
-
-    select.appendChild(otherOptgroup);
+    // Add all mods as plain options
+    mods.forEach(mod => {
+        const option = document.createElement('option');
+        option.value = `builtin:${mod.id}`;
+        option.textContent = mod.name;
+        select.appendChild(option);
+    });
 }
 
 // Back to repos button
