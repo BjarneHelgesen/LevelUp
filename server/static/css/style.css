@@ -387,7 +387,8 @@ button:hover {
     color: #065f46;
 }
 
-.status-failed {
+.status-failed,
+.status-fail {
     background-color: #fee2e2;
     color: #991b1b;
 }

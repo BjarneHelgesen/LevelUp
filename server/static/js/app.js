@@ -250,6 +250,7 @@ document.getElementById('mod-select').addEventListener('change', (e) => {
 
 document.getElementById('mod-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    console.log('Form submitted, selectedRepo:', selectedRepo);
 
     // Check if a repository is selected
     if (!selectedRepo) {
@@ -285,6 +286,7 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
     }
 
     try {
+        console.log('Sending mod request:', data);
         const response = await fetch(`${API_BASE}/mods`, {
             method: 'POST',
             headers: {
@@ -292,6 +294,7 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
             },
             body: JSON.stringify(data)
         });
+        console.log('Response status:', response.status);
 
         if (response.ok) {
             const mod = await response.json();
@@ -316,9 +319,12 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
 function createResultItem(id, result) {
     const item = document.createElement('div');
     item.className = `result-item ${result.status}`;
-    
-    const statusClass = `status-${result.status}`;
-    
+
+    // Display "Success" or "Fail" based on status
+    const isSuccess = result.status === 'success';
+    const displayStatus = isSuccess ? 'Success' : 'Fail';
+    const statusClass = isSuccess ? 'status-success' : 'status-fail';
+
     item.innerHTML = `
         <div class="result-header">
             <div>
@@ -326,7 +332,7 @@ function createResultItem(id, result) {
                 <br>
                 <small>${result.timestamp}</small>
             </div>
-            <span class="result-status ${statusClass}">${result.status}</span>
+            <span class="result-status ${statusClass}">${displayStatus}</span>
         </div>
         <div class="result-message">
             ${result.message}
@@ -335,14 +341,14 @@ function createResultItem(id, result) {
             <div class="validation-details">
                 <strong>Validation Results:</strong>
                 <ul>
-                    ${result.validation_results.map(v => 
+                    ${result.validation_results.map(v =>
                         `<li>${v.file}: ${v.valid ? '✓' : '✗'}</li>`
                     ).join('')}
                 </ul>
             </div>
         ` : ''}
     `;
-    
+
     return item;
 }
 
@@ -353,8 +359,8 @@ async function trackModStatus(modId) {
             const response = await fetch(`${API_BASE}/mods/${modId}/status`);
             const status = await response.json();
 
-            // If mod becomes successful, refresh the successful mods list
-            if (status.status === 'success') {
+            // If mod is completed (success, failed, or error), refresh the completed mods list
+            if (status.status === 'success' || status.status === 'failed' || status.status === 'error') {
                 loadSuccessfulMods();
             }
 
@@ -406,20 +412,20 @@ function displayQueuedMods(status) {
     container.appendChild(list);
 }
 
-// Successful Mods Management
+// Completed Mods Management
 async function loadSuccessfulMods() {
     if (!selectedRepo) return;
 
     try {
         const response = await fetch(`${API_BASE}/queue/status`);
         const status = await response.json();
-        displaySuccessfulMods(status);
+        displayCompletedMods(status);
     } catch (error) {
-        console.error('Error loading successful mods:', error);
+        console.error('Error loading completed mods:', error);
     }
 }
 
-function displaySuccessfulMods(status) {
+function displayCompletedMods(status) {
     const container = document.getElementById('mod-results');
     container.innerHTML = '';
 
@@ -428,19 +434,20 @@ function displaySuccessfulMods(status) {
         return;
     }
 
-    // Filter for successful items that belong to the current repo
-    const successfulItems = Object.entries(status.results)
+    // Filter for completed items (success, failed, or error) that belong to the current repo
+    const completedItems = Object.entries(status.results)
         .filter(([id, result]) => {
-            return result.status === 'success' && modToRepoMap[id] === selectedRepo.name;
+            const isCompleted = result.status === 'success' || result.status === 'failed' || result.status === 'error';
+            return isCompleted && modToRepoMap[id] === selectedRepo.name;
         })
         .sort((a, b) => new Date(b[1].timestamp) - new Date(a[1].timestamp)); // Most recent first
 
-    if (successfulItems.length === 0) {
-        container.innerHTML = '<p class="no-items">No successful mods yet</p>';
+    if (completedItems.length === 0) {
+        container.innerHTML = '<p class="no-items">No completed mods yet</p>';
         return;
     }
 
-    successfulItems.forEach(([id, result]) => {
+    completedItems.forEach(([id, result]) => {
         const item = createResultItem(id, result);
         item.dataset.modId = id;
         container.appendChild(item);
