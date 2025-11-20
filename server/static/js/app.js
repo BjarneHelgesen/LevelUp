@@ -283,7 +283,6 @@ document.getElementById('mod-form').addEventListener('submit', async (e) => {
             // Track which repo this mod belongs to
             modToRepoMap[mod.id] = selectedRepo.name;
             saveModToRepoMap();
-            showNotification('Mod submitted successfully', 'success');
             e.target.reset();
             trackModStatus(mod.id);
             loadQueuedMods(); // Refresh queued mods list
