@@ -144,7 +144,6 @@ mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
 - Do NOT use `@dataclass` decorator when adding new classes
 - Use regular classes with explicit `__init__` methods instead
 - Type hints are encouraged, but dataclasses are avoided for simplicity
-- Note: `core/mod_request.py` currently uses `@dataclass` but this is legacy; do not follow this pattern for new code
 
 ## Workflow
 

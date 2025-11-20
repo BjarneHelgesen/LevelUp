@@ -12,7 +12,7 @@ The `core` package implements:
 - Validators for regression detection
 - Factory patterns for extensibility
 
-**Key Principle**: All operations use type-safe objects (enums, dataclasses) internally. String IDs only exist at the API boundary in `server/app.py`.
+**Key Principle**: All operations use type-safe objects (enums, classes) internally. String IDs only exist at the API boundary in `server/app.py`.
 
 ## Core Components
 
@@ -33,7 +33,7 @@ The `core` package implements:
 **ModRequest (mod_request.py)**
 - Type-safe mod processing request with `ModSourceType` enum (BUILTIN, COMMIT)
 - Replaces dict-based mod_data for type safety
-- Validates required fields in `__post_init__` (e.g., mod_instance for BUILTIN)
+- Validates required fields in `__init__` (e.g., mod_instance for BUILTIN)
 - Used internally by backend - app.py converts JSON to ModRequest
 
 **Repo (repo.py)**

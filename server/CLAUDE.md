@@ -11,7 +11,7 @@ The `server` package implements:
 - Static web UI with vanilla JavaScript
 - Real-time status polling
 
-**Key Role**: This is the only place where string IDs are used. The server converts between JSON (with string IDs) and type-safe objects (enums, dataclasses) used by the `core` package.
+**Key Role**: This is the only place where string IDs are used. The server converts between JSON (with string IDs) and type-safe objects (enums, classes) used by the `core` package.
 
 ## Flask Server (app.py)
 

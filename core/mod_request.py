@@ -1,5 +1,4 @@
 from enum import Enum
-from dataclasses import dataclass
 from typing import Optional
 
 
@@ -8,18 +7,27 @@ class ModSourceType(Enum):
     COMMIT = "commit"
 
 
-@dataclass
 class ModRequest:
-    id: str
-    repo_url: str
-    repo_name: str
-    source_type: ModSourceType
-    description: str
-    mod_instance: Optional[object] = None
-    commit_hash: Optional[str] = None
-    timestamp: Optional[str] = None
+    def __init__(
+        self,
+        id: str,
+        repo_url: str,
+        repo_name: str,
+        source_type: ModSourceType,
+        description: str,
+        mod_instance: Optional[object] = None,
+        commit_hash: Optional[str] = None,
+        timestamp: Optional[str] = None
+    ):
+        self.id = id
+        self.repo_url = repo_url
+        self.repo_name = repo_name
+        self.source_type = source_type
+        self.description = description
+        self.mod_instance = mod_instance
+        self.commit_hash = commit_hash
+        self.timestamp = timestamp
 
-    def __post_init__(self):
         if self.source_type == ModSourceType.BUILTIN:
             if self.mod_instance is None:
                 raise ValueError("mod_instance required for BUILTIN source")
