@@ -1,15 +1,40 @@
 {
   "permissions": {
     "allow": [
+      "Bash(git *)",                       // Allow any git command...
       "Bash(git rebase:*)",
       "Bash(python -m py_compile:*)",
       "Bash(git checkout:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git merge:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(git mv:*)",
+      "Bash(mkdir:*)",
+      "Bash(dir:*)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\ExampleCPP\" status)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\ExampleCPP\" diff)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\ExampleCPP\" log --oneline -5 2)",
+      "Bash(nul)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\ExampleCPP\" add .gitignore README.md src/)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\ExampleCPP\" commit -m \"$(cat <<''EOF''\nAdd test C++ project structure with inline functions\n\n- Base classes with virtual methods (Shape, Animal)\n- Derived classes with inline overrides (Circle, Rectangle, Dog, Bird)\n- Utility functions with inline keyword\n- Entry point demonstrating all features\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\ExampleCPP\" diff --stat)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\ExampleCPP\" add:*)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\LevelUp\" status)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\LevelUp\" diff --stat)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\LevelUp\" add:*)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\LevelUp\" diff)",
+      "Bash(git -C \"C:\\Users\\BjarneH\\source\\repos\\LevelUp\" log --oneline -5)",
     ],
     "deny": [],
-    "ask": []
+    "ask":  [
+      "Bash(git * -f*)",    
+      "Bash(git * --force*)",  
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)",
+      "Bash(git rebase * -f*)",
+      "Bash(git reset --hard*)",  
+      "Bash(rm -rf *)",       
+      "Bash(sudo *)"
   }
 }

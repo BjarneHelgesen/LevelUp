@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import Generator
 
 from .base_mod import BaseMod
 
@@ -20,27 +21,40 @@ class AddOverrideMod(BaseMod):
     def get_name() -> str:
         return 'Add Override Keywords'
 
-    def apply(self, source_file: Path) -> None:
-        # Modify file in-place
-        with open(source_file, 'r', encoding='utf-8', errors='ignore') as f:
-            lines = f.readlines()
+    def generate_changes(self, repo_path: Path) -> Generator[tuple[Path, str], None, None]:
+        # Find all C/C++ source and header files
+        source_files = []
+        for pattern in ['**/*.cpp', '**/*.c', '**/*.hpp', '**/*.h']:
+            source_files.extend([f for f in repo_path.glob(pattern)
+                                if not f.name.startswith('_levelup_')])
 
-        modified_lines = []
-        in_class = False
+        for source_file in source_files:
+            lines = source_file.read_text(encoding='utf-8', errors='ignore').splitlines(keepends=True)
 
-        for line in lines:
-            # Detect class declaration
-            if re.match(r'^\s*class\s+\w+', line):
-                in_class = True
-            elif re.match(r'^\s*};', line):
-                in_class = False
+            in_class = False
+            for line_num, line in enumerate(lines, start=1):
+                # Detect class declaration
+                if re.match(r'^\s*class\s+\w+', line):
+                    in_class = True
+                elif re.match(r'^\s*};', line):
+                    in_class = False
 
-            # Add override to virtual functions
-            if in_class and 'virtual' in line and 'override' not in line:
-                if ';' in line:  # Function declaration
-                    line = re.sub(r';', ' override;', line)
+                # Check if this line needs override keyword
+                if in_class and 'virtual' in line and 'override' not in line and ';' in line:
+                    # Store original content
+                    original_lines = lines.copy()
 
-            modified_lines.append(line)
+                    # Modify this specific line
+                    modified_line = re.sub(r';', ' override;', line)
+                    lines[line_num - 1] = modified_line
 
-        with open(source_file, 'w', encoding='utf-8') as f:
-            f.writelines(modified_lines)
+                    # Write modified content
+                    source_file.write_text(''.join(lines), encoding='utf-8')
+
+                    # Yield this atomic change
+                    commit_msg = f"Add override at {source_file.name}:{line_num}"
+                    yield (source_file, commit_msg)
+
+                    # Re-read current content for next iteration
+                    # (caller may have reverted the change)
+                    lines = source_file.read_text(encoding='utf-8', errors='ignore').splitlines(keepends=True)

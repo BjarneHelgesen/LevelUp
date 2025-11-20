@@ -1,13 +1,15 @@
 from pathlib import Path
+import uuid
 
 from .compilers.compiler import MSVCCompiler
 from .validators.asm_validator import ASMValidator
 from .validators.source_diff_validator import SourceDiffValidator
 from .mods.mod_handler import ModHandler
 from .result import Result, ResultStatus
-from .repo import Repo
+from .repo.repo import Repo
 from .mod_request import ModRequest, ModSourceType
 from .validation_result import ValidationResult
+from .git_commit import GitCommit
 from . import logger
 
 
@@ -40,120 +42,18 @@ class ModProcessor:
             repo.ensure_cloned()
             repo.prepare_work_branch()
 
-            # Find all C/C++ source and header files
-            source_files = []
-            for pattern in ['**/*.cpp', '**/*.c', '**/*.hpp', '**/*.h']:
-                source_files.extend([f for f in repo.repo_path.glob(pattern)
-                                    if not f.name.startswith('_levelup_')])
-            logger.info(f"Found {len(source_files)} C/C++ files to process")
-
-            # Compile original versions of all files and store original content
-            logger.debug("Compiling original versions and storing content")
-            originals = {}
-            original_contents = {}
-            for source_file in source_files:
-                logger.debug(f"Compiling original {source_file.name}")
-                originals[source_file] = self.compiler.compile_file(source_file)
-                # Store original content for potential restoration
-                original_contents[source_file] = source_file.read_text(encoding='utf-8', errors='ignore')
-
-            # Apply the mod changes
-            if mod_request.source_type == ModSourceType.COMMIT:
-                logger.debug(f"Cherry-picking commit {mod_request.commit_hash}")
-                repo.cherry_pick(mod_request.commit_hash)
-            elif mod_request.source_type == ModSourceType.BUILTIN:
-                for source_file in source_files:
-                    logger.debug(f"Applying mod {mod_request.mod_instance.get_id()} to {source_file.name}")
-                    self.mod_handler.apply_mod_instance(
-                        source_file,
-                        mod_request.mod_instance
-                    )
-
-            # Compile modified versions and validate
-            validation_results = []
-            for source_file in source_files:
-                logger.debug(f"Compiling modified {source_file.name}")
-                original = originals[source_file]
-                modified = self.compiler.compile_file(source_file)
-
-                # Choose validator based on mod type
-                if (mod_request.source_type == ModSourceType.BUILTIN and
-                    mod_request.mod_instance.get_id() == 'remove_inline'):
-                    # For remove_inline: just check both compiled successfully
-                    # Source diff validation not needed since we modified in-place
-                    logger.debug(f"Validation for {source_file.name}: compiled successfully")
-                    is_valid = True
-                else:
-                    # Default: validate ASM equivalence
-                    logger.debug(f"Validating ASM for {source_file.name}")
-                    is_valid = self.asm_validator.validate(original, modified)
-
-                validation_results.append(ValidationResult(
-                    file=str(source_file),
-                    valid=is_valid
-                ))
-                logger.debug(f"Validation result for {source_file.name}: {'PASS' if is_valid else 'FAIL'}")
-
             # Determine mod name for display
             if mod_request.mod_instance:
                 mod_name = mod_request.mod_instance.get_name()
             else:
                 mod_name = mod_request.description or 'Commit'
 
-            # Count valid and invalid results
-            valid_count = sum(1 for v in validation_results if v.valid)
-            total_count = len(validation_results)
-            all_valid = valid_count == total_count
-            any_valid = valid_count > 0
+            # Handle COMMIT source type (legacy path)
+            if mod_request.source_type == ModSourceType.COMMIT:
+                return self._process_commit_mod(mod_request, repo, mod_name)
 
-            if all_valid:
-                logger.info(f"All validations passed for mod {mod_id}, committing changes")
-                if repo.commit(f"LevelUp: Applied mod {mod_id} - {mod_request.description}"):
-                    logger.info(f"Commit successful for mod {mod_id}, pushing to remote")
-                    repo.push()
-                    logger.info(f"Push successful for mod {mod_id} on branch {repo.work_branch}")
-                else:
-                    logger.info(f"No changes to commit for mod {mod_id}, skipping push")
-
-                return Result(
-                    status=ResultStatus.SUCCESS,
-                    message=mod_name,
-                    validation_results=validation_results
-                )
-            elif any_valid:
-                # Partial success - some files passed, some failed
-                logger.info(f"Partial success for mod {mod_id}: {valid_count}/{total_count} files passed")
-
-                # Restore failed files to original state before committing
-                failed_files = [Path(v.file) for v in validation_results if not v.valid]
-                for failed_file in failed_files:
-                    if failed_file in original_contents:
-                        logger.debug(f"Restoring failed file to original: {failed_file.name}")
-                        failed_file.write_text(original_contents[failed_file], encoding='utf-8')
-
-                # Now commit only the successful changes
-                if repo.commit(f"LevelUp: Applied mod {mod_id} - {mod_request.description} ({valid_count}/{total_count} files)"):
-                    logger.info(f"Commit successful for mod {mod_id} (partial), pushing to remote")
-                    repo.push()
-                    logger.info(f"Push successful for mod {mod_id} (partial) on branch {repo.work_branch}")
-                else:
-                    logger.info(f"No changes to commit for mod {mod_id} (partial), skipping push")
-
-                return Result(
-                    status=ResultStatus.PARTIAL,
-                    message=mod_name,
-                    validation_results=validation_results
-                )
-            else:
-                failed_files = [v.file for v in validation_results if not v.valid]
-                logger.warning(f"Validation failed for mod {mod_id}, resetting. Failed files: {failed_files}")
-                repo.reset_hard()
-
-                return Result(
-                    status=ResultStatus.FAILED,
-                    message=mod_name,
-                    validation_results=validation_results
-                )
+            # Handle BUILTIN mods with generator pattern
+            return self._process_builtin_mod(mod_request, repo, mod_name)
 
         except Exception as e:
             logger.exception(f"Error processing mod {mod_id}: {e}")
@@ -166,3 +66,153 @@ class ModProcessor:
                 status=ResultStatus.ERROR,
                 message=str(e)
             )
+
+    def _process_commit_mod(self, mod_request: ModRequest, repo: Repo, mod_name: str) -> Result:
+        """Process a COMMIT type mod (legacy path)"""
+        mod_id = mod_request.id
+        logger.debug(f"Cherry-picking commit {mod_request.commit_hash}")
+        repo.cherry_pick(mod_request.commit_hash)
+
+        # Find all C/C++ source and header files
+        source_files = []
+        for pattern in ['**/*.cpp', '**/*.c', '**/*.hpp', '**/*.h']:
+            source_files.extend([f for f in repo.repo_path.glob(pattern)
+                                if not f.name.startswith('_levelup_')])
+
+        # Compile and validate
+        validation_results = []
+        for source_file in source_files:
+            original = self.compiler.compile_file(source_file)
+            modified = self.compiler.compile_file(source_file)
+            is_valid = self.asm_validator.validate(original, modified)
+            validation_results.append(ValidationResult(
+                file=str(source_file),
+                valid=is_valid
+            ))
+
+        valid_count = sum(1 for v in validation_results if v.valid)
+        total_count = len(validation_results)
+        all_valid = valid_count == total_count
+
+        if all_valid:
+            logger.info(f"All validations passed for mod {mod_id}, pushing to remote")
+            repo.push()
+            return Result(
+                status=ResultStatus.SUCCESS,
+                message=mod_name,
+                validation_results=validation_results
+            )
+        else:
+            logger.warning(f"Validation failed for mod {mod_id}, resetting")
+            repo.reset_hard()
+            return Result(
+                status=ResultStatus.FAILED,
+                message=mod_name,
+                validation_results=validation_results
+            )
+
+    def _process_builtin_mod(self, mod_request: ModRequest, repo: Repo, mod_name: str) -> Result:
+        """Process a BUILTIN mod using generator pattern for atomic changes"""
+        mod_id = mod_request.id
+
+        # Create atomic branch for this mod's changes
+        atomic_branch = f"levelup-atomic-{mod_id}"
+        repo.create_atomic_branch(repo.work_branch, atomic_branch)
+
+        accepted_commits = []
+        rejected_commits = []
+        validation_results = []
+
+        try:
+            # Generate and process atomic changes
+            for file_path, commit_message in mod_request.mod_instance.generate_changes(repo.repo_path):
+                logger.debug(f"Processing atomic change: {commit_message}")
+
+                # Store original content before change
+                original_content = file_path.read_text(encoding='utf-8', errors='ignore')
+
+                # Compile original
+                original_compiled = self.compiler.compile_file(file_path)
+
+                # File has already been modified by the generator
+                # Compile modified version
+                modified_compiled = self.compiler.compile_file(file_path)
+
+                # Validate based on mod type
+                if mod_request.mod_instance.get_id() == 'remove_inline':
+                    # For remove_inline: just check both compiled successfully
+                    is_valid = True
+                else:
+                    # Default: validate ASM equivalence
+                    is_valid = self.asm_validator.validate(original_compiled, modified_compiled)
+
+                logger.debug(f"Validation result: {'PASS' if is_valid else 'FAIL'}")
+
+                if is_valid:
+                    # Commit this atomic change
+                    if repo.commit(commit_message):
+                        commit_hash = repo.get_commit_hash()
+                        git_commit = GitCommit(str(file_path), commit_message)
+                        git_commit.commit_hash = commit_hash
+                        git_commit.accepted = True
+                        accepted_commits.append(git_commit)
+                        logger.info(f"Accepted and committed: {commit_message}")
+
+                        validation_results.append(ValidationResult(
+                            file=str(file_path),
+                            valid=True
+                        ))
+                    else:
+                        logger.debug(f"No changes to commit for: {commit_message}")
+                else:
+                    # Revert this change
+                    file_path.write_text(original_content, encoding='utf-8')
+                    git_commit = GitCommit(str(file_path), commit_message)
+                    git_commit.accepted = False
+                    rejected_commits.append(git_commit)
+                    logger.info(f"Rejected and reverted: {commit_message}")
+
+                    validation_results.append(ValidationResult(
+                        file=str(file_path),
+                        valid=False
+                    ))
+
+            # Determine result status
+            if len(accepted_commits) > 0 and len(rejected_commits) == 0:
+                status = ResultStatus.SUCCESS
+            elif len(accepted_commits) > 0 and len(rejected_commits) > 0:
+                status = ResultStatus.PARTIAL
+            else:
+                status = ResultStatus.FAILED
+
+            # Squash and rebase accepted commits back to work branch
+            if len(accepted_commits) > 0:
+                logger.info(f"Squashing {len(accepted_commits)} commits and rebasing to {repo.work_branch}")
+                repo.squash_and_rebase(atomic_branch, repo.work_branch)
+
+                # Push the squashed commit
+                logger.info(f"Pushing squashed changes to remote")
+                repo.push()
+            else:
+                # No accepted commits, just switch back to work branch and delete atomic branch
+                logger.info("No accepted commits, cleaning up atomic branch")
+                repo.checkout_branch(repo.work_branch)
+                repo.delete_branch(atomic_branch, force=True)
+
+            return Result(
+                status=status,
+                message=mod_name,
+                validation_results=validation_results,
+                accepted_commits=[c.to_dict() for c in accepted_commits],
+                rejected_commits=[c.to_dict() for c in rejected_commits]
+            )
+
+        except Exception as e:
+            # On error, return to work branch and cleanup
+            logger.exception(f"Error during atomic processing: {e}")
+            try:
+                repo.checkout_branch(repo.work_branch)
+                repo.delete_branch(atomic_branch, force=True)
+            except Exception:
+                pass  # Best effort cleanup
+            raise

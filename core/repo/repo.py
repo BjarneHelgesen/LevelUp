@@ -243,6 +243,43 @@ class Repo:
         """Pop stashed changes"""
         return self._run_git(['stash', 'pop'])
 
+    def create_atomic_branch(self, base_branch: str, atomic_branch_name: str):
+        """Create a new branch for atomic commits from a base branch"""
+        self._run_git(['checkout', base_branch])
+        self._run_git(['checkout', '-b', atomic_branch_name])
+        return atomic_branch_name
+
+    def squash_and_rebase(self, atomic_branch: str, target_branch: str):
+        """Squash all commits on atomic_branch and rebase onto target_branch"""
+        # Get the merge base (where atomic_branch diverged from target_branch)
+        merge_base = self._run_git(['merge-base', atomic_branch, target_branch])
+
+        # Checkout the atomic branch
+        self._run_git(['checkout', atomic_branch])
+
+        # Reset soft to merge base (keeps all changes staged)
+        self._run_git(['reset', '--soft', merge_base])
+
+        # Create single squashed commit if there are staged changes
+        status = self._run_git(['status', '--porcelain'])
+        if status:
+            self._run_git(['commit', '-m', f'Squashed atomic changes from {atomic_branch}'])
+
+        # Rebase onto target branch
+        self._run_git(['rebase', target_branch])
+
+        # Checkout target branch and merge the squashed commit
+        self._run_git(['checkout', target_branch])
+        self._run_git(['merge', atomic_branch, '--ff-only'])
+
+        # Delete the atomic branch
+        self._run_git(['branch', '-d', atomic_branch])
+
+    def delete_branch(self, branch_name: str, force: bool = False):
+        """Delete a branch"""
+        flag = '-D' if force else '-d'
+        return self._run_git(['branch', flag, branch_name])
+
     def __repr__(self) -> str:
         """String representation for debugging"""
         name = self.get_repo_name(self.url)

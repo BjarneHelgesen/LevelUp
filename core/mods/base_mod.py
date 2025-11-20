@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Generator
 
 
 class BaseMod(ABC):
@@ -20,14 +20,14 @@ class BaseMod(ABC):
         pass
 
     @abstractmethod
-    def apply(self, source_file: Path) -> None:
-        """Apply mod to source file in-place"""
+    def generate_changes(self, repo_path: Path) -> Generator[tuple[Path, str], None, None]:
+        """
+        Generate atomic changes for this mod.
+        Yields tuples of (file_path, commit_message) for each atomic change.
+        The file should be modified in-place before yielding.
+        The caller will compile, validate, and commit/revert each change.
+        """
         pass
-
-    def validate_before_apply(self, source_file: Path) -> tuple[bool, str]:
-        if not source_file.exists():
-            return False, f"Source file does not exist: {source_file}"
-        return True, "Validation passed"
 
     def get_metadata(self) -> Dict[str, Any]:
         return {
