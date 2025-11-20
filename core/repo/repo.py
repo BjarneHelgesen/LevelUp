@@ -202,8 +202,14 @@ class Repo:
     def push(self, branch: Optional[str] = None):
         """Push branch to remote origin"""
         branch = branch or self.work_branch
-        logger.info(f"Pushing branch {branch} to origin")
-        return self._run_git(['push', '-u', 'origin', branch])
+        logger.info(f"Pushing branch {branch} to remote origin")
+        try:
+            result = self._run_git(['push', '-u', 'origin', branch])
+            logger.info(f"Successfully pushed {branch} to remote origin")
+            return result
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to push {branch} to remote origin: {e.stderr}")
+            raise
 
     def reset_hard(self, ref: str = 'HEAD'):
         """Hard reset to a reference"""

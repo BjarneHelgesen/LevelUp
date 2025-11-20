@@ -109,7 +109,11 @@ class ModProcessor:
             if all_valid:
                 logger.info(f"All validations passed for mod {mod_id}, committing changes")
                 if repo.commit(f"LevelUp: Applied mod {mod_id} - {mod_request.description}"):
+                    logger.info(f"Commit successful for mod {mod_id}, pushing to remote")
                     repo.push()
+                    logger.info(f"Push successful for mod {mod_id} on branch {repo.work_branch}")
+                else:
+                    logger.info(f"No changes to commit for mod {mod_id}, skipping push")
 
                 return Result(
                     status=ResultStatus.SUCCESS,
@@ -129,7 +133,11 @@ class ModProcessor:
 
                 # Now commit only the successful changes
                 if repo.commit(f"LevelUp: Applied mod {mod_id} - {mod_request.description} ({valid_count}/{total_count} files)"):
+                    logger.info(f"Commit successful for mod {mod_id} (partial), pushing to remote")
                     repo.push()
+                    logger.info(f"Push successful for mod {mod_id} (partial) on branch {repo.work_branch}")
+                else:
+                    logger.info(f"No changes to commit for mod {mod_id} (partial), skipping push")
 
                 return Result(
                     status=ResultStatus.PARTIAL,
