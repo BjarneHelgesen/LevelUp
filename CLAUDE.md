@@ -42,7 +42,7 @@ See package-specific CLAUDE.md files for detailed documentation:
 User (Web UI)
     ↓ JSON with string IDs
 server/app.py (Boundary Layer)
-    ↓ Type-safe objects (enums, dataclasses)
+    ↓ Type-safe objects (enums, classes)
 core/ModProcessor
     ↓ orchestrates
 core/Repo + core/ModHandler + core/Compiler + core/Validators
@@ -139,6 +139,12 @@ mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
 - Docstrings removed unless they provide non-obvious information
 - Important warnings preserved (e.g., "IMPORTANT: Stable identifier used in APIs")
 - Code should be self-documenting through clear naming and structure
+
+**No Dataclasses**:
+- Do NOT use `@dataclass` decorator when adding new classes
+- Use regular classes with explicit `__init__` methods instead
+- Type hints are encouraged, but dataclasses are avoided for simplicity
+- Note: `core/mod_request.py` currently uses `@dataclass` but this is legacy; do not follow this pattern for new code
 
 ## Workflow
 
