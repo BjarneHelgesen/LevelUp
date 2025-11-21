@@ -1,9 +1,8 @@
 from enum import Enum
 from datetime import datetime
-from typing import Optional, List, Dict, Any, TYPE_CHECKING
+from typing import Optional, List, Dict, Any
 
-if TYPE_CHECKING:
-    from .validation_result import ValidationResult
+from .validation_result import ValidationResult
 
 
 class ResultStatus(Enum):
@@ -21,7 +20,7 @@ class Result:
         status: ResultStatus,
         message: str,
         timestamp: Optional[str] = None,
-        validation_results: Optional[List['ValidationResult']] = None,
+        validation_results: Optional[List[ValidationResult]] = None,
         accepted_commits: Optional[List[Dict[str, Any]]] = None,
         rejected_commits: Optional[List[Dict[str, Any]]] = None
     ):
