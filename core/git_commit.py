@@ -8,23 +8,16 @@ class GitCommit:
     def __init__(self, repo: 'Repo', commit_message: str):
         self.repo = repo
         self.commit_message = commit_message
-        self.commit_hash = None
-        self.accepted = False
 
-        if self.repo.commit(self.commit_message):
-            self.commit_hash = self.repo.get_commit_hash()
-            self.accepted = True
+        if not self.repo.commit(self.commit_message):
+            raise ValueError(f"No changes to commit: {commit_message}")
+        self.commit_hash = self.repo.get_commit_hash()
 
     def rollback(self) -> None:
-        """Rollback this commit if it was accepted."""
-        if self.accepted and self.commit_hash:
-            # Reset to parent of this commit
-            self.repo.reset_hard(f'{self.commit_hash}~1')
-            self.accepted = False
+        self.repo.reset_hard(f'{self.commit_hash}~1')
 
     def to_dict(self):
         return {
             'commit_message': self.commit_message,
-            'commit_hash': self.commit_hash,
-            'accepted': self.accepted
+            'commit_hash': self.commit_hash
         }

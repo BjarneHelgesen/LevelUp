@@ -149,22 +149,19 @@ class ModProcessor:
                 logger.debug(f"Validation result: {'PASS' if is_valid else 'FAIL'}")
 
                 if is_valid:
-                    # Commit this atomic change
+                    # Commit this atomic change (raises if no changes)
                     git_commit = GitCommit(repo, commit_message)
-                    if git_commit.accepted:
-                        accepted_commits.append(git_commit)
-                        logger.info(f"Accepted and committed: {commit_message}")
+                    accepted_commits.append(git_commit)
+                    logger.info(f"Accepted and committed: {commit_message}")
 
-                        validation_results.append(ValidationResult(
-                            file=str(file_path),
-                            valid=True
-                        ))
-                    else:
-                        logger.debug(f"No changes to commit for: {commit_message}")
+                    validation_results.append(ValidationResult(
+                        file=str(file_path),
+                        valid=True
+                    ))
                 else:
                     # Revert this change - don't create GitCommit since we're not committing
                     file_path.write_text(original_content, encoding='utf-8')
-                    rejected_commits.append({'commit_message': commit_message, 'accepted': False})
+                    rejected_commits.append({'commit_message': commit_message})
                     logger.info(f"Rejected and reverted: {commit_message}")
 
                     validation_results.append(ValidationResult(
