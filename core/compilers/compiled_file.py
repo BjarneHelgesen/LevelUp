@@ -1,15 +1,14 @@
 from pathlib import Path
-from typing import Optional, Any
 
 
 class CompiledFile:
     def __init__(
         self,
         source_file: Path,
-        asm_file: Optional[Path] = None,
-        ast: Optional[Any] = None,
-        ir: Optional[str] = None,
-        obj_file: Optional[Path] = None
+        asm_file: Path = None,
+        ast=None,
+        ir: str = None,
+        obj_file: Path = None
     ):
         self.source_file = Path(source_file)
         self.ast = ast

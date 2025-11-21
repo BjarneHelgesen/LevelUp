@@ -5,7 +5,6 @@ Repository class for LevelUp - manages git operations and repo configuration
 import subprocess
 import unicodedata
 from pathlib import Path
-from typing import Optional, Dict, Any
 
 from .. import logger
 
@@ -70,7 +69,7 @@ class Repo:
     @classmethod
     def from_config(
         cls,
-        config: Dict[str, Any],
+        config: dict,
         repos_base_path: Path,
         git_path: str = 'git'
     ) -> 'Repo':
@@ -154,7 +153,7 @@ class Repo:
         """Pull latest changes"""
         return self._run_git(['pull'])
 
-    def checkout_branch(self, branch_name: Optional[str] = None, create: bool = False):
+    def checkout_branch(self, branch_name: str = None, create: bool = False):
         """
         Checkout a branch, optionally creating it.
 
@@ -199,7 +198,7 @@ class Repo:
         self._run_git(['commit', '-m', message])
         return True
 
-    def push(self, branch: Optional[str] = None):
+    def push(self, branch: str = None):
         """Push branch to remote origin"""
         branch = branch or self.work_branch
         logger.info(f"Pushing branch {branch} to remote origin")

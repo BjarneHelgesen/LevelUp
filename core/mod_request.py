@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import Optional
 
 
 class ModSourceType(Enum):
@@ -15,9 +14,9 @@ class ModRequest:
         repo_name: str,
         source_type: ModSourceType,
         description: str,
-        mod_instance: Optional[object] = None,
-        commit_hash: Optional[str] = None,
-        timestamp: Optional[str] = None
+        mod_instance: object = None,
+        commit_hash: str = None,
+        timestamp: str = None
     ):
         self.id = id
         self.repo_url = repo_url

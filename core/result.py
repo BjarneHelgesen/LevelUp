@@ -1,6 +1,5 @@
 from enum import Enum
 from datetime import datetime
-from typing import Optional, List, Dict, Any
 
 from .validation_result import ValidationResult
 
@@ -19,10 +18,10 @@ class Result:
         self,
         status: ResultStatus,
         message: str,
-        timestamp: Optional[str] = None,
-        validation_results: Optional[List[ValidationResult]] = None,
-        accepted_commits: Optional[List[Dict[str, Any]]] = None,
-        rejected_commits: Optional[List[Dict[str, Any]]] = None
+        timestamp: str = None,
+        validation_results: list[ValidationResult] = None,
+        accepted_commits: list[dict] = None,
+        rejected_commits: list[dict] = None
     ):
         if not isinstance(status, ResultStatus):
             raise TypeError(f"status must be ResultStatus enum, got {type(status)}")
@@ -34,7 +33,7 @@ class Result:
         self.accepted_commits = accepted_commits or []
         self.rejected_commits = rejected_commits or []
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict:
         result_dict = {
             'status': self.status.value,
             'message': self.message,
