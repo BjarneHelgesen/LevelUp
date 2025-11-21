@@ -150,11 +150,8 @@ class ModProcessor:
 
                 if is_valid:
                     # Commit this atomic change
-                    if repo.commit(commit_message):
-                        commit_hash = repo.get_commit_hash()
-                        git_commit = GitCommit(str(file_path), commit_message)
-                        git_commit.commit_hash = commit_hash
-                        git_commit.accepted = True
+                    git_commit = GitCommit(repo, commit_message)
+                    if git_commit.commit():
                         accepted_commits.append(git_commit)
                         logger.info(f"Accepted and committed: {commit_message}")
 
@@ -167,8 +164,7 @@ class ModProcessor:
                 else:
                     # Revert this change
                     file_path.write_text(original_content, encoding='utf-8')
-                    git_commit = GitCommit(str(file_path), commit_message)
-                    git_commit.accepted = False
+                    git_commit = GitCommit(repo, commit_message)
                     rejected_commits.append(git_commit)
                     logger.info(f"Rejected and reverted: {commit_message}")
 
