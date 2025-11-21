@@ -151,7 +151,7 @@ class ModProcessor:
                 if is_valid:
                     # Commit this atomic change
                     git_commit = GitCommit(repo, commit_message)
-                    if git_commit.commit():
+                    if git_commit.accepted:
                         accepted_commits.append(git_commit)
                         logger.info(f"Accepted and committed: {commit_message}")
 
@@ -162,10 +162,9 @@ class ModProcessor:
                     else:
                         logger.debug(f"No changes to commit for: {commit_message}")
                 else:
-                    # Revert this change
+                    # Revert this change - don't create GitCommit since we're not committing
                     file_path.write_text(original_content, encoding='utf-8')
-                    git_commit = GitCommit(repo, commit_message)
-                    rejected_commits.append(git_commit)
+                    rejected_commits.append({'commit_message': commit_message, 'accepted': False})
                     logger.info(f"Rejected and reverted: {commit_message}")
 
                     validation_results.append(ValidationResult(
@@ -200,7 +199,7 @@ class ModProcessor:
                 message=mod_name,
                 validation_results=validation_results,
                 accepted_commits=[c.to_dict() for c in accepted_commits],
-                rejected_commits=[c.to_dict() for c in rejected_commits]
+                rejected_commits=rejected_commits
             )
 
         except Exception as e:

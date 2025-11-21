@@ -11,13 +11,9 @@ class GitCommit:
         self.commit_hash = None
         self.accepted = False
 
-    def commit(self) -> bool:
-        """Commit changes to the repo. Returns True if commit was made."""
         if self.repo.commit(self.commit_message):
             self.commit_hash = self.repo.get_commit_hash()
             self.accepted = True
-            return True
-        return False
 
     def rollback(self) -> None:
         """Rollback this commit if it was accepted."""
