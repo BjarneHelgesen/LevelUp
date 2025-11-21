@@ -37,6 +37,7 @@ instance/
 
 # Project specific
 workspace/
+docs/
 *.log
 *.asm
 *.obj
