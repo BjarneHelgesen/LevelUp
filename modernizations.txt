@@ -1,0 +1,66 @@
+use
+===
+override 
+explicit
+const locals
+const parameter
+const methods
+range-based for
+make_unique
+make_shared
+=delete
+=default
+initializer list
+virtual destructors
+static_cast
+const_cast
+accessor methods
+coding standard
+namespace nesting
+method docstring
+class docstring
+module docstring
+noexcept
+unit tests
+
+remove
+======
+dead code
+commented-out code
+redundant code
+unused parameters
+unused using
+std::bind with lambdas
+void argument list
+Hungarian notation / RPN
+duplicate includes
+C header files
+C-style array 
+malloc/free
+new/delete
+reduntant casting
+redundant control flow
+redundant expressions 
+redundant intialization
+
+replace
+=======
+pointer with reference
+raw ptr with unique_ptr
+raw ptr with shared_ptr
+char* with string class 
+array pointer/length parameter with span 
+macro values with const values
+conditional feature macros with constexpr/consteval 
+macro function with inline function
+header guards with #pragma once
+const values by enums
+assert with static_assert
+typedef with using
+static with anonymous namespace
+pointer 0/NULL with nullptr
+bool 0/1 with true/false
+
+
+split long methods 
+declare variables where assigned

@@ -29,16 +29,16 @@ class RemoveInlineMod(BaseMod):
                                 if not f.name.startswith('_levelup_')])
 
         for source_file in source_files:
-            content = source_file.read_text(encoding='utf-8', errors='ignore')
+            # Process inline occurrences one at a time, re-reading after each
+            while True:
+                content = source_file.read_text(encoding='utf-8', errors='ignore')
 
-            # Find all 'inline' keyword occurrences
-            matches = list(re.finditer(r'\binline\b', content))
+                # Find first 'inline' keyword occurrence
+                match = re.search(r'\binline\b', content)
 
-            if not matches:
-                continue
+                if not match:
+                    break
 
-            # Process each inline occurrence as a separate atomic change
-            for match in matches:
                 # Calculate line number for this match
                 line_num = content[:match.start()].count('\n') + 1
 
@@ -51,9 +51,3 @@ class RemoveInlineMod(BaseMod):
                 # Yield this atomic change
                 commit_msg = f"Remove inline at {source_file.name}:{line_num}"
                 yield (source_file, commit_msg)
-
-                # Update content baseline for next iteration
-                # If this change was accepted, the file is already modified
-                # If rejected, it will be reverted by the caller
-                # Either way, re-read the current content
-                content = source_file.read_text(encoding='utf-8', errors='ignore')
