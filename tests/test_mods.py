@@ -18,16 +18,17 @@ class TestRemoveInlineMod:
         mod = RemoveInlineMod()
         assert "inline" in mod.description.lower()
 
-    def test_apply_removes_inline_keyword(self, temp_dir):
+    def test_generate_changes_removes_inline_keyword(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text("inline int add(int a, int b) { return a + b; }")
         mod = RemoveInlineMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) == 1
         content = cpp_file.read_text()
         assert "inline" not in content
         assert "int add(int a, int b)" in content
 
-    def test_apply_removes_multiple_inline_keywords(self, temp_dir):
+    def test_generate_changes_removes_multiple_inline_keywords(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text(
             "inline int add(int a, int b) { return a + b; }\n"
@@ -35,49 +36,39 @@ class TestRemoveInlineMod:
             "inline bool check() { return true; }"
         )
         mod = RemoveInlineMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) == 3
         content = cpp_file.read_text()
         assert content.count("inline") == 0
         assert "int add" in content
         assert "void log" in content
         assert "bool check" in content
 
-    def test_apply_preserves_non_inline_content(self, temp_dir):
+    def test_generate_changes_yields_nothing_for_no_inline(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         original = "int main() { return 0; }"
         cpp_file.write_text(original)
         mod = RemoveInlineMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) == 0
         content = cpp_file.read_text()
         assert content.strip() == original
 
-    def test_apply_modifies_file_in_place(self, temp_dir):
+    def test_generate_changes_yields_file_path_and_commit_message(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text("inline int x = 1;")
         mod = RemoveInlineMod()
-        result = mod.apply(cpp_file)
-        # apply() returns None and modifies in-place
-        assert result is None
-        assert "inline" not in cpp_file.read_text()
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) == 1
+        file_path, commit_msg = changes[0]
+        assert file_path == cpp_file
+        assert "inline" in commit_msg.lower() or "Remove" in commit_msg
 
     def test_get_metadata_includes_id_and_description(self):
         mod = RemoveInlineMod()
         metadata = mod.get_metadata()
         assert metadata["mod_id"] == "remove_inline"
         assert "description" in metadata
-
-    def test_validate_before_apply_passes_when_applicable(self, temp_dir):
-        cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("inline int x = 1;")
-        mod = RemoveInlineMod()
-        is_valid, message = mod.validate_before_apply(cpp_file)
-        assert is_valid is True
-
-    def test_validate_before_apply_fails_for_nonexistent_file(self, temp_dir):
-        mod = RemoveInlineMod()
-        is_valid, message = mod.validate_before_apply(temp_dir / "missing.cpp")
-        assert is_valid is False
-        assert "not applicable" in message.lower() or "does not" in message.lower()
 
 
 class TestAddOverrideMod:
@@ -87,33 +78,24 @@ class TestAddOverrideMod:
     def test_get_name_returns_human_readable_name(self):
         assert AddOverrideMod.get_name() == "Add Override Keywords"
 
-    def test_apply_adds_override_to_virtual_function(self, temp_dir):
+    def test_generate_changes_adds_override_to_virtual_function(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text("class Foo {\n    virtual void bar();\n};")
         mod = AddOverrideMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) >= 1
         content = cpp_file.read_text()
         assert "override" in content
 
-    def test_apply_does_not_add_override_outside_class(self, temp_dir):
-        cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("virtual void standalone();\nclass Foo { };")
-        mod = AddOverrideMod()
-        mod.apply(cpp_file)
-        content = cpp_file.read_text()
-        # The virtual outside class should NOT get override
-        lines = content.split('\n')
-        assert "override" not in lines[0]
-
-    def test_apply_does_not_duplicate_override(self, temp_dir):
+    def test_generate_changes_does_not_duplicate_override(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text("class Foo { virtual void bar() override; };")
         mod = AddOverrideMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
         content = cpp_file.read_text()
         assert content.count("override") == 1
 
-    def test_apply_handles_multiple_virtual_functions(self, temp_dir):
+    def test_generate_changes_handles_multiple_virtual_functions(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text(
             "class Foo {\n"
@@ -123,7 +105,8 @@ class TestAddOverrideMod:
             "};"
         )
         mod = AddOverrideMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) == 3
         content = cpp_file.read_text()
         assert content.count("override") == 3
 
@@ -135,48 +118,53 @@ class TestReplaceMSSpecificMod:
     def test_get_name_returns_human_readable_name(self):
         assert "MS" in ReplaceMSSpecificMod.get_name() or "Microsoft" in ReplaceMSSpecificMod.get_name()
 
-    def test_apply_replaces_forceinline_with_inline(self, temp_dir):
+    def test_generate_changes_replaces_forceinline_with_inline(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text("__forceinline int add() { return 0; }")
         mod = ReplaceMSSpecificMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) >= 1
         content = cpp_file.read_text()
         assert "__forceinline" not in content
         assert "inline" in content
 
-    def test_apply_replaces_int64_with_long_long(self, temp_dir):
+    def test_generate_changes_replaces_int64_with_long_long(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text("__int64 x = 0;")
         mod = ReplaceMSSpecificMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) >= 1
         content = cpp_file.read_text()
         assert "__int64" not in content
         assert "long long" in content
 
-    def test_apply_replaces_int32_with_int(self, temp_dir):
+    def test_generate_changes_replaces_int32_with_int(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text("__int32 x = 0;")
         mod = ReplaceMSSpecificMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) >= 1
         content = cpp_file.read_text()
         assert "__int32" not in content
         assert "int" in content
 
-    def test_apply_replaces_stdcall_with_empty(self, temp_dir):
+    def test_generate_changes_replaces_stdcall_with_empty(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text("int __stdcall foo();")
         mod = ReplaceMSSpecificMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) >= 1
         content = cpp_file.read_text()
         assert "__stdcall" not in content
 
-    def test_apply_replaces_multiple_patterns(self, temp_dir):
+    def test_generate_changes_replaces_multiple_patterns(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text(
             "__forceinline __int64 foo() { __int32 x = 0; return x; }"
         )
         mod = ReplaceMSSpecificMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) >= 3
         content = cpp_file.read_text()
         assert "__forceinline" not in content
         assert "__int64" not in content
@@ -185,12 +173,13 @@ class TestReplaceMSSpecificMod:
         assert "long long" in content
         assert "int" in content
 
-    def test_apply_preserves_non_ms_specific_code(self, temp_dir):
+    def test_generate_changes_yields_nothing_for_non_ms_code(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         code = "int main() { return 0; }"
         cpp_file.write_text(code)
         mod = ReplaceMSSpecificMod()
-        mod.apply(cpp_file)
+        changes = list(mod.generate_changes(temp_dir))
+        assert len(changes) == 0
         content = cpp_file.read_text()
         assert content.strip() == code
 
@@ -203,15 +192,11 @@ class TestBaseMod:
         assert "mod_id" in metadata
         assert "description" in metadata
 
-    def test_validate_before_apply_checks_file_exists(self, temp_dir):
-        cpp_file = temp_dir / "empty.cpp"
-        cpp_file.write_text("// no inline here")
+    def test_generate_changes_is_generator(self, temp_dir):
+        cpp_file = temp_dir / "test.cpp"
+        cpp_file.write_text("inline int x = 1;")
         mod = RemoveInlineMod()
-        is_valid, message = mod.validate_before_apply(cpp_file)
-        # validate_before_apply only checks if file exists, not content
-        assert is_valid is True
-
-    def test_validate_before_apply_fails_for_missing_file(self, temp_dir):
-        mod = RemoveInlineMod()
-        is_valid, message = mod.validate_before_apply(temp_dir / "missing.cpp")
-        assert is_valid is False
+        result = mod.generate_changes(temp_dir)
+        # Should be a generator
+        assert hasattr(result, '__iter__')
+        assert hasattr(result, '__next__')

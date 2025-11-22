@@ -56,9 +56,11 @@ class TestModProcessorProcessMod:
     @pytest.fixture
     def mock_mod_instance(self):
         mock = Mock()
-        mock.validate_before_apply.return_value = (True, "OK")
-        mock.apply.return_value = Path("/tmp/modified.cpp")
+        mock.get_id.return_value = "test_mod"
+        mock.get_name.return_value = "Test Mod"
         mock.get_metadata.return_value = {"mod_id": "test", "description": "Test"}
+        # generate_changes returns empty by default, tests should override as needed
+        mock.generate_changes.return_value = iter([])
         return mock
 
     @pytest.fixture
@@ -151,50 +153,63 @@ class TestModProcessorProcessMod:
     ):
         mock_repo = MagicMock()
         cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("inline int x = 1;")
-        mock_repo.repo_path.glob.return_value = [cpp_file]
+        cpp_file.write_text("int x = 1;")
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
+
+        # Mock generate_changes to yield one change
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_file, "Remove inline at test.cpp:1")
+        ])
 
         # Mock compiler to return CompiledFile and validator
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
-        processor.asm_validator.validate = Mock(return_value=True)
 
         result = processor.process_mod(builtin_mod_request)
 
         assert result.status == ResultStatus.SUCCESS
 
     @patch("core.mod_processor.Repo")
-    def test_process_mod_commits_on_success(
+    def test_process_mod_pushes_on_success(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("inline int x = 1;")
-        mock_repo.repo_path.glob.return_value = [cpp_file]
+        cpp_file.write_text("int x = 1;")
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
+
+        # Mock generate_changes to yield one change
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_file, "Remove inline at test.cpp:1")
+        ])
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
-        processor.asm_validator.validate = Mock(return_value=True)
 
         processor.process_mod(builtin_mod_request)
 
-        mock_repo.commit.assert_called_once()
-        commit_msg = mock_repo.commit.call_args[0][0]
-        assert builtin_mod_request.id in commit_msg
+        mock_repo.push.assert_called_once()
 
     @patch("core.mod_processor.Repo")
-    def test_process_mod_returns_failed_when_validation_fails(
+    def test_process_mod_returns_failed_when_no_changes_accepted(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("inline int x = 1;")
-        mock_repo.repo_path.glob.return_value = [cpp_file]
+        cpp_file.write_text("int x = 1;")
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
+
+        # Mock generate_changes to yield one change
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_file, "Remove inline at test.cpp:1")
+        ])
+        # Override get_id to not be 'remove_inline' so validation is applied
+        builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
@@ -206,14 +221,22 @@ class TestModProcessorProcessMod:
         assert result.status == ResultStatus.FAILED
 
     @patch("core.mod_processor.Repo")
-    def test_process_mod_resets_on_failure(
+    def test_process_mod_reverts_file_on_validation_failure(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("inline int x = 1;")
-        mock_repo.repo_path.glob.return_value = [cpp_file]
+        original_content = "int x = 1;"
+        cpp_file.write_text(original_content)
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
+
+        # Mock generate_changes to yield one change
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_file, "Remove inline at test.cpp:1")
+        ])
+        # Override get_id to not be 'remove_inline' so validation is applied
+        builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
@@ -222,7 +245,8 @@ class TestModProcessorProcessMod:
 
         processor.process_mod(builtin_mod_request)
 
-        mock_repo.reset_hard.assert_called_once()
+        # File should be reverted to original content
+        assert cpp_file.read_text() == original_content
 
     @patch("core.mod_processor.Repo")
     def test_process_mod_returns_error_on_exception(
@@ -241,19 +265,18 @@ class TestModProcessorProcessMod:
     ):
         mock_repo = MagicMock()
         cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("inline int x = 1;")
-        # glob is called for multiple patterns, return file only for .cpp
-        def glob_side_effect(pattern):
-            if '*.cpp' in pattern:
-                return [cpp_file]
-            return []
-        mock_repo.repo_path.glob.side_effect = glob_side_effect
+        cpp_file.write_text("int x = 1;")
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
+
+        # Mock generate_changes to yield one change
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_file, "Remove inline at test.cpp:1")
+        ])
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
-        processor.asm_validator.validate = Mock(return_value=True)
 
         result = processor.process_mod(builtin_mod_request)
 
@@ -262,48 +285,50 @@ class TestModProcessorProcessMod:
         assert result.validation_results[0].valid is True
 
     @patch("core.mod_processor.Repo")
-    def test_process_mod_validates_each_cpp_file(
+    def test_process_mod_validates_each_change(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_files = [temp_dir / f"test{i}.cpp" for i in range(3)]
         for f in cpp_files:
-            f.write_text("inline int x = 1;")
-        # glob is called for multiple patterns, return files only for .cpp
-        def glob_side_effect(pattern):
-            if '*.cpp' in pattern:
-                return cpp_files
-            return []
-        mock_repo.repo_path.glob.side_effect = glob_side_effect
+            f.write_text("int x = 1;")
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
+
+        # Mock generate_changes to yield three changes
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_files[0], "Change at test0.cpp:1"),
+            (cpp_files[1], "Change at test1.cpp:1"),
+            (cpp_files[2], "Change at test2.cpp:1"),
+        ])
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
-        processor.asm_validator.validate = Mock(return_value=True)
 
         result = processor.process_mod(builtin_mod_request)
 
-        # Note: remove_inline mod doesn't use asm_validator for validation
-        # It just checks compilation success, so validator won't be called
         assert len(result.validation_results) == 3
 
     @patch("core.mod_processor.Repo")
-    def test_process_mod_fails_if_any_file_invalid(
-        self, mock_repo_class, processor, commit_mod_request, temp_dir
+    def test_process_mod_partial_when_some_changes_rejected(
+        self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
-        # Use commit_mod_request to test asm_validator path
         mock_repo = MagicMock()
         cpp_files = [temp_dir / f"test{i}.cpp" for i in range(3)]
         for f in cpp_files:
             f.write_text("int x = 1;")
-        # glob is called for multiple patterns, return files only for .cpp
-        def glob_side_effect(pattern):
-            if '*.cpp' in pattern:
-                return cpp_files
-            return []
-        mock_repo.repo_path.glob.side_effect = glob_side_effect
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
+
+        # Mock generate_changes to yield three changes
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_files[0], "Change at test0.cpp:1"),
+            (cpp_files[1], "Change at test1.cpp:1"),
+            (cpp_files[2], "Change at test2.cpp:1"),
+        ])
+        # Override get_id to not be 'remove_inline' so validation is applied
+        builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
@@ -311,9 +336,9 @@ class TestModProcessorProcessMod:
         # Second file fails validation
         processor.asm_validator.validate = Mock(side_effect=[True, False, True])
 
-        result = processor.process_mod(commit_mod_request)
+        result = processor.process_mod(builtin_mod_request)
 
-        assert result.status == ResultStatus.PARTIAL  # Some passed, some failed
+        assert result.status == ResultStatus.PARTIAL
 
     @patch("core.mod_processor.Repo")
     def test_process_mod_restores_failed_files_on_partial_success(
@@ -324,19 +349,17 @@ class TestModProcessorProcessMod:
         original_contents = ["original0", "original1", "original2"]
         for i, f in enumerate(cpp_files):
             f.write_text(original_contents[i])
-
-        def glob_side_effect(pattern):
-            if '*.cpp' in pattern:
-                return cpp_files
-            return []
-        mock_repo.repo_path.glob.side_effect = glob_side_effect
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Set up different mod_instance that triggers asm_validator
-        mock_mod = Mock()
-        mock_mod.get_id.return_value = "add_override"  # Not remove_inline
-        mock_mod.get_name.return_value = "Add Override"
-        builtin_mod_request.mod_instance = mock_mod
+        # Mock generate_changes to yield three changes
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_files[0], "Change at test0.cpp:1"),
+            (cpp_files[1], "Change at test1.cpp:1"),
+            (cpp_files[2], "Change at test2.cpp:1"),
+        ])
+        # Override get_id to not be 'remove_inline' so validation is applied
+        builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
@@ -345,40 +368,30 @@ class TestModProcessorProcessMod:
         # File 0 passes, file 1 fails, file 2 passes
         processor.asm_validator.validate = Mock(side_effect=[True, False, True])
 
-        # Simulate mod modifying the files
-        def apply_side_effect(file, mod):
-            file.write_text(f"modified_{file.name}")
-        processor.mod_handler.apply_mod_instance = Mock(side_effect=apply_side_effect)
-
         result = processor.process_mod(builtin_mod_request)
 
         assert result.status == ResultStatus.PARTIAL
         # Failed file (test1.cpp) should be restored to original content
-        assert cpp_files[1].read_text() == "original1"
-        # Successful files should retain modified content
-        assert "modified" in cpp_files[0].read_text()
-        assert "modified" in cpp_files[2].read_text()
+        assert cpp_files[1].read_text() == original_contents[1]
 
     @patch("core.mod_processor.Repo")
-    def test_process_mod_commits_only_successful_files_on_partial(
+    def test_process_mod_squashes_and_pushes_on_partial(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_files = [temp_dir / f"test{i}.cpp" for i in range(2)]
         for f in cpp_files:
             f.write_text("original")
-
-        def glob_side_effect(pattern):
-            if '*.cpp' in pattern:
-                return cpp_files
-            return []
-        mock_repo.repo_path.glob.side_effect = glob_side_effect
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        mock_mod = Mock()
-        mock_mod.get_id.return_value = "add_override"
-        mock_mod.get_name.return_value = "Add Override"
-        builtin_mod_request.mod_instance = mock_mod
+        # Mock generate_changes to yield two changes
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_files[0], "Change at test0.cpp:1"),
+            (cpp_files[1], "Change at test1.cpp:1"),
+        ])
+        # Override get_id to not be 'remove_inline' so validation is applied
+        builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
@@ -386,31 +399,31 @@ class TestModProcessorProcessMod:
 
         # First passes, second fails
         processor.asm_validator.validate = Mock(side_effect=[True, False])
-        processor.mod_handler.apply_mod_instance = Mock()
 
         result = processor.process_mod(builtin_mod_request)
 
-        # Should still commit (with successful changes only)
-        mock_repo.commit.assert_called_once()
-        # Commit message should include counts
-        commit_msg = mock_repo.commit.call_args[0][0]
-        assert "1/2" in commit_msg
+        # Should still squash and push (with successful changes only)
+        mock_repo.squash_and_rebase.assert_called_once()
+        mock_repo.push.assert_called_once()
 
     @patch("core.mod_processor.Repo")
-    def test_process_mod_cleans_up_temp_files(
+    def test_process_mod_completes_successfully_with_changes(
         self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
-        # Test that processor completes successfully - cleanup is internal to compiler
         mock_repo = MagicMock()
         cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("inline int x = 1;")
-        mock_repo.repo_path.glob.return_value = [cpp_file]
+        cpp_file.write_text("int x = 1;")
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
+
+        # Mock generate_changes to yield one change
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
+            (cpp_file, "Remove inline at test.cpp:1")
+        ])
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
-        processor.asm_validator.validate = Mock(return_value=True)
 
         result = processor.process_mod(builtin_mod_request)
 
@@ -439,23 +452,25 @@ class TestModProcessorProcessMod:
         processor.mod_handler.apply_mod_instance.assert_not_called()
 
     @patch("core.mod_processor.Repo")
-    def test_process_mod_handles_empty_repo(
-        self, mock_repo_class, processor, builtin_mod_request
+    def test_process_mod_handles_no_changes(
+        self, mock_repo_class, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
-        mock_repo.repo_path.glob.return_value = []
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
+
+        # generate_changes returns empty iterator (no changes needed)
+        builtin_mod_request.mod_instance.generate_changes.return_value = iter([])
 
         result = processor.process_mod(builtin_mod_request)
 
-        # Empty repo should still succeed (no files to validate)
-        assert result.status == ResultStatus.SUCCESS
-        assert result.validation_results == []
+        # No changes should still result in FAILED (nothing accepted)
+        assert result.status == ResultStatus.FAILED
 
 
 class TestModProcessorTempFileCleanup:
     @patch("core.mod_processor.Repo")
-    def test_cleanup_occurs_even_on_exception(
+    def test_error_on_compilation_exception(
         self, mock_repo_class, temp_dir
     ):
         processor = ModProcessor(
@@ -464,17 +479,19 @@ class TestModProcessorTempFileCleanup:
 
         mock_repo = MagicMock()
         cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("inline int x = 1;")
-        mock_repo.repo_path.glob.return_value = [cpp_file]
+        cpp_file.write_text("int x = 1;")
+        mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
         # Make compiler raise an exception to test error handling
         processor.compiler.compile_file = Mock(side_effect=Exception("Compilation error"))
 
         mock_mod = Mock()
-        mock_mod.validate_before_apply.return_value = (True, "OK")
         mock_mod.get_id.return_value = "test_mod"
         mock_mod.get_name.return_value = "Test Mod"
+        mock_mod.generate_changes.return_value = iter([
+            (cpp_file, "Change at test.cpp:1")
+        ])
         request = ModRequest(
             id="test",
             repo_url="url",
