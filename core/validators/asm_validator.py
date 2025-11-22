@@ -25,6 +25,7 @@ class BaseASMValidator(BaseValidator, ABC):
             re.compile(r'^\s*\$.*$'),
             re.compile(r'^\s*DD\s+__real@.*$'),
             re.compile(r'^\s*DD\s+__mask@.*$'),
+            re.compile(r'.*COMDAT.*$'),
         ]
 
     def validate(self, original: CompiledFile, modified: CompiledFile) -> bool:
@@ -47,6 +48,10 @@ class BaseASMValidator(BaseValidator, ABC):
 
         for line in lines:
             line = line.rstrip()
+
+            # Strip inline comments (everything after semicolon)
+            if ';' in line:
+                line = line.split(';')[0].rstrip()
 
             # Skip lines matching ignore patterns
             if any(pattern.match(line) for pattern in self.ignore_patterns):
