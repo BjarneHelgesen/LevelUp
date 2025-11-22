@@ -5,14 +5,12 @@ from .base_mod import BaseMod
 from .remove_inline_mod import RemoveInlineMod
 from .add_override_mod import AddOverrideMod
 from .replace_ms_specific_mod import ReplaceMSSpecificMod
-from .commit_mod import CommitMod
 
 
 class ModType(Enum):
     REMOVE_INLINE = RemoveInlineMod
     ADD_OVERRIDE = AddOverrideMod
     REPLACE_MS_SPECIFIC = ReplaceMSSpecificMod
-    COMMIT = CommitMod
 
 
 class ModFactory:
