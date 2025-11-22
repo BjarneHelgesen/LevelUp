@@ -81,8 +81,8 @@ class TestAddOverrideMod:
     def test_get_name_returns_human_readable_name(self):
         assert AddOverrideMod.get_name() == "Add Override Keywords"
 
-    def test_get_validator_id_returns_asm(self):
-        assert AddOverrideMod.get_validator_id() == "asm"
+    def test_get_validator_id_returns_asm_o0(self):
+        assert AddOverrideMod.get_validator_id() == "asm_o0"
 
     def test_generate_changes_adds_override_to_virtual_function(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
@@ -124,8 +124,8 @@ class TestReplaceMSSpecificMod:
     def test_get_name_returns_human_readable_name(self):
         assert "MS" in ReplaceMSSpecificMod.get_name() or "Microsoft" in ReplaceMSSpecificMod.get_name()
 
-    def test_get_validator_id_returns_asm(self):
-        assert ReplaceMSSpecificMod.get_validator_id() == "asm"
+    def test_get_validator_id_returns_asm_o0(self):
+        assert ReplaceMSSpecificMod.get_validator_id() == "asm_o0"
 
     def test_generate_changes_replaces_forceinline_with_inline(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"

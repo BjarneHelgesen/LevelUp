@@ -2,12 +2,13 @@ from enum import Enum
 from typing import List, Dict, Any
 
 from .base_validator import BaseValidator
-from .asm_validator import ASMValidator
+from .asm_validator import ASMValidatorO0, ASMValidatorO3
 from .source_diff_validator import SourceDiffValidator
 
 
 class ValidatorType(Enum):
-    ASM = ASMValidator
+    ASM_O0 = ASMValidatorO0
+    ASM_O3 = ASMValidatorO3
     SOURCE_DIFF = SourceDiffValidator
 
 

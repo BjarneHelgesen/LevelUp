@@ -1,34 +1,54 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock
-from core.validators.asm_validator import ASMValidator
+from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
 from core.compilers.compiled_file import CompiledFile
 
 
-class TestASMValidatorBasics:
+class TestASMValidatorO0Basics:
     def test_get_id_returns_stable_identifier(self):
-        assert ASMValidator.get_id() == "asm"
+        assert ASMValidatorO0.get_id() == "asm_o0"
 
     def test_get_name_returns_human_readable_name(self):
-        assert ASMValidator.get_name() == "Assembly Comparison"
+        assert ASMValidatorO0.get_name() == "Assembly Comparison (O0)"
 
-    def test_get_optimization_level_returns_2(self):
-        assert ASMValidator.get_optimization_level() == 2
+    def test_get_optimization_level_returns_0(self):
+        assert ASMValidatorO0.get_optimization_level() == 0
 
     def test_can_be_constructed_with_compiler(self):
         mock_compiler = Mock()
-        validator = ASMValidator(mock_compiler)
+        validator = ASMValidatorO0(mock_compiler)
         assert validator.compiler is mock_compiler
 
     def test_has_ignore_patterns(self):
-        validator = ASMValidator(Mock())
+        validator = ASMValidatorO0(Mock())
+        assert len(validator.ignore_patterns) > 0
+
+
+class TestASMValidatorO3Basics:
+    def test_get_id_returns_stable_identifier(self):
+        assert ASMValidatorO3.get_id() == "asm_o3"
+
+    def test_get_name_returns_human_readable_name(self):
+        assert ASMValidatorO3.get_name() == "Assembly Comparison (O3)"
+
+    def test_get_optimization_level_returns_3(self):
+        assert ASMValidatorO3.get_optimization_level() == 3
+
+    def test_can_be_constructed_with_compiler(self):
+        mock_compiler = Mock()
+        validator = ASMValidatorO3(mock_compiler)
+        assert validator.compiler is mock_compiler
+
+    def test_has_ignore_patterns(self):
+        validator = ASMValidatorO3(Mock())
         assert len(validator.ignore_patterns) > 0
 
 
 class TestASMValidatorNormalization:
     @pytest.fixture
     def validator(self):
-        return ASMValidator(Mock())
+        return ASMValidatorO0(Mock())
 
     def test_normalize_removes_comment_lines(self, validator):
         content = "; This is a comment\nmov eax, 1\n; Another comment\n"
@@ -82,7 +102,7 @@ class TestASMValidatorNormalization:
 class TestASMValidatorValidation:
     @pytest.fixture
     def validator(self):
-        return ASMValidator(Mock())
+        return ASMValidatorO0(Mock())
 
     def test_identical_files_validate_true(self, temp_dir, validator):
         asm1 = temp_dir / "original.asm"
@@ -127,7 +147,7 @@ class TestASMValidatorValidation:
 class TestASMValidatorRegisterSubstitution:
     @pytest.fixture
     def validator(self):
-        return ASMValidator(Mock())
+        return ASMValidatorO0(Mock())
 
     def test_eax_ebx_substitution_detected(self, validator):
         orig = "mov eax, 1"
@@ -158,7 +178,7 @@ class TestASMValidatorRegisterSubstitution:
 class TestASMValidatorEquivalentOperations:
     @pytest.fixture
     def validator(self):
-        return ASMValidator(Mock())
+        return ASMValidatorO0(Mock())
 
     def test_lea_and_mov_considered_equivalent(self, validator):
         orig = "lea eax, [ebx]"
@@ -179,7 +199,7 @@ class TestASMValidatorEquivalentOperations:
 class TestASMValidatorReorderingSafety:
     @pytest.fixture
     def validator(self):
-        return ASMValidator(Mock())
+        return ASMValidatorO0(Mock())
 
     def test_small_block_reordering_is_safe(self, validator):
         orig = ["mov eax, 1", "mov ebx, 2"]
@@ -197,7 +217,7 @@ class TestASMValidatorReorderingSafety:
 class TestASMValidatorDeletions:
     @pytest.fixture
     def validator(self):
-        return ASMValidator(Mock())
+        return ASMValidatorO0(Mock())
 
     def test_deleting_mov_is_unsafe(self, validator):
         lines = ["mov eax, 1"]
@@ -227,7 +247,7 @@ class TestASMValidatorDeletions:
 class TestASMValidatorInsertions:
     @pytest.fixture
     def validator(self):
-        return ASMValidator(Mock())
+        return ASMValidatorO0(Mock())
 
     def test_inserting_nop_is_safe(self, validator):
         lines = ["nop"]

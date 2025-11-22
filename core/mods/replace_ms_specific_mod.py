@@ -39,7 +39,7 @@ class ReplaceMSSpecificMod(BaseMod):
 
     @staticmethod
     def get_validator_id() -> str:
-        return 'asm'
+        return 'asm_o0'
 
     def generate_changes(self, repo_path: Path) -> Generator[tuple[Path, str], None, None]:
         # Find all C/C++ source and header files
