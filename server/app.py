@@ -209,11 +209,10 @@ def submit_mod():
     type_str = data['type']
     mod_type_id = data.get('mod_type')
 
-    # Check if this is a commit validation (either explicit or via 'commit' mod type)
-    if type_str == 'commit' or mod_type_id == 'commit':
+    # Check if this is a commit validation
+    if type_str == 'commit':
         source_type = ModSourceType.COMMIT
-        mod_instance = ModFactory.from_id('commit')  # For display name
-        # Get commit hash from request or default to HEAD of work branch
+        mod_instance = None  # Not needed for COMMIT type
         commit_hash = data.get('commit_hash', 'HEAD')
     elif type_str == 'builtin':
         source_type = ModSourceType.BUILTIN
