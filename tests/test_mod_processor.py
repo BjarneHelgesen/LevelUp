@@ -66,7 +66,6 @@ class TestModProcessorProcessMod:
         return ModRequest(
             id="test-123",
             repo_url="https://github.com/user/repo.git",
-            repo_name="repo",
             source_type=ModSourceType.BUILTIN,
             description="Test builtin mod",
             mod_instance=mock_mod_instance
@@ -77,7 +76,6 @@ class TestModProcessorProcessMod:
         return ModRequest(
             id="test-456",
             repo_url="https://github.com/user/repo.git",
-            repo_name="repo",
             source_type=ModSourceType.COMMIT,
             description="Test commit mod",
             commit_hash="abc123"
@@ -480,7 +478,6 @@ class TestModProcessorTempFileCleanup:
         request = ModRequest(
             id="test",
             repo_url="url",
-            repo_name="name",
             source_type=ModSourceType.BUILTIN,
             description="test",
             mod_instance=mock_mod

@@ -11,7 +11,6 @@ class ModRequest:
         self,
         id: str,
         repo_url: str,
-        repo_name: str,
         source_type: ModSourceType,
         description: str,
         mod_instance: object = None,
@@ -19,7 +18,6 @@ class ModRequest:
     ):
         self.id = id
         self.repo_url = repo_url
-        self.repo_name = repo_name
         self.source_type = source_type
         self.description = description
         self.mod_instance = mod_instance

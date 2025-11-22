@@ -29,7 +29,7 @@ class ModProcessor:
         mod_id = mod_request.id
 
         logger.info(f"Processing mod {mod_id}: {mod_request.description}")
-        logger.debug(f"Mod details: repo={mod_request.repo_name}, type={mod_request.source_type}")
+        logger.debug(f"Mod details: repo={mod_request.repo_url}, type={mod_request.source_type}")
 
         try:
             # Initialize repository

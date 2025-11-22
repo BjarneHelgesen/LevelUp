@@ -226,7 +226,6 @@ def submit_mod():
     mod_request = ModRequest(
         id=mod_id,
         repo_url=data['repo_url'],
-        repo_name=data['repo_name'],
         source_type=source_type,
         description=data['description'],
         mod_instance=mod_instance,

@@ -16,7 +16,6 @@ class TestModRequest:
         request = ModRequest(
             id="test-123",
             repo_url="https://github.com/test/repo.git",
-            repo_name="repo",
             source_type=ModSourceType.BUILTIN,
             description="Test mod",
             mod_instance=mock_mod
@@ -29,7 +28,6 @@ class TestModRequest:
         request = ModRequest(
             id="test-456",
             repo_url="https://github.com/test/repo.git",
-            repo_name="repo",
             source_type=ModSourceType.COMMIT,
             description="Apply commit",
             commit_hash="abc123def456"
@@ -42,7 +40,6 @@ class TestModRequest:
             ModRequest(
                 id="test",
                 repo_url="https://github.com/test/repo.git",
-                repo_name="repo",
                 source_type=ModSourceType.BUILTIN,
                 description="Missing mod instance"
             )
@@ -53,7 +50,6 @@ class TestModRequest:
             ModRequest(
                 id="test",
                 repo_url="https://github.com/test/repo.git",
-                repo_name="repo",
                 source_type=ModSourceType.COMMIT,
                 description="Missing commit hash"
             )
@@ -64,30 +60,17 @@ class TestModRequest:
         request = ModRequest(
             id="test",
             repo_url=url,
-            repo_name="project",
             source_type=ModSourceType.COMMIT,
             description="test",
             commit_hash="hash"
         )
         assert request.repo_url == url
 
-    def test_repo_name_stored_correctly(self):
-        request = ModRequest(
-            id="test",
-            repo_url="url",
-            repo_name="my-project",
-            source_type=ModSourceType.COMMIT,
-            description="desc",
-            commit_hash="hash"
-        )
-        assert request.repo_name == "my-project"
-
     def test_description_stored_correctly(self):
         desc = "Add const correctness to all methods"
         request = ModRequest(
             id="test",
             repo_url="url",
-            repo_name="name",
             source_type=ModSourceType.COMMIT,
             description=desc,
             commit_hash="hash"
@@ -99,7 +82,6 @@ class TestModRequest:
         request = ModRequest(
             id="test",
             repo_url="url",
-            repo_name="name",
             source_type=ModSourceType.BUILTIN,
             description="desc",
             mod_instance=mock_mod,
@@ -113,7 +95,6 @@ class TestModRequest:
         request = ModRequest(
             id="test",
             repo_url="url",
-            repo_name="name",
             source_type=ModSourceType.COMMIT,
             description="desc",
             commit_hash="abc123",
