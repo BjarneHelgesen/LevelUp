@@ -33,6 +33,10 @@ class ASMValidator(BaseValidator):
     def get_name() -> str:
         return "Assembly Comparison"
 
+    @staticmethod
+    def get_optimization_level() -> int:
+        return 2
+
     def validate(self, original: CompiledFile, modified: CompiledFile) -> bool:
         original_lines = self._normalize_asm(original.asm_output)
         modified_lines = self._normalize_asm(modified.asm_output)

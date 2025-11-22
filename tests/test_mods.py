@@ -14,6 +14,9 @@ class TestRemoveInlineMod:
     def test_get_name_returns_human_readable_name(self):
         assert RemoveInlineMod.get_name() == "Remove Inline Keywords"
 
+    def test_get_validator_id_returns_source_diff(self):
+        assert RemoveInlineMod.get_validator_id() == "source_diff"
+
     def test_mod_has_correct_description(self):
         mod = RemoveInlineMod()
         assert "inline" in mod.description.lower()
@@ -78,6 +81,9 @@ class TestAddOverrideMod:
     def test_get_name_returns_human_readable_name(self):
         assert AddOverrideMod.get_name() == "Add Override Keywords"
 
+    def test_get_validator_id_returns_asm(self):
+        assert AddOverrideMod.get_validator_id() == "asm"
+
     def test_generate_changes_adds_override_to_virtual_function(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"
         cpp_file.write_text("class Foo {\n    virtual void bar();\n};")
@@ -117,6 +123,9 @@ class TestReplaceMSSpecificMod:
 
     def test_get_name_returns_human_readable_name(self):
         assert "MS" in ReplaceMSSpecificMod.get_name() or "Microsoft" in ReplaceMSSpecificMod.get_name()
+
+    def test_get_validator_id_returns_asm(self):
+        assert ReplaceMSSpecificMod.get_validator_id() == "asm"
 
     def test_generate_changes_replaces_forceinline_with_inline(self, temp_dir):
         cpp_file = temp_dir / "test.cpp"

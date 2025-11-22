@@ -19,6 +19,12 @@ class BaseMod(ABC):
     def get_name() -> str:
         pass
 
+    @staticmethod
+    @abstractmethod
+    def get_validator_id() -> str:
+        """Returns the validator ID this mod requires for validation."""
+        pass
+
     @abstractmethod
     def generate_changes(self, repo_path: Path) -> Generator[tuple[Path, str], None, None]:
         """

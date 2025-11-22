@@ -2,8 +2,7 @@ from pathlib import Path
 import uuid
 
 from .compilers.compiler import MSVCCompiler
-from .validators.asm_validator import ASMValidator
-from .validators.source_diff_validator import SourceDiffValidator
+from .validators.validator_factory import ValidatorFactory
 from .mods.mod_handler import ModHandler
 from .result import Result, ResultStatus
 from .repo.repo import Repo
@@ -17,8 +16,6 @@ class ModProcessor:
     def __init__(self, repos_path: Path, git_path: str = 'git'):
         logger.info(f"ModProcessor initializing with repos_path={repos_path}")
         self.compiler = MSVCCompiler()
-        self.asm_validator = ASMValidator(self.compiler)
-        self.source_diff_validator = SourceDiffValidator(allowed_removals=['inline'])
         self.mod_handler = ModHandler()
         self.repos_path = Path(repos_path).resolve()
         self.git_path = git_path
@@ -115,6 +112,12 @@ class ModProcessor:
         """Process a BUILTIN mod using generator pattern for atomic changes"""
         mod_id = mod_request.id
 
+        # Get validator from mod, optimization level from validator
+        validator_id = mod_request.mod_instance.get_validator_id()
+        validator = ValidatorFactory.from_id(validator_id, self.compiler)
+        optimization_level = validator.get_optimization_level()
+        logger.debug(f"Using validator '{validator_id}' with optimization level {optimization_level}")
+
         # Create atomic branch for this mod's changes
         atomic_branch = f"levelup-atomic-{mod_id}"
         repo.create_atomic_branch(repo.work_branch, atomic_branch)
@@ -131,20 +134,15 @@ class ModProcessor:
                 # Store original content before change
                 original_content = file_path.read_text(encoding='utf-8', errors='ignore')
 
-                # Compile original
-                original_compiled = self.compiler.compile_file(file_path)
+                # Compile original with the optimization level specified by the validator
+                original_compiled = self.compiler.compile_file(file_path, optimization_level=optimization_level)
 
                 # File has already been modified by the generator
                 # Compile modified version
-                modified_compiled = self.compiler.compile_file(file_path)
+                modified_compiled = self.compiler.compile_file(file_path, optimization_level=optimization_level)
 
-                # Validate based on mod type
-                if mod_request.mod_instance.get_id() == 'remove_inline':
-                    # For remove_inline: just check both compiled successfully
-                    is_valid = True
-                else:
-                    # Default: validate ASM equivalence
-                    is_valid = self.asm_validator.validate(original_compiled, modified_compiled)
+                # Validate using the mod's specified validator
+                is_valid = validator.validate(original_compiled, modified_compiled)
 
                 logger.debug(f"Validation result: {'PASS' if is_valid else 'FAIL'}")
 

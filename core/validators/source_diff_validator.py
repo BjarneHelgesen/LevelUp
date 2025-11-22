@@ -17,6 +17,10 @@ class SourceDiffValidator(BaseValidator):
     def get_name() -> str:
         return "Source Diff Validator"
 
+    @staticmethod
+    def get_optimization_level() -> int:
+        return 0
+
     def validate(self, original: CompiledFile, modified: CompiledFile) -> bool:
         original_content = original.source_file.read_text(encoding='utf-8', errors='ignore')
         modified_content = modified.source_file.read_text(encoding='utf-8', errors='ignore')

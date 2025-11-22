@@ -8,11 +8,17 @@ from .. import logger
 
 
 class MSVCCompiler(BaseCompiler):
+    OPTIMIZATION_FLAGS = {
+        0: '/Od',
+        1: '/O1',
+        2: '/O2',
+        3: '/Ox',
+    }
+
     def __init__(self, arch="x64"):
         logger.info(f"Initializing MSVCCompiler with arch={arch}")
         self.arch = arch
         self.default_flags = [
-            '/O2',
             '/EHsc',
             '/nologo',
             '/W3',
@@ -107,7 +113,7 @@ class MSVCCompiler(BaseCompiler):
 
         return result
 
-    def compile_file(self, source_file: Path, additional_flags: str = None) -> CompiledFile:
+    def compile_file(self, source_file: Path, additional_flags: str = None, optimization_level: int = 2) -> CompiledFile:
         source_path = Path(source_file)
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -118,6 +124,7 @@ class MSVCCompiler(BaseCompiler):
 
             # Compile to ASM
             args = self.default_flags.copy()
+            args.append(self.OPTIMIZATION_FLAGS.get(optimization_level, '/O2'))
             args.extend([
                 '/FA',
                 '/Fa' + str(asm_file),

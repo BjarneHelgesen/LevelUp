@@ -37,6 +37,10 @@ class ReplaceMSSpecificMod(BaseMod):
     def get_name() -> str:
         return 'Replace MS-Specific Syntax'
 
+    @staticmethod
+    def get_validator_id() -> str:
+        return 'asm'
+
     def generate_changes(self, repo_path: Path) -> Generator[tuple[Path, str], None, None]:
         # Find all C/C++ source and header files
         source_files = []
