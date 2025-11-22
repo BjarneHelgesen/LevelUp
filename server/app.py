@@ -230,8 +230,7 @@ def submit_mod():
         source_type=source_type,
         description=data['description'],
         mod_instance=mod_instance,
-        commit_hash=commit_hash,
-        timestamp=datetime.now().isoformat()
+        commit_hash=commit_hash
     )
 
     # Initialize result
@@ -250,8 +249,7 @@ def submit_mod():
         'repo_url': data['repo_url'],
         'type': type_str,
         'description': data['description'],
-        'validators': data.get('validators', ['asm']),
-        'timestamp': mod_request.timestamp
+        'validators': data.get('validators', ['asm'])
     }
     if type_str == 'builtin':
         response_data['mod_type'] = data['mod_type']
@@ -272,8 +270,7 @@ def get_queue_status():
     """Get overall queue status"""
     return jsonify({
         'queue_size': mod_queue.qsize(),
-        'results': {k: v.to_dict() for k, v in results.items()},
-        'timestamp': datetime.now().isoformat()
+        'results': {k: v.to_dict() for k, v in results.items()}
     })
 
 @app.route('/api/available/mods')

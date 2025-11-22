@@ -59,30 +59,6 @@ class TestModRequest:
             )
         assert "commit_hash required" in str(exc_info.value)
 
-    def test_timestamp_defaults_to_none(self):
-        request = ModRequest(
-            id="test",
-            repo_url="url",
-            repo_name="name",
-            source_type=ModSourceType.COMMIT,
-            description="desc",
-            commit_hash="abc123"
-        )
-        assert request.timestamp is None
-
-    def test_timestamp_can_be_set(self):
-        timestamp = "2024-01-01T12:00:00"
-        request = ModRequest(
-            id="test",
-            repo_url="url",
-            repo_name="name",
-            source_type=ModSourceType.COMMIT,
-            description="desc",
-            commit_hash="abc123",
-            timestamp=timestamp
-        )
-        assert request.timestamp == timestamp
-
     def test_repo_url_stored_correctly(self):
         url = "git@github.com:user/project.git"
         request = ModRequest(

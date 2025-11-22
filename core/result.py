@@ -1,5 +1,4 @@
 from enum import Enum
-from datetime import datetime
 
 from .validation_result import ValidationResult
 
@@ -18,7 +17,6 @@ class Result:
         self,
         status: ResultStatus,
         message: str,
-        timestamp: str = None,
         validation_results: list[ValidationResult] = None,
         accepted_commits: list[dict] = None,
         rejected_commits: list[dict] = None
@@ -28,7 +26,6 @@ class Result:
 
         self.status = status
         self.message = message
-        self.timestamp = timestamp or datetime.now().isoformat()
         self.validation_results = validation_results
         self.accepted_commits = accepted_commits or []
         self.rejected_commits = rejected_commits or []
@@ -36,8 +33,7 @@ class Result:
     def to_dict(self) -> dict:
         result_dict = {
             'status': self.status.value,
-            'message': self.message,
-            'timestamp': self.timestamp
+            'message': self.message
         }
 
         if self.validation_results is not None:

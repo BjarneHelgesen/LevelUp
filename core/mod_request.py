@@ -15,8 +15,7 @@ class ModRequest:
         source_type: ModSourceType,
         description: str,
         mod_instance: object = None,
-        commit_hash: str = None,
-        timestamp: str = None
+        commit_hash: str = None
     ):
         self.id = id
         self.repo_url = repo_url
@@ -25,7 +24,6 @@ class ModRequest:
         self.description = description
         self.mod_instance = mod_instance
         self.commit_hash = commit_hash
-        self.timestamp = timestamp
 
         if self.source_type == ModSourceType.BUILTIN:
             if self.mod_instance is None:

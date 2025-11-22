@@ -370,8 +370,7 @@ function displayQueuedMods(status) {
 
     // Filter for queued and processing items
     const queuedItems = Object.entries(status.results)
-        .filter(([id, result]) => result.status === 'queued' || result.status === 'processing')
-        .sort((a, b) => new Date(a[1].timestamp) - new Date(b[1].timestamp));
+        .filter(([id, result]) => result.status === 'queued' || result.status === 'processing');
 
     if (queuedItems.length === 0) {
         container.innerHTML = '<p class="no-items">No mods in queue</p>';
@@ -416,8 +415,7 @@ function displayCompletedMods(status) {
         .filter(([id, result]) => {
             const isCompleted = result.status === 'success' || result.status === 'partial' || result.status === 'failed' || result.status === 'error';
             return isCompleted && modToRepoMap[id] === selectedRepo.name;
-        })
-        .sort((a, b) => new Date(b[1].timestamp) - new Date(a[1].timestamp)); // Most recent first
+        });
 
     if (completedItems.length === 0) {
         container.innerHTML = '<p class="no-items">No completed mods yet</p>';

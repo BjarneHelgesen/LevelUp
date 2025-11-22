@@ -1,5 +1,4 @@
 import pytest
-from datetime import datetime
 from core.result import Result, ResultStatus
 from core.validation_result import ValidationResult
 
@@ -32,21 +31,6 @@ class TestResult:
             Result(status="success", message="Test")
         assert "must be ResultStatus enum" in str(exc_info.value)
 
-    def test_result_has_auto_generated_timestamp(self):
-        before = datetime.now().isoformat()
-        result = Result(status=ResultStatus.QUEUED, message="Test")
-        after = datetime.now().isoformat()
-        assert before <= result.timestamp <= after
-
-    def test_result_with_explicit_timestamp(self):
-        timestamp = "2024-01-01T12:00:00"
-        result = Result(
-            status=ResultStatus.SUCCESS,
-            message="Test",
-            timestamp=timestamp
-        )
-        assert result.timestamp == timestamp
-
     def test_result_with_validation_results(self):
         validation_results = [
             ValidationResult(file="test.cpp", valid=True),
@@ -73,15 +57,6 @@ class TestResult:
         result = Result(status=ResultStatus.ERROR, message="Something failed")
         d = result.to_dict()
         assert d["message"] == "Something failed"
-
-    def test_to_dict_includes_timestamp(self):
-        result = Result(
-            status=ResultStatus.PROCESSING,
-            message="Working",
-            timestamp="2024-01-01T00:00:00"
-        )
-        d = result.to_dict()
-        assert d["timestamp"] == "2024-01-01T00:00:00"
 
     def test_to_dict_includes_validation_results_when_present(self):
         validation_results = [ValidationResult(file="a.cpp", valid=True)]
