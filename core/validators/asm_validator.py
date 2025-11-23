@@ -29,6 +29,8 @@ class BaseASMValidator(BaseValidator, ABC):
         # Pattern for COMDAT markers - tracked separately to identify inline functions
         # MSVC format: ";	COMDAT ?funcname@@..."
         self.comdat_pattern = re.compile(r'^\s*;\s*COMDAT\s+(\S+)')
+        # Pattern for MSVC mangled names (e.g., ?len@@YAHPEAD@Z)
+        self.mangled_name_pattern = re.compile(r'\?[\w@]+@Z')
 
     def validate(self, original: CompiledFile, modified: CompiledFile) -> bool:
         original_lines = self._normalize_asm(original.asm_output)
@@ -56,6 +58,26 @@ class BaseASMValidator(BaseValidator, ABC):
                 comdat_functions.add(func_name)
 
         return comdat_functions
+
+    def _normalize_mangled_name(self, name: str) -> str:
+        """Normalize MSVC mangled name by removing const qualifiers.
+
+        In MSVC mangling, pointer types use:
+        - PEA = pointer to (E=__ptr64, A=non-const)
+        - PEB = pointer to (E=__ptr64, B=const)
+
+        This normalizes B->A so that const-qualified and non-const versions match.
+        """
+        # Replace B (const) with A (non-const) in pointer type encodings
+        # Pattern: PE[A-Z][A-Z] where the second letter indicates const-ness
+        # PEA = char*, PEB = const char*, etc.
+        return re.sub(r'(PE)B', r'\1A', name)
+
+    def _normalize_mangled_names_in_line(self, line: str) -> str:
+        """Normalize all MSVC mangled names in a line."""
+        def replace_mangled(match):
+            return self._normalize_mangled_name(match.group(0))
+        return self.mangled_name_pattern.sub(replace_mangled, line)
 
     def _normalize_asm(self, asm_content: str):
         if not asm_content:
@@ -93,6 +115,9 @@ class BaseASMValidator(BaseValidator, ABC):
 
             # Normalize whitespace
             line = ' '.join(line.split())
+
+            # Normalize mangled names to ignore const-qualifier differences
+            line = self._normalize_mangled_names_in_line(line)
 
             if line:
                 normalized.append(line)
