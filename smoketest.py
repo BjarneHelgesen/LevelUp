@@ -149,7 +149,11 @@ VALIDATOR_SMOKE_TESTS = \
     ValTest("in_class_init",        'struct S { int x;      S() : x(10) {} }; int f() { S s; return s.x; }',
                                     'struct S { int x = 10; S() {}       }; int f() { S s; return s.x; }', o=0), # o=Any
 
-    # USE: delegating constructor - removed: generates different ASM (extra call to delegated ctor)
+    # =============================================================================
+    # USE: delegating constructor (with inline, needs O3 to inline the delegation)
+    # =============================================================================
+    ValTest("delegating_ctor",      'struct S { int x; inline S() { x = 0; }  inline S(int v) { x = v; } }; int f() { S s; return s.x; }',
+                                    'struct S { int x; inline S() : S(0) {}  inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=3),
 
     # =============================================================================
     # REMOVE: dead code
@@ -187,9 +191,8 @@ VALIDATOR_SMOKE_TESTS = \
     ValTest("remove_this_arrow",    'struct S { int x; int get() { return this->x; } }; int f() { S s; s.x = 5; return s.get(); }',
                                     'struct S { int x; int get() { return x;       } }; int f() { S s; s.x = 5; return s.get(); }', o=0), # o=Any
 
-    # REMOVE: empty destructor - removed: explicit dtor vs implicit generates different ASM
-
-    # REMOVE: empty default constructor - removed: explicit ctor vs implicit generates different ASM
+    # REMOVE: empty destructor - removed: MSVC emits COMDAT for explicit dtor even if inlined
+    # REMOVE: empty default constructor - removed: MSVC emits COMDAT for explicit ctor even if inlined
 
     # =============================================================================
     # REPLACE: NULL with nullptr
