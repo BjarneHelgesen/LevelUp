@@ -5,8 +5,10 @@ Repository class for LevelUp - manages git operations and repo configuration
 import subprocess
 import unicodedata
 from pathlib import Path
+from typing import Optional
 
 from .. import logger
+from ..doxygen import DoxygenRunner, DoxygenParser
 
 
 class Repo:
@@ -40,6 +42,7 @@ class Repo:
         self.repo_path = Path(repos_folder / Repo.repo_filename(repo_name))
         self.git_path = git_path
         self.post_checkout = post_checkout
+        self._doxygen_parser: Optional[DoxygenParser] = None
 
     @staticmethod
     def get_repo_name(repo_url: str) -> str:
@@ -283,3 +286,80 @@ class Repo:
         """String representation for debugging"""
         name = self.get_repo_name(self.url)
         return f"Repo(name={name}, url={self.url}, path={self.repo_path})"
+
+    # ==================== Doxygen Integration ====================
+
+    def get_doxygen_dir(self) -> Path:
+        """Get the path to the Doxygen output directory."""
+        return self.repo_path / '.doxygen'
+
+    def get_doxygen_xml_dir(self) -> Path:
+        """Get the path to the Doxygen XML output directory."""
+        return self.get_doxygen_dir() / 'xml'
+
+    def has_doxygen_data(self) -> bool:
+        """Check if Doxygen data has been generated for this repo."""
+        xml_dir = self.get_doxygen_xml_dir()
+        return xml_dir.exists() and (xml_dir / 'index.xml').exists()
+
+    def generate_doxygen(self, doxygen_path: str = 'doxygen') -> Path:
+        """
+        Run Doxygen on this repository to generate function dependency data.
+
+        Args:
+            doxygen_path: Path to the doxygen executable
+
+        Returns:
+            Path to the generated XML directory
+        """
+        runner = DoxygenRunner(doxygen_path=doxygen_path)
+        xml_dir = runner.run(self.repo_path, self.get_doxygen_dir())
+        # Invalidate cached parser
+        self._doxygen_parser = None
+        return xml_dir
+
+    def get_doxygen_parser(self) -> Optional[DoxygenParser]:
+        """
+        Get a DoxygenParser for this repo's function dependency data.
+
+        Returns:
+            DoxygenParser instance if Doxygen data exists, None otherwise
+        """
+        if not self.has_doxygen_data():
+            return None
+
+        if self._doxygen_parser is None:
+            self._doxygen_parser = DoxygenParser(self.get_doxygen_xml_dir())
+
+        return self._doxygen_parser
+
+    def get_function_info(self, function_name: str):
+        """
+        Get information about a function by name.
+
+        Args:
+            function_name: Name of the function to look up
+
+        Returns:
+            List of FunctionInfo objects matching the name, or empty list if
+            no Doxygen data or no matches
+        """
+        parser = self.get_doxygen_parser()
+        if parser is None:
+            return []
+        return parser.get_functions_by_name(function_name)
+
+    def get_functions_in_file(self, file_path: str):
+        """
+        Get all functions defined in a source file.
+
+        Args:
+            file_path: Path to the source file
+
+        Returns:
+            List of FunctionInfo objects, or empty list if no Doxygen data
+        """
+        parser = self.get_doxygen_parser()
+        if parser is None:
+            return []
+        return parser.get_functions_in_file(file_path)

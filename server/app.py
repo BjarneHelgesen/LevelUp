@@ -23,7 +23,11 @@ from core.result import Result, ResultStatus
 from core.repo import Repo
 from core.mod_request import ModRequest, ModSourceType
 from core.mod_processor import ModProcessor
+from core.doxygen import DoxygenRunner
 from core import logger
+
+# Track Doxygen generation status per repo
+doxygen_status: Dict[str, dict] = {}
 
 app = Flask(__name__)
 app.secret_key = 'levelup-secret-key-change-in-production'
@@ -39,6 +43,7 @@ CONFIG = {
     'repos': Path('workspace/repos'),
     'temp': Path('workspace/temp'),
     'git_path': os.environ.get('GIT_PATH', 'git'),
+    'doxygen_path': os.environ.get('DOXYGEN_PATH', 'doxygen'),
 }
 
 # Ensure workspace directories exist
@@ -130,9 +135,18 @@ def manage_repos():
         
         with open(config_file, 'w') as f:
             json.dump(configs, f, indent=2)
-        
+
+        # Start Doxygen generation in background thread
+        thread = threading.Thread(
+            target=generate_doxygen_for_repo,
+            args=(repo_config,),
+            daemon=True
+        )
+        thread.start()
+        logger.info(f"Started Doxygen generation for new repo: {repo_name}")
+
         return jsonify(repo_config)
-    
+
     else:
         config_file = CONFIG['workspace'] / 'repos.json'
         if config_file.exists():
@@ -156,6 +170,113 @@ def delete_repo(repo_id):
 
         return jsonify({'success': True})
     return jsonify({'success': False}), 404
+
+def generate_doxygen_for_repo(repo_config: dict):
+    """Background task to generate Doxygen data for a repository."""
+    repo_id = repo_config['id']
+    repo_name = repo_config['name']
+
+    doxygen_status[repo_id] = {
+        'status': 'running',
+        'message': f'Generating Doxygen data for {repo_name}...'
+    }
+
+    try:
+        # Check if Doxygen is available
+        runner = DoxygenRunner(doxygen_path=CONFIG['doxygen_path'])
+        if not runner.is_available():
+            doxygen_status[repo_id] = {
+                'status': 'skipped',
+                'message': 'Doxygen not found on system. Function dependency data will not be available.'
+            }
+            logger.warning(f"Doxygen not available, skipping for repo {repo_name}")
+            return
+
+        # Create Repo instance and ensure it's cloned
+        repo = Repo(
+            url=repo_config['url'],
+            repos_folder=CONFIG['repos'],
+            git_path=CONFIG['git_path'],
+            post_checkout=repo_config.get('post_checkout', '')
+        )
+        repo.ensure_cloned()
+
+        # Generate Doxygen
+        xml_dir = repo.generate_doxygen(doxygen_path=CONFIG['doxygen_path'])
+
+        doxygen_status[repo_id] = {
+            'status': 'completed',
+            'message': f'Doxygen data generated successfully',
+            'xml_dir': str(xml_dir)
+        }
+        logger.info(f"Doxygen generation completed for {repo_name}")
+
+    except Exception as e:
+        doxygen_status[repo_id] = {
+            'status': 'failed',
+            'message': f'Doxygen generation failed: {str(e)}'
+        }
+        logger.exception(f"Doxygen generation failed for {repo_name}: {e}")
+
+
+@app.route('/api/repos/<repo_id>/doxygen', methods=['POST'])
+def regenerate_doxygen(repo_id):
+    """Regenerate Doxygen data for a repository."""
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if not config_file.exists():
+        return jsonify({'error': 'No repositories found'}), 404
+
+    with open(config_file, 'r') as f:
+        configs = json.load(f)
+
+    repo_config = next((r for r in configs if r['id'] == repo_id), None)
+    if repo_config is None:
+        return jsonify({'error': 'Repository not found'}), 404
+
+    # Start Doxygen generation in background thread
+    thread = threading.Thread(
+        target=generate_doxygen_for_repo,
+        args=(repo_config,),
+        daemon=True
+    )
+    thread.start()
+
+    return jsonify({
+        'status': 'started',
+        'message': f'Doxygen generation started for {repo_config["name"]}'
+    })
+
+
+@app.route('/api/repos/<repo_id>/doxygen', methods=['GET'])
+def get_doxygen_status(repo_id):
+    """Get Doxygen generation status for a repository."""
+    if repo_id in doxygen_status:
+        return jsonify(doxygen_status[repo_id])
+
+    # Check if Doxygen data already exists
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if config_file.exists():
+        with open(config_file, 'r') as f:
+            configs = json.load(f)
+
+        repo_config = next((r for r in configs if r['id'] == repo_id), None)
+        if repo_config:
+            repo = Repo(
+                url=repo_config['url'],
+                repos_folder=CONFIG['repos'],
+                git_path=CONFIG['git_path']
+            )
+            if repo.has_doxygen_data():
+                return jsonify({
+                    'status': 'completed',
+                    'message': 'Doxygen data available'
+                })
+
+    return jsonify({
+        'status': 'not_generated',
+        'message': 'Doxygen data has not been generated for this repository'
+    })
+
 
 @app.route('/api/repos/<repo_id>', methods=['PUT'])
 def update_repo(repo_id):
@@ -286,6 +407,197 @@ def get_available_validators():
 def get_available_compilers():
     """Get list of available compilers"""
     return jsonify(CompilerFactory.get_available_compilers())
+
+
+# ==================== Function Dependency API ====================
+
+@app.route('/api/repos/<repo_id>/functions', methods=['GET'])
+def get_repo_functions(repo_id):
+    """
+    Get function information for a repository.
+
+    Query parameters:
+        - name: Filter by function name
+        - file: Filter by file path
+    """
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if not config_file.exists():
+        return jsonify({'error': 'No repositories found'}), 404
+
+    with open(config_file, 'r') as f:
+        configs = json.load(f)
+
+    repo_config = next((r for r in configs if r['id'] == repo_id), None)
+    if repo_config is None:
+        return jsonify({'error': 'Repository not found'}), 404
+
+    repo = Repo(
+        url=repo_config['url'],
+        repos_folder=CONFIG['repos'],
+        git_path=CONFIG['git_path']
+    )
+
+    if not repo.has_doxygen_data():
+        return jsonify({
+            'error': 'Doxygen data not available',
+            'message': 'Run POST /api/repos/{repo_id}/doxygen to generate'
+        }), 404
+
+    parser = repo.get_doxygen_parser()
+    if parser is None:
+        return jsonify({'error': 'Failed to load Doxygen data'}), 500
+
+    # Get query parameters
+    name_filter = request.args.get('name')
+    file_filter = request.args.get('file')
+
+    if name_filter:
+        functions = parser.get_functions_by_name(name_filter)
+    elif file_filter:
+        functions = parser.get_functions_in_file(file_filter)
+    else:
+        functions = parser.get_all_functions()
+
+    # Convert to JSON-serializable format
+    result = []
+    for func in functions:
+        result.append({
+            'name': func.name,
+            'qualified_name': func.qualified_name,
+            'file_path': func.file_path,
+            'line_number': func.line_number,
+            'return_type': func.return_type,
+            'parameters': [{'type': t, 'name': n} for t, n in func.parameters],
+            'signature': func.get_signature(),
+            'is_member': func.is_member,
+            'class_name': func.class_name,
+            'calls_count': len(func.calls),
+            'called_by_count': len(func.called_by),
+            'doxygen_id': func.doxygen_id
+        })
+
+    return jsonify({
+        'count': len(result),
+        'functions': result
+    })
+
+
+@app.route('/api/repos/<repo_id>/functions/<path:doxygen_id>/callers', methods=['GET'])
+def get_function_callers(repo_id, doxygen_id):
+    """Get all functions that call a specific function."""
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if not config_file.exists():
+        return jsonify({'error': 'No repositories found'}), 404
+
+    with open(config_file, 'r') as f:
+        configs = json.load(f)
+
+    repo_config = next((r for r in configs if r['id'] == repo_id), None)
+    if repo_config is None:
+        return jsonify({'error': 'Repository not found'}), 404
+
+    repo = Repo(
+        url=repo_config['url'],
+        repos_folder=CONFIG['repos'],
+        git_path=CONFIG['git_path']
+    )
+
+    parser = repo.get_doxygen_parser()
+    if parser is None:
+        return jsonify({'error': 'Doxygen data not available'}), 404
+
+    func = parser.get_function_by_id(doxygen_id)
+    if func is None:
+        return jsonify({'error': 'Function not found'}), 404
+
+    callers = parser.get_callers(func)
+    result = [{
+        'name': f.name,
+        'qualified_name': f.qualified_name,
+        'file_path': f.file_path,
+        'line_number': f.line_number,
+        'doxygen_id': f.doxygen_id
+    } for f in callers]
+
+    return jsonify({
+        'function': func.qualified_name,
+        'callers': result
+    })
+
+
+@app.route('/api/repos/<repo_id>/functions/<path:doxygen_id>/callees', methods=['GET'])
+def get_function_callees(repo_id, doxygen_id):
+    """Get all functions called by a specific function."""
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if not config_file.exists():
+        return jsonify({'error': 'No repositories found'}), 404
+
+    with open(config_file, 'r') as f:
+        configs = json.load(f)
+
+    repo_config = next((r for r in configs if r['id'] == repo_id), None)
+    if repo_config is None:
+        return jsonify({'error': 'Repository not found'}), 404
+
+    repo = Repo(
+        url=repo_config['url'],
+        repos_folder=CONFIG['repos'],
+        git_path=CONFIG['git_path']
+    )
+
+    parser = repo.get_doxygen_parser()
+    if parser is None:
+        return jsonify({'error': 'Doxygen data not available'}), 404
+
+    func = parser.get_function_by_id(doxygen_id)
+    if func is None:
+        return jsonify({'error': 'Function not found'}), 404
+
+    callees = parser.get_callees(func)
+    result = [{
+        'name': f.name,
+        'qualified_name': f.qualified_name,
+        'file_path': f.file_path,
+        'line_number': f.line_number,
+        'doxygen_id': f.doxygen_id
+    } for f in callees]
+
+    return jsonify({
+        'function': func.qualified_name,
+        'callees': result
+    })
+
+
+@app.route('/api/repos/<repo_id>/files', methods=['GET'])
+def get_repo_files(repo_id):
+    """Get list of all files with parsed functions in a repository."""
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if not config_file.exists():
+        return jsonify({'error': 'No repositories found'}), 404
+
+    with open(config_file, 'r') as f:
+        configs = json.load(f)
+
+    repo_config = next((r for r in configs if r['id'] == repo_id), None)
+    if repo_config is None:
+        return jsonify({'error': 'Repository not found'}), 404
+
+    repo = Repo(
+        url=repo_config['url'],
+        repos_folder=CONFIG['repos'],
+        git_path=CONFIG['git_path']
+    )
+
+    parser = repo.get_doxygen_parser()
+    if parser is None:
+        return jsonify({'error': 'Doxygen data not available'}), 404
+
+    files = parser.get_all_files()
+    return jsonify({
+        'count': len(files),
+        'files': files
+    })
+
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)

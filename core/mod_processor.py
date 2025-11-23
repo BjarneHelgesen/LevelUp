@@ -16,6 +16,7 @@ class ModProcessor:
     def __init__(self, repos_path: Path, git_path: str = 'git'):
         logger.info(f"ModProcessor initializing with repos_path={repos_path}")
         self.compiler = MSVCCompiler()
+        self.asm_validator = ValidatorFactory.from_id('asm_o0', self.compiler)
         self.mod_handler = ModHandler()
         self.repos_path = Path(repos_path).resolve()
         self.git_path = git_path
