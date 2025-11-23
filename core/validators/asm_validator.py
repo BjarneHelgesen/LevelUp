@@ -29,23 +29,38 @@ class BaseASMValidator(BaseValidator, ABC):
         # Pattern for COMDAT markers - tracked separately to identify inline functions
         # MSVC format: ";	COMDAT ?funcname@@..."
         self.comdat_pattern = re.compile(r'^\s*;\s*COMDAT\s+(\S+)')
-        # Pattern for MSVC mangled names (e.g., ?len@@YAHPEAD@Z)
+
+        # Patterns for identifiers to canonicalize
+        # MSVC mangled names: ?name@@...@Z
         self.mangled_name_pattern = re.compile(r'\?[\w@]+@Z')
+        # Local labels: $LN3@func, $LN10@len
+        self.local_label_pattern = re.compile(r'\$LN\d+@\w+')
+        # String/data labels: $SG1234
+        self.data_label_pattern = re.compile(r'\$SG\d+')
+        # Combined pattern for all identifiers
+        self.identifier_pattern = re.compile(
+            r'(\?[\w@]+@Z)|'      # Mangled names
+            r'(\$LN\d+@\w+)|'     # Local labels
+            r'(\$SG\d+)'          # String/data labels
+        )
 
     def validate(self, original: CompiledFile, modified: CompiledFile) -> bool:
         original_lines = self._normalize_asm(original.asm_output)
         modified_lines = self._normalize_asm(modified.asm_output)
 
-        # Track COMDAT functions in modified ASM (inline functions that can be safely added)
-        self._modified_comdat_functions = self._extract_comdat_functions(modified.asm_output)
+        # Track canonical COMDAT function names in modified ASM
+        modified_id_map = self._build_identifier_map(modified.asm_output)
+        self._modified_comdat_functions = self._extract_comdat_functions(
+            modified.asm_output, modified_id_map
+        )
 
         if original_lines == modified_lines:
             return True
 
         return self._check_acceptable_differences(original_lines, modified_lines)
 
-    def _extract_comdat_functions(self, asm_content: str) -> set:
-        """Extract names of COMDAT functions (inline functions that linker can discard)."""
+    def _extract_comdat_functions(self, asm_content: str, identifier_map: dict) -> set:
+        """Extract canonical names of COMDAT functions (inline functions linker can discard)."""
         if not asm_content:
             return set()
 
@@ -53,35 +68,54 @@ class BaseASMValidator(BaseValidator, ABC):
         for line in asm_content.splitlines():
             match = self.comdat_pattern.match(line)
             if match:
-                # Extract function name directly from the COMDAT marker
+                # Extract function name and convert to canonical name
                 func_name = match.group(1)
-                comdat_functions.add(func_name)
+                canonical_name = identifier_map.get(func_name, func_name)
+                comdat_functions.add(canonical_name)
 
         return comdat_functions
 
-    def _normalize_mangled_name(self, name: str) -> str:
-        """Normalize MSVC mangled name by removing const qualifiers.
+    def _build_identifier_map(self, asm_content: str) -> dict:
+        """Build a mapping of identifiers to canonical names based on order of appearance."""
+        if not asm_content:
+            return {}
 
-        In MSVC mangling, pointer types use:
-        - PEA = pointer to (E=__ptr64, A=non-const)
-        - PEB = pointer to (E=__ptr64, B=const)
+        identifier_map = {}
+        func_counter = 0
+        label_counter = 0
+        data_counter = 0
 
-        This normalizes B->A so that const-qualified and non-const versions match.
-        """
-        # Replace B (const) with A (non-const) in pointer type encodings
-        # Pattern: PE[A-Z][A-Z] where the second letter indicates const-ness
-        # PEA = char*, PEB = const char*, etc.
-        return re.sub(r'(PE)B', r'\1A', name)
+        for match in self.identifier_pattern.finditer(asm_content):
+            identifier = match.group(0)
+            if identifier in identifier_map:
+                continue
 
-    def _normalize_mangled_names_in_line(self, line: str) -> str:
-        """Normalize all MSVC mangled names in a line."""
-        def replace_mangled(match):
-            return self._normalize_mangled_name(match.group(0))
-        return self.mangled_name_pattern.sub(replace_mangled, line)
+            # Assign canonical name based on type
+            if identifier.startswith('?'):
+                identifier_map[identifier] = f'FUNC_{func_counter}'
+                func_counter += 1
+            elif identifier.startswith('$LN'):
+                identifier_map[identifier] = f'LABEL_{label_counter}'
+                label_counter += 1
+            elif identifier.startswith('$SG'):
+                identifier_map[identifier] = f'DATA_{data_counter}'
+                data_counter += 1
+
+        return identifier_map
+
+    def _canonicalize_line(self, line: str, identifier_map: dict) -> str:
+        """Replace all identifiers in a line with their canonical names."""
+        def replace_identifier(match):
+            identifier = match.group(0)
+            return identifier_map.get(identifier, identifier)
+        return self.identifier_pattern.sub(replace_identifier, line)
 
     def _normalize_asm(self, asm_content: str):
         if not asm_content:
             return []
+
+        # Build identifier map for this ASM content
+        identifier_map = self._build_identifier_map(asm_content)
 
         lines = asm_content.splitlines()
 
@@ -116,8 +150,8 @@ class BaseASMValidator(BaseValidator, ABC):
             # Normalize whitespace
             line = ' '.join(line.split())
 
-            # Normalize mangled names to ignore const-qualifier differences
-            line = self._normalize_mangled_names_in_line(line)
+            # Canonicalize all identifiers (function names, labels, data refs)
+            line = self._canonicalize_line(line, identifier_map)
 
             if line:
                 normalized.append(line)
@@ -218,7 +252,10 @@ class BaseASMValidator(BaseValidator, ABC):
         return True
 
     def _is_comdat_function_block(self, lines):
-        """Check if lines represent a complete COMDAT function block."""
+        """Check if lines represent a complete COMDAT function block.
+
+        Lines are already canonicalized, so we check for canonical FUNC_N names.
+        """
         if not hasattr(self, '_modified_comdat_functions'):
             return False
 
@@ -226,6 +263,7 @@ class BaseASMValidator(BaseValidator, ABC):
         for line in lines:
             if ' PROC' in line:
                 func_name = line.split()[0]
+                # func_name is now canonical (e.g., FUNC_0)
                 if func_name in self._modified_comdat_functions:
                     # Verify the block is complete (has matching ENDP)
                     has_endp = any(func_name in l and ' ENDP' in l for l in lines)
