@@ -25,29 +25,269 @@ class ValidatorSmokeTest:
         self.optimization_level = o
 
 
-ValTest = ValidatorSmokeTest #shorthand for the list 
+ValTest = ValidatorSmokeTest #shorthand for the list
 VALIDATOR_SMOKE_TESTS = \
-[   
-    # Add comments
-    ValTest("add_comments",         'int f() { return 17; }', 
-                                    '/* Hardcoded seventeen */ int f() { return 17;  }', o=3), 
+[
+    # =============================================================================
+    # Comments
+    # =============================================================================
+    ValTest("add_comments",         'int f() { return 17; }',
+                                    '/* Hardcoded seventeen */ int f() { return 17;  }', o=3),
 
+    # =============================================================================
     # Extract function (two steps)
-    ValTest("extract_function",     'int f() { return 4*4 + 1; }', 
+    # =============================================================================
+    ValTest("extract_function",     'int f() { return 4*4 + 1; }',
                                     'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=3),
-    ValTest("remove_inline",        'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', 
+    ValTest("remove_inline",        'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }',
                                     'int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=0),
 
-    # Const parameter (one step)
-    ValTest("add_const param",       'int len(      char *buf) { int i = 0; for (const char* p = buf; *p; p++, i++) {} return i;} int f() { return len("asdf"); }', 
-                                    'int len(const char *buf) { int i = 0; for (const char* p = buf; *p; p++, i++) {} return i;} int f() { return len("asdf"); }', o=0), #o=Any
-    
-    # Dead code
-    ValTest("remove_dead_code",     'int f() { return 17; int x = 10; x++; }', 
-                                    'int f() { return 17; }', o=3), 
+    # =============================================================================
+    # USE: const
+    # =============================================================================
+    # const parameter
+    ValTest("const_param",          'int len(      char *buf) { int i = 0; for (const char* p = buf; *p; p++, i++) {} return i;} int f() { return len("asdf"); }',
+                                    'int len(const char *buf) { int i = 0; for (const char* p = buf; *p; p++, i++) {} return i;} int f() { return len("asdf"); }', o=0), # o=Any
+    # const local
+    ValTest("const_local",          'int f() { int x = 5; return x * 2; }',
+                                    'int f() { const int x = 5; return x * 2; }', o=0), # o=Any
+    # const method
+    ValTest("const_method",         'struct S { int x; int get()       { return x; } }; int f() { S s; s.x = 5; return s.get(); }',
+                                    'struct S { int x; int get() const { return x; } }; int f() { S s; s.x = 5; return s.get(); }', o=0), # o=Any
 
+    # =============================================================================
+    # USE: override
+    # =============================================================================
+    ValTest("add_override",         'struct Base { virtual int get() { return 1; } }; struct Derived : Base { virtual int get()          { return 2; } }; int f() { Derived d; Base* b = &d; return b->get(); }',
+                                    'struct Base { virtual int get() { return 1; } }; struct Derived : Base { virtual int get() override { return 2; } }; int f() { Derived d; Base* b = &d; return b->get(); }', o=0), # o=Any
 
+    # =============================================================================
+    # USE: explicit
+    # =============================================================================
+    ValTest("add_explicit",         'struct S {          S(int x) : v(x) {} int v; }; int f() { S s(5); return s.v; }',
+                                    'struct S { explicit S(int x) : v(x) {} int v; }; int f() { S s(5); return s.v; }', o=0), # o=Any
 
+    # =============================================================================
+    # USE: =default
+    # =============================================================================
+    ValTest("use_default_ctor",     'struct S { int x; S() { x = 0; }        }; int f() { S s; return s.x; }',
+                                    'struct S { int x = 0; S() = default;    }; int f() { S s; return s.x; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: =delete
+    # =============================================================================
+    ValTest("use_delete",           'struct S { int x; private: S(const S&); }; int f() { S s; s.x = 5; return s.x; }',
+                                    'struct S { int x; S(const S&) = delete; }; int f() { S s; s.x = 5; return s.x; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: noexcept
+    # =============================================================================
+    ValTest("add_noexcept",         'int add(int a, int b)          { return a + b; } int f() { return add(2, 3); }',
+                                    'int add(int a, int b) noexcept { return a + b; } int f() { return add(2, 3); }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: [[nodiscard]]
+    # =============================================================================
+    ValTest("add_nodiscard",        '              int compute() { return 42; } int f() { return compute(); }',
+                                    '[[nodiscard]] int compute() { return 42; } int f() { return compute(); }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: [[maybe_unused]]
+    # =============================================================================
+    ValTest("add_maybe_unused",     'int f() { int               x = 5; return 10; }',
+                                    'int f() { [[maybe_unused]] int x = 5; return 10; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: final class
+    # =============================================================================
+    ValTest("add_final_class",      'struct Base { virtual int get() { return 1; } }; struct Derived       : Base { int get() override { return 2; } }; int f() { Derived d; return d.get(); }',
+                                    'struct Base { virtual int get() { return 1; } }; struct Derived final : Base { int get() override { return 2; } }; int f() { Derived d; return d.get(); }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: final method
+    # =============================================================================
+    ValTest("add_final_method",     'struct Base { virtual int get() { return 1; } }; struct Derived : Base { int get() override       { return 2; } }; int f() { Derived d; return d.get(); }',
+                                    'struct Base { virtual int get() { return 1; } }; struct Derived : Base { int get() override final { return 2; } }; int f() { Derived d; return d.get(); }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: auto type deduction
+    # =============================================================================
+    ValTest("use_auto",             'int f() { int  x = 42; return x; }',
+                                    'int f() { auto x = 42; return x; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: trailing return type
+    # =============================================================================
+    ValTest("trailing_return",      'int        add(int a, int b) { return a + b; } int f() { return add(1, 2); }',
+                                    'auto add(int a, int b) -> int { return a + b; } int f() { return add(1, 2); }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: enum class
+    # =============================================================================
+    ValTest("use_enum_class",       'enum Color { Red = 0, Green = 1 };       int f() { Color c = Red;         return (int)c; }',
+                                    'enum class Color { Red = 0, Green = 1 }; int f() { Color c = Color::Red; return (int)c; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: constexpr variable
+    # =============================================================================
+    ValTest("use_constexpr_var",    'int f() { const     int x = 10; return x * 2; }',
+                                    'int f() { constexpr int x = 10; return x * 2; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: constexpr function
+    # =============================================================================
+    ValTest("use_constexpr_func",   '          int square(int x) { return x * x; } int f() { return square(5); }',
+                                    'constexpr int square(int x) { return x * x; } int f() { return square(5); }', o=3), # needs optimization to inline
+
+    # =============================================================================
+    # USE: inline variable (C++17)
+    # =============================================================================
+    ValTest("use_inline_var",       'const        int MAGIC = 42; int f() { return MAGIC; }',
+                                    'inline const int MAGIC = 42; int f() { return MAGIC; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: structured bindings
+    # =============================================================================
+    ValTest("use_structured_bind",  'struct P { int x; int y; }; int f() { P p{3, 4}; int a = p.x; int b = p.y;    return a + b; }',
+                                    'struct P { int x; int y; }; int f() { P p{3, 4}; auto [a, b] = p;             return a + b; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: uniform initialization
+    # =============================================================================
+    ValTest("uniform_init",         'int f() { int x = 5;  return x; }',
+                                    'int f() { int x{5};   return x; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: in-class member initializer
+    # =============================================================================
+    ValTest("in_class_init",        'struct S { int x;      S() : x(10) {} }; int f() { S s; return s.x; }',
+                                    'struct S { int x = 10; S() {}       }; int f() { S s; return s.x; }', o=0), # o=Any
+
+    # =============================================================================
+    # USE: delegating constructor
+    # =============================================================================
+    ValTest("delegating_ctor",      'struct S { int x; S() { x = 0; }           S(int v) { x = v; } }; int f() { S s; return s.x; }',
+                                    'struct S { int x; S() : S(0) {}            S(int v) { x = v; } }; int f() { S s; return s.x; }', o=0), # o=Any
+
+    # =============================================================================
+    # REMOVE: dead code
+    # =============================================================================
+    ValTest("remove_dead_code",     'int f() { return 17; int x = 10; x++; }',
+                                    'int f() { return 17; }', o=3),
+
+    # =============================================================================
+    # REMOVE: commented-out code
+    # =============================================================================
+    ValTest("remove_comments",      'int f() { /* int old = 5; */ return 17; }',
+                                    'int f() { return 17; }', o=0), # o=Any
+
+    # =============================================================================
+    # REMOVE: unused parameters
+    # =============================================================================
+    ValTest("remove_unused_param",  'int add(int a, int b, int unused) { return a + b; } int f() { return add(2, 3, 99); }',
+                                    'int add(int a, int b           ) { return a + b; } int f() { return add(2, 3    ); }', o=3),
+
+    # =============================================================================
+    # REMOVE: void argument list
+    # =============================================================================
+    ValTest("remove_void_args",     'int f(void) { return 42; }',
+                                    'int f()     { return 42; }', o=0), # o=Any
+
+    # =============================================================================
+    # REMOVE: redundant semicolons
+    # =============================================================================
+    ValTest("remove_extra_semi",    'int f() { return 42;; }',
+                                    'int f() { return 42; }', o=0), # o=Any
+
+    # =============================================================================
+    # REMOVE: redundant this->
+    # =============================================================================
+    ValTest("remove_this_arrow",    'struct S { int x; int get() { return this->x; } }; int f() { S s; s.x = 5; return s.get(); }',
+                                    'struct S { int x; int get() { return x;       } }; int f() { S s; s.x = 5; return s.get(); }', o=0), # o=Any
+
+    # =============================================================================
+    # REMOVE: empty destructor
+    # =============================================================================
+    ValTest("remove_empty_dtor",    'struct S { int x; ~S() {} }; int f() { S s; s.x = 5; return s.x; }',
+                                    'struct S { int x;        }; int f() { S s; s.x = 5; return s.x; }', o=0), # o=Any
+
+    # =============================================================================
+    # REMOVE: empty default constructor
+    # =============================================================================
+    ValTest("remove_empty_ctor",    'struct S { int x; S() {} }; int f() { S s; s.x = 5; return s.x; }',
+                                    'struct S { int x;        }; int f() { S s; s.x = 5; return s.x; }', o=0), # o=Any
+
+    # =============================================================================
+    # REPLACE: NULL with nullptr
+    # =============================================================================
+    ValTest("null_to_nullptr",      '#define NULL 0\nint f() { int* p = NULL;    return p ? 1 : 0; }',
+                                    '         \nint f() { int* p = nullptr; return p ? 1 : 0; }', o=0), # o=Any
+
+    # =============================================================================
+    # REPLACE: 0/1 bool with true/false
+    # =============================================================================
+    ValTest("bool_literals",        'int f() { bool b = 1;    return b ? 10 : 20; }',
+                                    'int f() { bool b = true; return b ? 10 : 20; }', o=0), # o=Any
+
+    # =============================================================================
+    # REPLACE: static_cast
+    # =============================================================================
+    ValTest("use_static_cast",      'int f() { double d = 3.14; return (int)d; }',
+                                    'int f() { double d = 3.14; return static_cast<int>(d); }', o=0), # o=Any
+
+    # =============================================================================
+    # REPLACE: typedef with using
+    # =============================================================================
+    ValTest("typedef_to_using",     'typedef int  MyInt; int f() { MyInt x = 5; return x; }',
+                                    'using MyInt = int;  int f() { MyInt x = 5; return x; }', o=0), # o=Any
+
+    # =============================================================================
+    # REPLACE: header guards with #pragma once (simulated)
+    # =============================================================================
+    ValTest("pragma_once",          '#ifndef HEADER_H\n#define HEADER_H\nint f() { return 42; }\n#endif',
+                                    '#pragma once\nint f() { return 42; }', o=0), # o=Any
+
+    # =============================================================================
+    # REPLACE: throw() with noexcept
+    # =============================================================================
+    ValTest("throw_to_noexcept",    'int add(int a, int b) throw()   { return a + b; } int f() { return add(2, 3); }',
+                                    'int add(int a, int b) noexcept  { return a + b; } int f() { return add(2, 3); }', o=0), # o=Any
+
+    # =============================================================================
+    # REPLACE: static with anonymous namespace
+    # =============================================================================
+    ValTest("static_to_anon_ns",    'static int helper() { return 5; } int f() { return helper(); }',
+                                    'namespace { int helper() { return 5; } } int f() { return helper(); }', o=0), # o=Any
+
+    # =============================================================================
+    # REPLACE: pair.first/second with structured bindings
+    # =============================================================================
+    ValTest("pair_to_binding",      '#include <utility>\nint f() { auto p = std::make_pair(3, 4); return p.first + p.second; }',
+                                    '#include <utility>\nint f() { auto [a, b] = std::make_pair(3, 4); return a + b; }', o=0), # o=Any
+
+    # =============================================================================
+    # REFACTOR: declare variables where assigned
+    # =============================================================================
+    ValTest("declare_at_assign",    'int f() { int x; x = 10; return x; }',
+                                    'int f() { int x = 10;    return x; }', o=0), # o=Any
+
+    # =============================================================================
+    # REFACTOR: extract named constant
+    # =============================================================================
+    ValTest("extract_constant",     'int f() { return 3 * 3 * 3.14159; }',
+                                    'int f() { constexpr double PI = 3.14159; return 3 * 3 * PI; }', o=3), # needs optimization
+
+    # =============================================================================
+    # REFACTOR: simplify boolean expression
+    # =============================================================================
+    ValTest("simplify_bool",        'int f() { bool b = true; if (b == true) return 1; return 0; }',
+                                    'int f() { bool b = true; if (b)         return 1; return 0; }', o=0), # o=Any
+
+    # =============================================================================
+    # REFACTOR: reduce nesting (early return)
+    # =============================================================================
+    ValTest("early_return",         'int f() { int x = 5; if (x > 0) { return x * 2; } else { return 0; } }',
+                                    'int f() { int x = 5; if (x <= 0) return 0; return x * 2; }', o=3),
 
 ]
 
