@@ -20,6 +20,7 @@ namespace nesting
 method docstring
 class docstring
 module docstring
+doxygen documentation in headers
 noexcept
 unit tests
 final classes
@@ -45,6 +46,10 @@ uniform initialization
 in-class member initializers
 delegating constructors
 inheriting constructors
+owner<T>/nonowner<T> pointer annotations
+silence warnings without changing behaviour
+expand abbreviated symbols (scr→screen, idx→index, px→pixel)
+enforce naming conventions (m_ for members, s_ for statics)
 
 remove
 ======
@@ -71,13 +76,16 @@ empty destructors
 empty default constructors
 unnecessary forward declarations
 trivial getters/setters
+redundant null checks after new (new throws on failure)
 
 replace
 =======
 pointer with reference
 raw ptr with unique_ptr
 raw ptr with shared_ptr
-char* with string class 
+char* with string class
+char* with custom C::string wrapper
+malloc/free with new/delete
 array pointer/length parameter with span 
 macro values with const values
 conditional feature macros with constexpr/consteval 
@@ -120,6 +128,7 @@ C-style function pointers with std::function
 refactor
 ========
 split long methods
+extract inlined code from long functions
 declare variables where assigned
 extract named constants
 extract helper functions
