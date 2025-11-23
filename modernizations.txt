@@ -127,3 +127,17 @@ reduce nesting depth
 simplify boolean expressions
 consolidate duplicate code
 separate concerns into classes
+apply design patterns (Strategy, Factory, Observer, etc.)
+introduce dependency injection
+convert inheritance to composition
+extract interfaces from concrete classes
+replace switch/if chains with polymorphism
+introduce template method pattern
+apply SOLID principles
+convert procedural code to OOP
+extract reusable components/libraries
+introduce layered architecture
+apply command pattern for undo/redo
+convert synchronous to asynchronous operations
+introduce caching layer
+apply mediator pattern to reduce coupling
