@@ -1,6 +1,6 @@
 use
 ===
-override 
+override
 explicit
 const locals
 const parameter
@@ -22,6 +22,29 @@ class docstring
 module docstring
 noexcept
 unit tests
+final classes
+final methods
+[[nodiscard]]
+[[maybe_unused]]
+[[deprecated]]
+auto type deduction
+trailing return types
+enum class
+constexpr variables
+constexpr functions
+inline variables
+structured bindings
+if constexpr
+std::optional
+std::variant
+std::string_view
+std::array
+emplace methods
+move semantics
+uniform initialization
+in-class member initializers
+delegating constructors
+inheriting constructors
 
 remove
 ======
@@ -35,13 +58,19 @@ void argument list
 Hungarian notation / RPN
 duplicate includes
 C header files
-C-style array 
+C-style array
 malloc/free
 new/delete
-reduntant casting
+redundant casting
 redundant control flow
-redundant expressions 
-redundant intialization
+redundant expressions
+redundant initialization
+redundant semicolons
+redundant this->
+empty destructors
+empty default constructors
+unnecessary forward declarations
+trivial getters/setters
 
 replace
 =======
@@ -60,7 +89,41 @@ typedef with using
 static with anonymous namespace
 pointer 0/NULL with nullptr
 bool 0/1 with true/false
+printf/sprintf with iostream or std::format
+strcpy/strcat with std::string
+strcmp with std::string::compare or ==
+memcpy/memset with std::copy/std::fill
+atoi/atof with std::stoi/std::stod
+rand() with <random>
+time(NULL) with <chrono>
+pair.first/second with structured bindings
+std::auto_ptr with std::unique_ptr
+throw() with noexcept
+register keyword (remove)
+extern template (add where beneficial)
+POD struct with aggregate initialization
+manual RAII with standard RAII wrappers
+output parameters with return values
+error codes with exceptions or std::expected
+callback functions with std::function
+void* with templates or std::any
+union with std::variant
+bitfields with std::bitset
+manual string formatting with std::format
+iterator pairs with ranges
+begin()/end() with range-based for
+push_back with emplace_back
+insert with emplace
+copy assignment with move assignment
+C-style function pointers with std::function
 
-
-split long methods 
+refactor
+========
+split long methods
 declare variables where assigned
+extract named constants
+extract helper functions
+reduce nesting depth
+simplify boolean expressions
+consolidate duplicate code
+separate concerns into classes
