@@ -25,17 +25,37 @@ class BaseASMValidator(BaseValidator, ABC):
             re.compile(r'^\s*\$.*$'),
             re.compile(r'^\s*DD\s+__real@.*$'),
             re.compile(r'^\s*DD\s+__mask@.*$'),
-            re.compile(r'.*COMDAT.*$'),
         ]
+        # Pattern for COMDAT markers - tracked separately to identify inline functions
+        # MSVC format: ";	COMDAT ?funcname@@..."
+        self.comdat_pattern = re.compile(r'^\s*;\s*COMDAT\s+(\S+)')
 
     def validate(self, original: CompiledFile, modified: CompiledFile) -> bool:
         original_lines = self._normalize_asm(original.asm_output)
         modified_lines = self._normalize_asm(modified.asm_output)
 
+        # Track COMDAT functions in modified ASM (inline functions that can be safely added)
+        self._modified_comdat_functions = self._extract_comdat_functions(modified.asm_output)
+
         if original_lines == modified_lines:
             return True
 
         return self._check_acceptable_differences(original_lines, modified_lines)
+
+    def _extract_comdat_functions(self, asm_content: str) -> set:
+        """Extract names of COMDAT functions (inline functions that linker can discard)."""
+        if not asm_content:
+            return set()
+
+        comdat_functions = set()
+        for line in asm_content.splitlines():
+            match = self.comdat_pattern.match(line)
+            if match:
+                # Extract function name directly from the COMDAT marker
+                func_name = match.group(1)
+                comdat_functions.add(func_name)
+
+        return comdat_functions
 
     def _normalize_asm(self, asm_content: str):
         if not asm_content:
@@ -55,6 +75,10 @@ class BaseASMValidator(BaseValidator, ABC):
 
             # Skip lines matching ignore patterns
             if any(pattern.match(line) for pattern in self.ignore_patterns):
+                continue
+
+            # Skip COMDAT markers (tracked separately)
+            if self.comdat_pattern.match(line):
                 continue
 
             # Skip empty lines outside of functions
@@ -157,11 +181,32 @@ class BaseASMValidator(BaseValidator, ABC):
         return True
 
     def _is_safe_to_insert(self, inserted_lines):
+        # Check if inserted lines form a complete COMDAT function (inline function)
+        # These are safe to add since the linker can discard them if unused
+        if self._is_comdat_function_block(inserted_lines):
+            return True
+
         for line in inserted_lines:
             if 'nop' in line.lower() or 'align' in line.lower():
                 continue
             return False
         return True
+
+    def _is_comdat_function_block(self, lines):
+        """Check if lines represent a complete COMDAT function block."""
+        if not hasattr(self, '_modified_comdat_functions'):
+            return False
+
+        # Look for PROC declaration that matches a known COMDAT function
+        for line in lines:
+            if ' PROC' in line:
+                func_name = line.split()[0]
+                if func_name in self._modified_comdat_functions:
+                    # Verify the block is complete (has matching ENDP)
+                    has_endp = any(func_name in l and ' ENDP' in l for l in lines)
+                    if has_endp:
+                        return True
+        return False
 
 
 class ASMValidatorO0(BaseASMValidator):
