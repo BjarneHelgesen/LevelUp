@@ -1,41 +1,38 @@
 import pytest
 from unittest.mock import Mock
-from core.validators.asm_validator import ASMValidator
+from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
 
 
-class TestASMValidatorBasics:
-    def test_get_id_returns_stable_identifier_o0(self):
-        validator = ASMValidator(Mock(), optimization_level=0)
-        assert validator.get_id() == "asm_o0"
+class TestASMValidatorO0Basics:
+    def test_get_id_returns_stable_identifier(self):
+        assert ASMValidatorO0.get_id() == "asm_o0"
 
-    def test_get_id_returns_stable_identifier_o3(self):
-        validator = ASMValidator(Mock(), optimization_level=3)
-        assert validator.get_id() == "asm_o3"
-
-    def test_get_name_returns_human_readable_name_o0(self):
-        validator = ASMValidator(Mock(), optimization_level=0)
-        assert validator.get_name() == "Assembly Comparison (O0)"
-
-    def test_get_name_returns_human_readable_name_o3(self):
-        validator = ASMValidator(Mock(), optimization_level=3)
-        assert validator.get_name() == "Assembly Comparison (O3)"
+    def test_get_name_returns_human_readable_name(self):
+        assert ASMValidatorO0.get_name() == "Assembly Comparison (O0)"
 
     def test_get_optimization_level_returns_0(self):
-        validator = ASMValidator(Mock(), optimization_level=0)
-        assert validator.get_optimization_level() == 0
-
-    def test_get_optimization_level_returns_3(self):
-        validator = ASMValidator(Mock(), optimization_level=3)
-        assert validator.get_optimization_level() == 3
+        assert ASMValidatorO0.get_optimization_level() == 0
 
     def test_can_be_constructed_with_compiler(self):
         mock_compiler = Mock()
-        validator = ASMValidator(mock_compiler, optimization_level=0)
+        validator = ASMValidatorO0(mock_compiler)
         assert validator.compiler is mock_compiler
 
-    def test_default_optimization_level_is_0(self):
-        validator = ASMValidator(Mock())
-        assert validator.get_optimization_level() == 0
+
+class TestASMValidatorO3Basics:
+    def test_get_id_returns_stable_identifier(self):
+        assert ASMValidatorO3.get_id() == "asm_o3"
+
+    def test_get_name_returns_human_readable_name(self):
+        assert ASMValidatorO3.get_name() == "Assembly Comparison (O3)"
+
+    def test_get_optimization_level_returns_3(self):
+        assert ASMValidatorO3.get_optimization_level() == 3
+
+    def test_can_be_constructed_with_compiler(self):
+        mock_compiler = Mock()
+        validator = ASMValidatorO3(mock_compiler)
+        assert validator.compiler is mock_compiler
 
 
 from core.validators.source_diff_validator import SourceDiffValidator

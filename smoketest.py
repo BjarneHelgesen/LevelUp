@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 from core.compilers.compiler import MSVCCompiler
-from core.validators.asm_validator import ASMValidator
+from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
 from core.mods.mod_factory import ModFactory
 
 
@@ -92,8 +92,8 @@ def run_validator_smoke_tests():
     compiler = MSVCCompiler()
 
     validators = {
-        0: ASMValidator(compiler, optimization_level=0),
-        3: ASMValidator(compiler, optimization_level=3),
+        0: ASMValidatorO0(compiler),
+        3: ASMValidatorO3(compiler),
     }
 
     for test in VALIDATOR_SMOKE_TESTS:

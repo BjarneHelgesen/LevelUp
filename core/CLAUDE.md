@@ -49,7 +49,7 @@ The `core` package implements:
 
 ## Factory Pattern
 
-Factories provide `from_id()` and `get_available_*()` methods for creating instances from string IDs.
+All factories use the same pattern: enum-based registry with `from_id()` and `get_available_*()` methods.
 
 **Compiler Factory (compilers/compiler_factory.py)**
 - Enum-based registry: `CompilerType` enum maps to compiler classes
@@ -65,10 +65,10 @@ Factories provide `from_id()` and `get_available_*()` methods for creating insta
 - No string literals in factory - all IDs come from class methods
 
 **Validator Factory (validators/validator_factory.py)**
-- Registry-based: list of (id, name, factory_function) tuples
+- Enum-based registry: `ValidatorType` enum maps to validator classes
 - `from_id()` creates validator instance from stable ID string
 - `get_available_validators()` returns list with id and name for each validator
-- Supports parameterized validators (e.g., ASMValidator with different optimization levels)
+- Each validator class has static `get_id()` and `get_name()` methods
 
 ## Module Details
 
@@ -81,7 +81,8 @@ Factories provide `from_id()` and `get_available_*()` methods for creating insta
 
 **validators/asm_validator.py**
 - Assembly comparison validator (primary regression detection method)
-- `ASMValidator` class takes `optimization_level` parameter (0 or 3)
+- `ASMValidatorO0` and `ASMValidatorO3` classes for different optimization levels
+- Both inherit from `BaseASMValidator` which contains shared comparison logic
 - `validate(original: CompiledFile, modified: CompiledFile)` compares assembly outputs
 - Extracts and compares function bodies by structure:
   - `_extract_functions()` parses PROC/ENDP blocks from assembly
@@ -109,9 +110,9 @@ Factories provide `from_id()` and `get_available_*()` methods for creating insta
 
 **Adding a New Validator**:
 1. Create validator class in `validators/` inheriting from BaseValidator
-2. Implement methods: `get_id()`, `get_name()`, `get_optimization_level()`, `validate(original: CompiledFile, modified: CompiledFile)`
-3. Add entry to `_VALIDATOR_REGISTRY` list in `validators/validator_factory.py`: `(id, name, factory_lambda)`
-4. ID is automatically available in UI via `/api/available/validators`
+2. Implement abstract methods: `get_id()`, `get_name()`, `get_optimization_level()`, `validate(original: CompiledFile, modified: CompiledFile)`
+3. Add to `ValidatorType` enum in `validators/validator_factory.py`
+4. ID from `get_id()` is automatically available in UI via `/api/available/validators`
 
 **Adding a New Mod Type**:
 1. Create mod class in `mods/` inheriting from BaseMod

@@ -154,19 +154,35 @@ class BaseASMValidator(BaseValidator, ABC):
         return functions
 
 
-class ASMValidator(BaseASMValidator):
-    """ASM validator with configurable optimization level."""
+class ASMValidatorO0(BaseASMValidator):
+    """ASM validator using no optimization (/Od)."""
 
-    def __init__(self, compiler, optimization_level: int = 0):
-        super().__init__(compiler)
-        self._optimization_level = optimization_level
-
-    def get_id(self) -> str:
+    @staticmethod
+    def get_id() -> str:
         """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
-        return f'asm_o{self._optimization_level}'
+        return 'asm_o0'
 
-    def get_name(self) -> str:
-        return f"Assembly Comparison (O{self._optimization_level})"
+    @staticmethod
+    def get_name() -> str:
+        return "Assembly Comparison (O0)"
 
-    def get_optimization_level(self) -> int:
-        return self._optimization_level
+    @staticmethod
+    def get_optimization_level() -> int:
+        return 0
+
+
+class ASMValidatorO3(BaseASMValidator):
+    """ASM validator using maximum optimization (/Ox)."""
+
+    @staticmethod
+    def get_id() -> str:
+        """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
+        return 'asm_o3'
+
+    @staticmethod
+    def get_name() -> str:
+        return "Assembly Comparison (O3)"
+
+    @staticmethod
+    def get_optimization_level() -> int:
+        return 3

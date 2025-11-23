@@ -4,8 +4,8 @@ from core.mods.mod_factory import ModFactory, ModType
 from core.mods.remove_inline_mod import RemoveInlineMod
 from core.mods.add_override_mod import AddOverrideMod
 from core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
-from core.validators.validator_factory import ValidatorFactory
-from core.validators.asm_validator import ASMValidator
+from core.validators.validator_factory import ValidatorFactory, ValidatorType
+from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
 from core.compilers.compiler_factory import CompilerFactory, CompilerType
 from core.compilers.compiler import MSVCCompiler
 
@@ -78,14 +78,12 @@ class TestValidatorFactory:
     def test_from_id_creates_asm_o0_validator(self):
         mock_compiler = Mock()
         validator = ValidatorFactory.from_id("asm_o0", mock_compiler)
-        assert isinstance(validator, ASMValidator)
-        assert validator.get_optimization_level() == 0
+        assert isinstance(validator, ASMValidatorO0)
 
     def test_from_id_creates_asm_o3_validator(self):
         mock_compiler = Mock()
         validator = ValidatorFactory.from_id("asm_o3", mock_compiler)
-        assert isinstance(validator, ASMValidator)
-        assert validator.get_optimization_level() == 3
+        assert isinstance(validator, ASMValidatorO3)
 
     def test_from_id_passes_compiler_to_validator(self):
         mock_compiler = Mock()
@@ -107,9 +105,9 @@ class TestValidatorFactory:
         validators = ValidatorFactory.get_available_validators()
         assert isinstance(validators, list)
 
-    def test_get_available_validators_contains_expected_count(self):
+    def test_get_available_validators_contains_all_validators(self):
         validators = ValidatorFactory.get_available_validators()
-        assert len(validators) == 3  # asm_o0, asm_o3, source_diff
+        assert len(validators) == len(ValidatorType)
 
     def test_get_available_validators_each_entry_has_id_and_name(self):
         validators = ValidatorFactory.get_available_validators()
@@ -132,6 +130,10 @@ class TestValidatorFactory:
         for validator_info in validators_info:
             validator = ValidatorFactory.from_id(validator_info["id"], Mock())
             assert validator.get_id() == validator_info["id"]
+
+    def test_validator_type_enum_matches_classes(self):
+        assert ValidatorType.ASM_O0.value == ASMValidatorO0
+        assert ValidatorType.ASM_O3.value == ASMValidatorO3
 
 
 class TestCompilerFactory:
