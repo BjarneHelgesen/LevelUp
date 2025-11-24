@@ -46,6 +46,15 @@ The `core` package implements:
 - Static method `get_repo_name()` extracts repo name from URL
 - Wrapper around git commands via subprocess
 - All operations use `_run_git()` helper with `subprocess.run()`
+- Doxygen integration: `generate_doxygen()`, `get_doxygen_parser()`, `get_function_info()`, `get_functions_in_file()`
+
+**Doxygen Integration (doxygen/)**
+- Generates function dependency data for repositories using Doxygen XML output
+- `DoxygenRunner`: Runs Doxygen with XML output enabled, macro expansion disabled
+- `DoxygenParser`: Parses Doxygen XML to extract function prototypes, file locations, and call graphs
+- `FunctionInfo`: Data class holding function metadata (name, qualified_name, file_path, line_number, parameters, calls, called_by)
+- Automatically runs when adding new repositories
+- Mods can use this data to reduce error rates by understanding function dependencies
 
 ## Factory Pattern
 
@@ -141,3 +150,5 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 - `mod_request.py`: Type-safe mod request with source type enum
 - `mods/mod_handler.py`: Applies mod instances to files
 - `*_factory.py`: Convert string IDs to instances (only used in server/app.py)
+- `doxygen/doxygen_runner.py`: Runs Doxygen to generate XML output
+- `doxygen/doxygen_parser.py`: Parses Doxygen XML for function dependency information

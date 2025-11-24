@@ -25,6 +25,11 @@ The `server` package implements:
 
 **API Routes**:
 - `/api/repos` - List and add repositories
+- `/api/repos/<repo_id>/doxygen` - GET status, POST to regenerate Doxygen data
+- `/api/repos/<repo_id>/functions` - Query function dependency data (supports `?name=` and `?file=` filters)
+- `/api/repos/<repo_id>/functions/<doxygen_id>/callers` - Get functions that call a function
+- `/api/repos/<repo_id>/functions/<doxygen_id>/callees` - Get functions called by a function
+- `/api/repos/<repo_id>/files` - List files with parsed functions
 - `/api/mods` - Submit mod requests
 - `/api/mods/<mod_id>/status` - Poll mod status
 - `/api/queue/status` - View queue state
@@ -40,13 +45,14 @@ The `server` package implements:
 
 ## Configuration
 
-**CONFIG Dict (app.py:37-42)**
+**CONFIG Dict (app.py:37-43)**
 - `workspace`: Base directory for all LevelUp data
 - `repos`: Git repository clones location
 - `temp`: Temporary files for compilation/validation
 - `git_path`: Path to git (default: 'git')
+- `doxygen_path`: Path to doxygen (default: 'doxygen')
 
-Environment variable `GIT_PATH` overrides default.
+Environment variables `GIT_PATH` and `DOXYGEN_PATH` override defaults.
 
 MSVCCompiler auto-discovers Visual Studio installation via vswhere.exe - no manual path configuration needed.
 
@@ -75,7 +81,8 @@ ModProcessor accepts `repos_path` and `git_path` in constructor - no global CONF
 1. User submits repo URL, work branch, build commands
 2. Server extracts repo name from URL using `Repo.get_repo_name()`
 3. Config saved to `workspace/repos.json`
-4. Repo becomes selectable for mod operations
+4. Doxygen generation automatically starts in background thread
+5. Repo becomes selectable for mod operations
 
 **Submitting a Mod**:
 1. Frontend sends JSON with mod details
