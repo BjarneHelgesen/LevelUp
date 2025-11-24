@@ -15,8 +15,18 @@ class ClangCompiler(BaseCompiler):
         3: '-O3',
     }
 
-    def __init__(self, clang_path: str = 'clang++'):
+    def __init__(self, clang_path: str = None):
         logger.info(f"Initializing ClangCompiler with path={clang_path}")
+
+        # Auto-discover clang++ if not provided
+        if clang_path is None:
+            clang_path = self._find_clang()
+            if clang_path is None:
+                raise RuntimeError(
+                    "clang++ not found. Please install LLVM/Clang from https://releases.llvm.org/ "
+                    "or set the path manually."
+                )
+
         self.clang_path = clang_path
         self.default_flags = [
             '-std=c++17',
@@ -44,6 +54,35 @@ class ClangCompiler(BaseCompiler):
     @staticmethod
     def get_name() -> str:
         return "Clang/LLVM"
+
+    def _find_clang(self):
+        """Auto-discover clang++ installation."""
+        # Try PATH first
+        try:
+            result = subprocess.run(
+                ['clang++', '--version'],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                logger.debug("Found clang++ in PATH")
+                return 'clang++'
+        except FileNotFoundError:
+            pass
+
+        # Try common Windows installation locations
+        common_paths = [
+            r"C:\Program Files\LLVM\bin\clang++.exe",
+            r"C:\Program Files (x86)\LLVM\bin\clang++.exe",
+        ]
+
+        for path in common_paths:
+            if Path(path).exists():
+                logger.debug(f"Found clang++ at {path}")
+                return path
+
+        logger.warning("clang++ not found in PATH or common installation locations")
+        return None
 
     def _run_clang(self, args, cwd=None, check=True):
         cmd = [self.clang_path] + args
@@ -76,10 +115,10 @@ class ClangCompiler(BaseCompiler):
             base_name = source_path.stem
             asm_file = temp_path / f"{base_name}.s"
 
-            # Compile to ASM
+            # Compile to ASM (using Intel syntax to match MSVC)
             args = self.default_flags.copy()
             args.append(self.OPTIMIZATION_FLAGS.get(optimization_level, '-O2'))
-            args.extend(['-S', '-o', str(asm_file)])
+            args.extend(['-S', '-masm=intel', '-o', str(asm_file)])
 
             if additional_flags:
                 args.extend(additional_flags.split())

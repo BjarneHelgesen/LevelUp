@@ -100,14 +100,47 @@ class BaseASMValidator(BaseValidator, ABC):
                 comdat_functions.add(match.group(1))
         return comdat_functions
 
+    def _detect_asm_format(self, asm_content: str) -> str:
+        """Detect whether assembly is MSVC or Clang format.
+
+        Returns 'msvc' or 'clang'.
+        """
+        if not asm_content:
+            return 'unknown'
+
+        # MSVC uses PROC/ENDP markers
+        if ' PROC' in asm_content and ' ENDP' in asm_content:
+            return 'msvc'
+
+        # Clang uses .globl directives and label-based functions
+        if '.globl' in asm_content or '.text' in asm_content:
+            return 'clang'
+
+        return 'unknown'
+
     def _extract_functions(self, asm_content: str) -> dict:
         """Extract function bodies from ASM content.
 
         Returns dict mapping function name to list of instruction lines.
+        Automatically detects MSVC or Clang assembly format.
         """
         if not asm_content:
             return {}
 
+        format_type = self._detect_asm_format(asm_content)
+
+        if format_type == 'msvc':
+            return self._extract_functions_msvc(asm_content)
+        elif format_type == 'clang':
+            return self._extract_functions_clang(asm_content)
+        else:
+            return {}
+
+    def _extract_functions_msvc(self, asm_content: str) -> dict:
+        """Extract function bodies from MSVC assembly format.
+
+        Returns dict mapping function name to list of instruction lines.
+        """
         functions = {}
         current_func = None
         current_body = []
@@ -149,6 +182,79 @@ class BaseASMValidator(BaseValidator, ABC):
                 if '$ =' in line:
                     continue
                 current_body.append(line)
+
+        return functions
+
+    def _extract_functions_clang(self, asm_content: str) -> dict:
+        """Extract function bodies from Clang/LLVM assembly format.
+
+        Returns dict mapping function name to list of instruction lines.
+        """
+        functions = {}
+        current_func = None
+        current_body = []
+        in_debug_section = False
+
+        for line in asm_content.splitlines():
+            line = line.rstrip()
+
+            # Skip debug sections entirely
+            if line.strip().startswith('.section') and 'debug' in line.lower():
+                in_debug_section = True
+                continue
+
+            # Exit debug section when we hit another section or function
+            if in_debug_section:
+                if line.strip().startswith('.text') or line.strip().startswith('.globl'):
+                    in_debug_section = False
+                else:
+                    continue
+
+            # Strip comments (Clang uses # for comments)
+            if '#' in line:
+                # Keep line, just remove comment part
+                line = line.split('#')[0].rstrip()
+
+            # Normalize whitespace
+            line = ' '.join(line.split())
+
+            if not line:
+                continue
+
+            # Detect function start: label followed by colon (e.g., "main:" or "\"?add@@YAHHH@Z\":")
+            # Function names can be quoted for mangled names
+            if line.endswith(':') and not line.startswith('.'):
+                # Extract function name (remove colon and quotes)
+                func_name = line[:-1].strip().strip('"')
+                # Skip internal labels that start with .L
+                if not func_name.startswith('.L') and not func_name.startswith('.seh'):
+                    current_func = func_name
+                    current_body = []
+                continue
+
+            # Detect function end: next .globl, next function label, or # -- End function comment
+            if current_func:
+                # Check for end markers
+                if line.startswith('.globl') or line.startswith('.addrsig') or line.startswith('.section'):
+                    # Save current function and reset
+                    if current_body:  # Only save if we collected some instructions
+                        functions[current_func] = current_body
+                    current_func = None
+                    current_body = []
+                    continue
+
+                # Skip assembler directives and metadata
+                if any(line.startswith(p) for p in ['.seh_', '.def', '.scl', '.type', '.endef',
+                                                     '.p2align', '.file', '.intel_syntax',
+                                                     '@feat.00', '.L', '.cfi_']):
+                    continue
+
+                # Collect actual instructions
+                current_body.append(line)
+
+        # Save last function if any
+        if current_func and current_body:
+            functions[current_func] = current_body
 
         return functions
 
