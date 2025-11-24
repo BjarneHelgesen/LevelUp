@@ -268,13 +268,19 @@ MOD_SMOKE_TESTS = [
         "remove_inline_single",
         "remove_inline",
         "inline int f() { return 1; }",
-        " int f() { return 1; }",
+        "int f() { return 1; }",
     ),
     ModSmokeTest(
         "remove_inline_multiple",
         "remove_inline",
         "inline int f() { return 1; }\ninline int g() { return 2; }",
-        " int f() { return 1; }\n int g() { return 2; }",
+        "int f() { return 1; }\nint g() { return 2; }",
+    ),
+    ModSmokeTest(
+        "ms_macro_replacement_basic",
+        "ms_macro_replacement",
+        "__forceinline int f() { return 1; }",
+        '#include "levelup_msvc_compat.h"\nLEVELUP_FORCEINLINE int f() { return 1; }',
     ),
 ]
 

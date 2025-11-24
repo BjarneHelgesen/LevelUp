@@ -70,20 +70,26 @@ User (Web UI)
 7. Frontend polls for status updates via `/api/mods/{mod_id}/status`
 
 **Validation Flow**:
-1. Compile original source to assembly
-2. Apply mod transformation
-3. Compile modified source to assembly
-4. Validator compares outputs (e.g., ASMValidator compares normalized assembly)
-5. Result object contains validation details per file
+1. Mod specifies which validator to use via `get_validator_id()`
+2. Validator created dynamically from ValidatorFactory with appropriate compiler
+3. For each file change:
+   - Compile original source with validator's optimization level
+   - Apply mod transformation
+   - Compile modified source with same optimization level
+   - Validator compares outputs (e.g., ASMValidator compares normalized assembly)
+4. Result object contains validation details per file
 
 ## Validation Types
 
-The system supports multiple validators:
-- **ASM comparison**: Exact same assembly output (currently implemented)
+The system supports multiple validators (each mod chooses which validator to use):
+- **ASM O0 comparison** (`asm_o0`): Compares assembly at O0 optimization - useful for detecting semantic changes
+- **ASM O3 comparison** (`asm_o3`): Compares assembly at O3 optimization - stricter, catches optimization-affecting changes
+- **Source diff** (`source_diff`): Validates only expected source-level changes (e.g., keyword removal)
 - **AST diff**: Abstract syntax tree comparison (planned)
-- **Source diff**: Expected source-level changes only (planned)
 - **Unit tests**: Same results across all inputs (planned)
 - **Human validator**: For non-obvious cases requiring judgment (manual)
+
+Each mod declares its validator via `get_validator_id()`. The ModProcessor creates the appropriate validator from the ValidatorFactory with the configured compiler.
 
 ## Mod Types
 

@@ -5,12 +5,14 @@ from .base_mod import BaseMod
 from .remove_inline_mod import RemoveInlineMod
 from .add_override_mod import AddOverrideMod
 from .replace_ms_specific_mod import ReplaceMSSpecificMod
+from .ms_macro_replacement import MSMacroReplacementMod
 
 
 class ModType(Enum):
     REMOVE_INLINE = RemoveInlineMod
     ADD_OVERRIDE = AddOverrideMod
     REPLACE_MS_SPECIFIC = ReplaceMSSpecificMod
+    MS_MACRO_REPLACEMENT = MSMacroReplacementMod
 
 
 class ModFactory:
