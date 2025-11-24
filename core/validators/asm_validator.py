@@ -8,8 +8,7 @@ from ..compilers.compiled_file import CompiledFile
 class BaseASMValidator(BaseValidator, ABC):
     """Base class for ASM validators with shared comparison logic."""
 
-    def __init__(self, compiler):
-        self.compiler = compiler
+    def __init__(self):
         # Pattern for COMDAT markers (inline functions that linker can discard)
         self.comdat_pattern = re.compile(r'^\s*;\s*COMDAT\s+(\S+)')
         # Pattern for identifiers to canonicalize within function bodies

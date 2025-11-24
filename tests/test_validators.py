@@ -13,10 +13,9 @@ class TestASMValidatorO0Basics:
     def test_get_optimization_level_returns_0(self):
         assert ASMValidatorO0.get_optimization_level() == 0
 
-    def test_can_be_constructed_with_compiler(self):
-        mock_compiler = Mock()
-        validator = ASMValidatorO0(mock_compiler)
-        assert validator.compiler is mock_compiler
+    def test_can_be_constructed(self):
+        validator = ASMValidatorO0()
+        assert validator is not None
 
 
 class TestASMValidatorO3Basics:
@@ -29,10 +28,9 @@ class TestASMValidatorO3Basics:
     def test_get_optimization_level_returns_3(self):
         assert ASMValidatorO3.get_optimization_level() == 3
 
-    def test_can_be_constructed_with_compiler(self):
-        mock_compiler = Mock()
-        validator = ASMValidatorO3(mock_compiler)
-        assert validator.compiler is mock_compiler
+    def test_can_be_constructed(self):
+        validator = ASMValidatorO3()
+        assert validator is not None
 
 
 from core.validators.source_diff_validator import SourceDiffValidator

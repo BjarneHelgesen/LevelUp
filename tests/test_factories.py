@@ -77,29 +77,21 @@ class TestModFactory:
 
 class TestValidatorFactory:
     def test_from_id_creates_asm_o0_validator(self):
-        mock_compiler = Mock()
-        validator = ValidatorFactory.from_id("asm_o0", mock_compiler)
+        validator = ValidatorFactory.from_id("asm_o0")
         assert isinstance(validator, ASMValidatorO0)
 
     def test_from_id_creates_asm_o3_validator(self):
-        mock_compiler = Mock()
-        validator = ValidatorFactory.from_id("asm_o3", mock_compiler)
+        validator = ValidatorFactory.from_id("asm_o3")
         assert isinstance(validator, ASMValidatorO3)
-
-    def test_from_id_passes_compiler_to_validator(self):
-        mock_compiler = Mock()
-        validator = ValidatorFactory.from_id("asm_o0", mock_compiler)
-        assert validator.compiler is mock_compiler
 
     def test_from_id_raises_for_unknown_id(self):
         with pytest.raises(ValueError) as exc_info:
-            ValidatorFactory.from_id("nonexistent_validator", Mock())
+            ValidatorFactory.from_id("nonexistent_validator")
         assert "Unsupported validator" in str(exc_info.value)
 
     def test_from_id_creates_new_instance_each_time(self):
-        mock_compiler = Mock()
-        v1 = ValidatorFactory.from_id("asm_o0", mock_compiler)
-        v2 = ValidatorFactory.from_id("asm_o0", mock_compiler)
+        v1 = ValidatorFactory.from_id("asm_o0")
+        v2 = ValidatorFactory.from_id("asm_o0")
         assert v1 is not v2
 
     def test_get_available_validators_returns_list(self):
@@ -129,7 +121,7 @@ class TestValidatorFactory:
     def test_all_available_validators_can_be_created(self):
         validators_info = ValidatorFactory.get_available_validators()
         for validator_info in validators_info:
-            validator = ValidatorFactory.from_id(validator_info["id"], Mock())
+            validator = ValidatorFactory.from_id(validator_info["id"])
             assert validator.get_id() == validator_info["id"]
 
     def test_validator_type_enum_matches_classes(self):

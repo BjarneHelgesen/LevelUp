@@ -241,6 +241,50 @@ VALIDATOR_SMOKE_TESTS = \
     ValTest("early_return",         'int f() { int x = 5; if (x > 0) { return x * 2; } else { return 0; } }',
                                     'int f() { int x = 5; if (x <= 0) return 0; return x * 2; }', o=3),
 
+    # =============================================================================
+    # MODERNIZE: range-based for loop
+    # =============================================================================
+    ValTest("range_based_for",      'int f() { int arr[5] = {1,2,3,4,5}; int sum = 0; for (int i = 0; i < 5; i++) { sum += arr[i]; } return sum; }',
+                                    'int f() { int arr[5] = {1,2,3,4,5}; int sum = 0; for (int val : arr) { sum += val; } return sum; }', o=0),
+
+    # =============================================================================
+    # REFACTOR: replace pointer with reference (parameter)
+    # =============================================================================
+    ValTest("pointer_to_reference", 'int modify(int* p) { return *p + 1; } int f() { int x = 5; return modify(&x); }',
+                                    'int modify(int& p) { return p + 1; }  int f() { int x = 5; return modify(x); }', o=0),
+
+    # =============================================================================
+    # SAFETY: add owner<T>
+    # =============================================================================
+    ValTest("add_owner",            '#include <memory>\\nint f() { int*        p = new int(42); int result = *p; delete p; return result; }',
+                                    '#include <memory>\\nusing owner = std::unique_ptr<int>; int f() { owner p = std::make_unique<int>(42); int result = *p; return result; }', o=0),
+
+    # =============================================================================
+    # SAFETY: add non_owner<T>
+    # =============================================================================
+    ValTest("add_non_owner",        'int get(int*           p) { return *p; } int f() { int x = 42; return get(&x); }',
+                                    'int get(int* /*non_owner*/ p) { return *p; } int f() { int x = 42; return get(&x); }', o=0),
+
+    # =============================================================================
+    # SAFETY: remove owner<T> and non_owner<T> annotations
+    # =============================================================================
+    ValTest("remove_owner_annotation", 'using owner = std::unique_ptr<int>; int f() { owner p = std::make_unique<int>(42); return *p; }',
+                                       '#include <memory>\\nint f() { std::unique_ptr<int> p = std::make_unique<int>(42); return *p; }', o=0),
+    ValTest("remove_non_owner_annotation", 'int get(int* /*non_owner*/ p) { return *p; } int f() { int x = 42; return get(&x); }',
+                                           'int get(int* p) { return *p; } int f() { int x = 42; return get(&x); }', o=0),
+
+    # =============================================================================
+    # SAFETY: replace pointer arithmetic with span<T>
+    # =============================================================================
+    ValTest("pointer_to_span",      'int sum(int* arr, int size) { int s = 0; for (int i = 0; i < size; i++) { s += arr[i]; } return s; } int f() { int arr[3] = {1,2,3}; return sum(arr, 3); }',
+                                    '#include <span>\\nint sum(std::span<int> arr) { int s = 0; for (int val : arr) { s += val; } return s; } int f() { int arr[3] = {1,2,3}; return sum(arr); }', o=3),
+
+    # =============================================================================
+    # REFACTOR: add parameter to function (replace global with parameter)
+    # =============================================================================
+    ValTest("add_parameter",        'int global_val = 10; int compute()           { return global_val * 2; } int f() { return compute(); }',
+                                    '                      int compute(int param) { return param * 2; }      int f() { int global_val = 10; return compute(global_val); }', o=3),
+
 ]
 
 
@@ -290,8 +334,8 @@ def run_validator_smoke_tests():
     compiler = MSVCCompiler()
 
     validators = {
-        0: ASMValidatorO0(compiler),
-        3: ASMValidatorO3(compiler),
+        0: ASMValidatorO0(),
+        3: ASMValidatorO3(),
     }
 
     for test in VALIDATOR_SMOKE_TESTS:

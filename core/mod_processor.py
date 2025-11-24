@@ -16,7 +16,7 @@ class ModProcessor:
     def __init__(self, repos_path: Path, git_path: str = 'git'):
         logger.info(f"ModProcessor initializing with repos_path={repos_path}")
         self.compiler = get_compiler()
-        self.asm_validator = ValidatorFactory.from_id('asm_o0', self.compiler)
+        self.asm_validator = ValidatorFactory.from_id('asm_o0')
         self.mod_handler = ModHandler()
         self.repos_path = Path(repos_path).resolve()
         self.git_path = git_path
@@ -115,7 +115,7 @@ class ModProcessor:
 
         # Get validator from mod, optimization level from validator
         validator_id = mod_request.mod_instance.get_validator_id()
-        validator = ValidatorFactory.from_id(validator_id, self.compiler)
+        validator = ValidatorFactory.from_id(validator_id)
         optimization_level = validator.get_optimization_level()
         logger.debug(f"Using validator '{validator_id}' with optimization level {optimization_level}")
 

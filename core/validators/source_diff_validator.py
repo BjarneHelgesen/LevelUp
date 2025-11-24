@@ -5,7 +5,7 @@ from ..compilers.compiled_file import CompiledFile
 
 
 class SourceDiffValidator(BaseValidator):
-    def __init__(self, compiler=None, allowed_removals: List[str] = None):
+    def __init__(self, allowed_removals: List[str] = None):
         self.allowed_removals = allowed_removals or ['inline']
 
     @staticmethod
