@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from .base_validator import BaseValidator
 from .asm_validator import ASMValidatorO0, ASMValidatorO3
 from .source_diff_validator import SourceDiffValidator
+from ..compilers.compiler_factory import get_compiler
 
 
 class ValidatorType(Enum):
@@ -14,7 +15,14 @@ class ValidatorType(Enum):
 
 class ValidatorFactory:
     @staticmethod
-    def from_id(validator_id: str, compiler) -> BaseValidator:
+    def from_id(validator_id: str, compiler=None) -> BaseValidator:
+        """Create validator by ID.
+
+        If compiler is not provided, uses the configured compiler from get_compiler().
+        """
+        if compiler is None:
+            compiler = get_compiler()
+
         for validator_type in ValidatorType:
             if validator_type.value.get_id() == validator_id:
                 return validator_type.value(compiler=compiler)

@@ -59,6 +59,7 @@ class TestModProcessorProcessMod:
         mock.get_id.return_value = "test_mod"
         mock.get_name.return_value = "Test Mod"
         mock.get_metadata.return_value = {"mod_id": "test", "description": "Test"}
+        mock.get_validator_id.return_value = "source_diff"
         # generate_changes returns empty by default, tests should override as needed
         mock.generate_changes.return_value = iter([])
         return mock

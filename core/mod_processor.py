@@ -1,7 +1,7 @@
 from pathlib import Path
 import uuid
 
-from .compilers.compiler import MSVCCompiler
+from .compilers.compiler_factory import get_compiler
 from .validators.validator_factory import ValidatorFactory
 from .mods.mod_handler import ModHandler
 from .result import Result, ResultStatus
@@ -15,7 +15,7 @@ from . import logger
 class ModProcessor:
     def __init__(self, repos_path: Path, git_path: str = 'git'):
         logger.info(f"ModProcessor initializing with repos_path={repos_path}")
-        self.compiler = MSVCCompiler()
+        self.compiler = get_compiler()
         self.asm_validator = ValidatorFactory.from_id('asm_o0', self.compiler)
         self.mod_handler = ModHandler()
         self.repos_path = Path(repos_path).resolve()

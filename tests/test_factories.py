@@ -6,8 +6,9 @@ from core.mods.add_override_mod import AddOverrideMod
 from core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
 from core.validators.validator_factory import ValidatorFactory, ValidatorType
 from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
-from core.compilers.compiler_factory import CompilerFactory, CompilerType
+from core.compilers.compiler_factory import CompilerFactory, get_compiler
 from core.compilers.compiler import MSVCCompiler
+from config import CompilerType
 
 
 class TestModFactory:
@@ -137,34 +138,38 @@ class TestValidatorFactory:
 
 
 class TestCompilerFactory:
-    def test_from_id_creates_msvc_compiler(self):
+    def test_msvc_compiler_can_be_created(self):
         # MSVCCompiler auto-discovers cl.exe, so we just verify it can be created
         compiler = MSVCCompiler()
         assert isinstance(compiler, MSVCCompiler)
 
-    def test_from_id_auto_discovers_cl_path(self):
+    def test_msvc_auto_discovers_cl_path(self):
         # MSVCCompiler now auto-discovers cl.exe path
         compiler = MSVCCompiler()
         assert compiler.cl_path is not None
         assert "cl.exe" in compiler.cl_path.lower()
 
-    def test_from_id_raises_for_unknown_id(self):
-        with pytest.raises(ValueError) as exc_info:
-            CompilerFactory.from_id("nonexistent_compiler", "path")
-        assert "Unsupported compiler" in str(exc_info.value)
+    def test_get_compiler_returns_configured_compiler(self):
+        from core.compilers.compiler_factory import reset_compiler
+        reset_compiler()
+        compiler = get_compiler()
+        # Default config is MSVC
+        assert isinstance(compiler, MSVCCompiler)
 
-    def test_from_id_creates_new_instance_each_time(self):
-        c1 = MSVCCompiler()
-        c2 = MSVCCompiler()
-        assert c1 is not c2
+    def test_get_compiler_returns_same_instance(self):
+        from core.compilers.compiler_factory import reset_compiler
+        reset_compiler()
+        c1 = get_compiler()
+        c2 = get_compiler()
+        assert c1 is c2
 
     def test_get_available_compilers_returns_list(self):
         compilers = CompilerFactory.get_available_compilers()
         assert isinstance(compilers, list)
 
-    def test_get_available_compilers_contains_all_compilers(self):
+    def test_get_available_compilers_contains_both_compilers(self):
         compilers = CompilerFactory.get_available_compilers()
-        assert len(compilers) == len(CompilerType)
+        assert len(compilers) == 2  # MSVC and Clang
 
     def test_get_available_compilers_each_entry_has_id_and_name(self):
         compilers = CompilerFactory.get_available_compilers()
@@ -177,12 +182,11 @@ class TestCompilerFactory:
         ids = [c["id"] for c in compilers]
         assert "msvc" in ids
 
-    def test_all_available_compilers_can_be_created(self):
-        # Just verify the factory lists available compilers correctly
-        compilers_info = CompilerFactory.get_available_compilers()
-        for compiler_info in compilers_info:
-            assert "id" in compiler_info
-            assert "name" in compiler_info
+    def test_get_available_compilers_includes_clang(self):
+        compilers = CompilerFactory.get_available_compilers()
+        ids = [c["id"] for c in compilers]
+        assert "clang" in ids
 
-    def test_compiler_type_enum_matches_classes(self):
-        assert CompilerType.MSVC.value == MSVCCompiler
+    def test_compiler_type_enum_has_msvc_and_clang(self):
+        assert CompilerType.MSVC.value == 'msvc'
+        assert CompilerType.CLANG.value == 'clang'
