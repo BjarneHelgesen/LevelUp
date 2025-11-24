@@ -59,7 +59,7 @@ class TestModProcessorProcessMod:
         mock.get_id.return_value = "test_mod"
         mock.get_name.return_value = "Test Mod"
         mock.get_metadata.return_value = {"mod_id": "test", "description": "Test"}
-        mock.get_validator_id.return_value = "source_diff"
+        mock.get_validator_id.return_value = "asm_o0"
         # generate_changes returns empty by default, tests should override as needed
         mock.generate_changes.return_value = iter([])
         return mock
@@ -195,9 +195,10 @@ class TestModProcessorProcessMod:
 
         mock_repo.push.assert_called_once()
 
+    @patch("core.mod_processor.ValidatorFactory")
     @patch("core.mod_processor.Repo")
     def test_process_mod_returns_failed_when_no_changes_accepted(
-        self, mock_repo_class, processor, builtin_mod_request, temp_dir
+        self, mock_repo_class, mock_validator_factory, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_file = temp_dir / "test.cpp"
@@ -215,15 +216,21 @@ class TestModProcessorProcessMod:
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
-        processor.asm_validator.validate = Mock(return_value=False)
+
+        # Mock the validator factory to return a validator that fails
+        mock_validator = Mock()
+        mock_validator.validate.return_value = False
+        mock_validator.get_optimization_level.return_value = 0
+        mock_validator_factory.from_id.return_value = mock_validator
 
         result = processor.process_mod(builtin_mod_request)
 
         assert result.status == ResultStatus.FAILED
 
+    @patch("core.mod_processor.ValidatorFactory")
     @patch("core.mod_processor.Repo")
     def test_process_mod_reverts_file_on_validation_failure(
-        self, mock_repo_class, processor, builtin_mod_request, temp_dir
+        self, mock_repo_class, mock_validator_factory, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_file = temp_dir / "test.cpp"
@@ -242,7 +249,12 @@ class TestModProcessorProcessMod:
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
-        processor.asm_validator.validate = Mock(return_value=False)
+
+        # Mock the validator factory to return a validator that fails
+        mock_validator = Mock()
+        mock_validator.validate.return_value = False
+        mock_validator.get_optimization_level.return_value = 0
+        mock_validator_factory.from_id.return_value = mock_validator
 
         processor.process_mod(builtin_mod_request)
 
@@ -311,9 +323,10 @@ class TestModProcessorProcessMod:
 
         assert len(result.validation_results) == 3
 
+    @patch("core.mod_processor.ValidatorFactory")
     @patch("core.mod_processor.Repo")
     def test_process_mod_partial_when_some_changes_rejected(
-        self, mock_repo_class, processor, builtin_mod_request, temp_dir
+        self, mock_repo_class, mock_validator_factory, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_files = [temp_dir / f"test{i}.cpp" for i in range(3)]
@@ -334,16 +347,22 @@ class TestModProcessorProcessMod:
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
+
+        # Mock the validator factory to return a validator
         # Second file fails validation
-        processor.asm_validator.validate = Mock(side_effect=[True, False, True])
+        mock_validator = Mock()
+        mock_validator.validate.side_effect = [True, False, True]
+        mock_validator.get_optimization_level.return_value = 0
+        mock_validator_factory.from_id.return_value = mock_validator
 
         result = processor.process_mod(builtin_mod_request)
 
         assert result.status == ResultStatus.PARTIAL
 
+    @patch("core.mod_processor.ValidatorFactory")
     @patch("core.mod_processor.Repo")
     def test_process_mod_restores_failed_files_on_partial_success(
-        self, mock_repo_class, processor, builtin_mod_request, temp_dir
+        self, mock_repo_class, mock_validator_factory, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_files = [temp_dir / f"test{i}.cpp" for i in range(3)]
@@ -366,8 +385,12 @@ class TestModProcessorProcessMod:
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
 
+        # Mock the validator factory to return a validator
         # File 0 passes, file 1 fails, file 2 passes
-        processor.asm_validator.validate = Mock(side_effect=[True, False, True])
+        mock_validator = Mock()
+        mock_validator.validate.side_effect = [True, False, True]
+        mock_validator.get_optimization_level.return_value = 0
+        mock_validator_factory.from_id.return_value = mock_validator
 
         result = processor.process_mod(builtin_mod_request)
 
@@ -490,6 +513,7 @@ class TestModProcessorTempFileCleanup:
         mock_mod = Mock()
         mock_mod.get_id.return_value = "test_mod"
         mock_mod.get_name.return_value = "Test Mod"
+        mock_mod.get_validator_id.return_value = "asm_o0"
         mock_mod.generate_changes.return_value = iter([
             (cpp_file, "Change at test.cpp:1")
         ])
