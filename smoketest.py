@@ -31,13 +31,13 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     # Comments
     # =============================================================================
-    ValTest("add_comments",         'int f() { return 17; }',
-                                    '/* Hardcoded seventeen */ int f() { return 17;  }', o=3),
+    ValTest("add_comments",         '                          int f() { return 17; }',
+                                    '/* Hardcoded seventeen */ int f() { return 17;  }', o=0),
 
     # =============================================================================
     # Extract function (two steps)
     # =============================================================================
-    ValTest("extract_function",     'int f() { return 4*4 + 1; }',
+    ValTest("extract_function",     '                                          int f() { return 4*4 + 1; }',
                                     'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=3),
     ValTest("remove_inline",        'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }',
                                     'int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=0),
@@ -48,7 +48,7 @@ VALIDATOR_SMOKE_TESTS = \
     # const parameter
     ValTest("const_param",          'int len(      char *buf) { int i = 0; for (const char* p = buf; *p; p++, i++) {} return i;} int f() { return len("asdf"); }',
                                     'int len(const char *buf) { int i = 0; for (const char* p = buf; *p; p++, i++) {} return i;} int f() { return len("asdf"); }', o=0), # o=Any
-    # const local - removed: MSVC folds const to literal even at O0
+
     # const method
     ValTest("const_method",         'struct S { int x; int get()       { return x; } }; int f() { S s; s.x = 5; return s.get(); }',
                                     'struct S { int x; int get() const { return x; } }; int f() { S s; s.x = 5; return s.get(); }', o=0), # o=Any
@@ -70,8 +70,6 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     ValTest("use_default_ctor",     'struct S { int x; S() { x = 0; }        }; int f() { S s; return s.x; }',
                                     'struct S { int x = 0; S() = default;    }; int f() { S s; return s.x; }', o=0), # o=Any
-
-    # USE: =delete - removed: private declaration without definition doesn't compile
 
     # =============================================================================
     # USE: noexcept
@@ -112,13 +110,13 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     # USE: trailing return type
     # =============================================================================
-    ValTest("trailing_return",      'int        add(int a, int b) { return a + b; } int f() { return add(1, 2); }',
+    ValTest("trailing_return",      'int  add(int a, int b)        { return a + b; } int f() { return add(1, 2); }',
                                     'auto add(int a, int b) -> int { return a + b; } int f() { return add(1, 2); }', o=0), # o=Any
 
     # =============================================================================
     # USE: enum class
     # =============================================================================
-    ValTest("use_enum_class",       'enum Color { Red = 0, Green = 1 };       int f() { Color c = Red;         return (int)c; }',
+    ValTest("use_enum_class",       'enum Color { Red = 0, Green = 1 };       int f() { Color c = Red;        return (int)c; }',
                                     'enum class Color { Red = 0, Green = 1 }; int f() { Color c = Color::Red; return (int)c; }', o=0), # o=Any
 
     # =============================================================================
@@ -131,11 +129,7 @@ VALIDATOR_SMOKE_TESTS = \
     # USE: constexpr function
     # =============================================================================
     ValTest("use_constexpr_func",   '          int square(int x) { return x * x; } int f() { return square(5); }',
-                                    'constexpr int square(int x) { return x * x; } int f() { return square(5); }', o=3), # needs optimization to inline
-
-    # USE: inline variable - removed: inline on const in single TU causes compile issues
-
-    # USE: structured bindings - removed: requires aggregate or tuple-like type setup
+                                    'constexpr int square(int x) { return x * x; } int f() { return square(5); }', o=3),
 
     # =============================================================================
     # USE: uniform initialization
@@ -147,11 +141,13 @@ VALIDATOR_SMOKE_TESTS = \
     # USE: in-class member initializer
     # =============================================================================
     ValTest("in_class_init",        'struct S { int x;      S() : x(10) {} }; int f() { S s; return s.x; }',
-                                    'struct S { int x = 10; S() {}       }; int f() { S s; return s.x; }', o=0), # o=Any
+                                    'struct S { int x = 10; S() {}         }; int f() { S s; return s.x; }', o=0), # o=Any
 
     # =============================================================================
-    # USE: delegating constructor (with inline, needs O3 to inline the delegation)
+    # USE: delegating constructor
     # =============================================================================
+    ValTest("inline_ctor",          'struct S { int x;        S() { x = 0; }        S(int v) { x = v; } }; int f() { S s; return s.x; }',
+                                    'struct S { int x; inline S() { x = 0; } inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=0),
     ValTest("delegating_ctor",      'struct S { int x; inline S() { x = 0; }  inline S(int v) { x = v; } }; int f() { S s; return s.x; }',
                                     'struct S { int x; inline S() : S(0) {}  inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=3),
 
@@ -161,7 +157,7 @@ VALIDATOR_SMOKE_TESTS = \
     ValTest("remove_dead_code",     'int f() { return 17; int x = 10; x++; }',
                                     'int f() { return 17; }', o=3),
 
-    # =============================================================================
+    # ======================================================================<=======
     # REMOVE: commented-out code
     # =============================================================================
     ValTest("remove_comments",      'int f() { /* int old = 5; */ return 17; }',
@@ -171,7 +167,7 @@ VALIDATOR_SMOKE_TESTS = \
     # REMOVE: unused parameters
     # =============================================================================
     ValTest("remove_unused_param",  'int add(int a, int b, int unused) { return a + b; } int f() { return add(2, 3, 99); }',
-                                    'int add(int a, int b           ) { return a + b; } int f() { return add(2, 3    ); }', o=3),
+                                    'int add(int a, int b            ) { return a + b; } int f() { return add(2, 3    ); }', o=3),
 
     # =============================================================================
     # REMOVE: void argument list
@@ -182,23 +178,20 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     # REMOVE: redundant semicolons
     # =============================================================================
-    ValTest("remove_extra_semi",    'int f() { return 42;; }',
-                                    'int f() { return 42; }', o=0), # o=Any
+    ValTest("remove_extra_semicolon", 'int f() { return 42;; }',
+                                      'int f() { return 42; }', o=0), # o=Any
 
     # =============================================================================
     # REMOVE: redundant this->
     # =============================================================================
-    ValTest("remove_this_arrow",    'struct S { int x; int get() { return this->x; } }; int f() { S s; s.x = 5; return s.get(); }',
+    ValTest("remove_this_pointer",  'struct S { int x; int get() { return this->x; } }; int f() { S s; s.x = 5; return s.get(); }',
                                     'struct S { int x; int get() { return x;       } }; int f() { S s; s.x = 5; return s.get(); }', o=0), # o=Any
-
-    # REMOVE: empty destructor - removed: MSVC emits COMDAT for explicit dtor even if inlined
-    # REMOVE: empty default constructor - removed: MSVC emits COMDAT for explicit ctor even if inlined
 
     # =============================================================================
     # REPLACE: NULL with nullptr
     # =============================================================================
     ValTest("null_to_nullptr",      '#define NULL 0\nint f() { int* p = NULL;    return p ? 1 : 0; }',
-                                    '         \nint f() { int* p = nullptr; return p ? 1 : 0; }', o=0), # o=Any
+                                    '                int f() { int* p = nullptr; return p ? 1 : 0; }', o=0), # o=Any
 
     # =============================================================================
     # REPLACE: 0/1 bool with true/false
@@ -219,7 +212,7 @@ VALIDATOR_SMOKE_TESTS = \
                                     'using MyInt = int;  int f() { MyInt x = 5; return x; }', o=0), # o=Any
 
     # =============================================================================
-    # REPLACE: header guards with #pragma once (simulated)
+    # REPLACE: header guards with #pragma once
     # =============================================================================
     ValTest("pragma_once",          '#ifndef HEADER_H\n#define HEADER_H\nint f() { return 42; }\n#endif',
                                     '#pragma once\nint f() { return 42; }', o=0), # o=Any
@@ -229,10 +222,6 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     ValTest("throw_to_noexcept",    'int add(int a, int b) throw()   { return a + b; } int f() { return add(2, 3); }',
                                     'int add(int a, int b) noexcept  { return a + b; } int f() { return add(2, 3); }', o=0), # o=Any
-
-    # REPLACE: static with anonymous namespace - removed: different mangled names in ASM
-
-    # REPLACE: pair.first/second with structured bindings - removed: std::pair structured binding complex
 
     # =============================================================================
     # REFACTOR: declare variables where assigned
@@ -244,9 +233,7 @@ VALIDATOR_SMOKE_TESTS = \
     # REFACTOR: extract named constant
     # =============================================================================
     ValTest("extract_constant",     'int f() { return 3 * 3 * 3.14159; }',
-                                    'int f() { constexpr double PI = 3.14159; return 3 * 3 * PI; }', o=3), # needs optimization
-
-    # REFACTOR: simplify boolean - removed: MSVC generates different comparison (cmp vs test)
+                                    'int f() { constexpr double PI = 3.14159; return 3 * 3 * PI; }', o=3),
 
     # =============================================================================
     # REFACTOR: reduce nesting (early return)
