@@ -7,7 +7,7 @@ from core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
 from core.validators.validator_factory import ValidatorFactory, ValidatorType
 from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
 from core.compilers.compiler_factory import CompilerFactory, get_compiler
-from core.compilers.compiler import MSVCCompiler
+from core.compilers.msvc_compiler import MSVCCompiler
 from config import CompilerType
 
 

@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call
 from core.mod_processor import ModProcessor
-from core.mod_request import ModRequest, ModSourceType
+from core.mod_request import ModRequest
 from core.result import Result, ResultStatus
 from core.compilers.compiled_file import CompiledFile
 
@@ -69,19 +69,8 @@ class TestModProcessorProcessMod:
         return ModRequest(
             id="test-123",
             repo_url="https://github.com/user/repo.git",
-            source_type=ModSourceType.BUILTIN,
             description="Test builtin mod",
             mod_instance=mock_mod_instance
-        )
-
-    @pytest.fixture
-    def commit_mod_request(self):
-        return ModRequest(
-            id="test-456",
-            repo_url="https://github.com/user/repo.git",
-            source_type=ModSourceType.COMMIT,
-            description="Test commit mod",
-            commit_hash="abc123"
         )
 
     @patch("core.mod_processor.Repo")
@@ -123,30 +112,6 @@ class TestModProcessorProcessMod:
         processor.process_mod(builtin_mod_request)
 
         mock_repo.prepare_work_branch.assert_called_once()
-
-    @patch("core.mod_processor.Repo")
-    def test_process_mod_cherry_picks_for_commit_source(
-        self, mock_repo_class, processor, commit_mod_request
-    ):
-        mock_repo = MagicMock()
-        mock_repo.repo_path.glob.return_value = []
-        mock_repo_class.return_value = mock_repo
-
-        processor.process_mod(commit_mod_request)
-
-        mock_repo.cherry_pick.assert_called_once_with("abc123")
-
-    @patch("core.mod_processor.Repo")
-    def test_process_mod_does_not_cherry_pick_for_builtin(
-        self, mock_repo_class, processor, builtin_mod_request
-    ):
-        mock_repo = MagicMock()
-        mock_repo.repo_path.glob.return_value = []
-        mock_repo_class.return_value = mock_repo
-
-        processor.process_mod(builtin_mod_request)
-
-        mock_repo.cherry_pick.assert_not_called()
 
     @patch("core.mod_processor.Repo")
     def test_process_mod_returns_success_when_all_valid(
@@ -453,27 +418,6 @@ class TestModProcessorProcessMod:
 
         # Process should complete successfully
         assert result.status == ResultStatus.SUCCESS
-
-    @patch("core.mod_processor.Repo")
-    def test_process_mod_for_commit_uses_original_file(
-        self, mock_repo_class, processor, commit_mod_request, temp_dir
-    ):
-        mock_repo = MagicMock()
-        cpp_file = temp_dir / "test.cpp"
-        cpp_file.write_text("int x = 1;")
-        mock_repo.repo_path.glob.return_value = [cpp_file]
-        mock_repo_class.return_value = mock_repo
-
-        mock_compiled = Mock(spec=CompiledFile)
-        mock_compiled.asm_output = "mov eax, 1"
-        processor.compiler.compile_file = Mock(return_value=mock_compiled)
-        processor.asm_validator.validate = Mock(return_value=True)
-        processor.mod_handler.apply_mod_instance = Mock()
-
-        processor.process_mod(commit_mod_request)
-
-        # For commit source, mod_handler should NOT be called
-        processor.mod_handler.apply_mod_instance.assert_not_called()
 
     @patch("core.mod_processor.Repo")
     def test_process_mod_handles_no_changes(

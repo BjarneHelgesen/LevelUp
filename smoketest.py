@@ -4,7 +4,7 @@
 import tempfile
 from pathlib import Path
 
-from core.compilers.compiler import MSVCCompiler
+from core.compilers.msvc_compiler import MSVCCompiler
 from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
 from core.mods.mod_factory import ModFactory
 

@@ -266,18 +266,6 @@ class TestRepoGitOperations:
         assert "abc123" in args[0]
 
     @patch("subprocess.run")
-    def test_cherry_pick_calls_git_cherry_pick(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
-        repo = Repo(
-            url="https://github.com/user/project.git",
-            repos_folder=temp_dir
-        )
-        repo.cherry_pick("abc123def456")
-        args, kwargs = mock_run.call_args
-        assert "cherry-pick" in args[0]
-        assert "abc123def456" in args[0]
-
-    @patch("subprocess.run")
     def test_get_current_branch_returns_branch_name(self, mock_run, temp_dir):
         mock_run.return_value = Mock(stdout="main\n", returncode=0)
         repo = Repo(
