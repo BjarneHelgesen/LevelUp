@@ -3,6 +3,7 @@ from abc import ABC
 
 from .base_validator import BaseValidator
 from ..compilers.compiled_file import CompiledFile
+from config import CompilerType
 
 
 class BaseASMValidator(BaseValidator, ABC):
@@ -103,18 +104,18 @@ class BaseASMValidator(BaseValidator, ABC):
     def _detect_asm_format(self, asm_content: str) -> str:
         """Detect whether assembly is MSVC or Clang format.
 
-        Returns 'msvc' or 'clang'.
+        Returns CompilerType value ('msvc' or 'clang').
         """
         if not asm_content:
             return 'unknown'
 
         # MSVC uses PROC/ENDP markers
         if ' PROC' in asm_content and ' ENDP' in asm_content:
-            return 'msvc'
+            return CompilerType.MSVC.value
 
         # Clang uses .globl directives and label-based functions
         if '.globl' in asm_content or '.text' in asm_content:
-            return 'clang'
+            return CompilerType.CLANG.value
 
         return 'unknown'
 
@@ -129,9 +130,9 @@ class BaseASMValidator(BaseValidator, ABC):
 
         format_type = self._detect_asm_format(asm_content)
 
-        if format_type == 'msvc':
+        if format_type == CompilerType.MSVC.value:
             return self._extract_functions_msvc(asm_content)
-        elif format_type == 'clang':
+        elif format_type == CompilerType.CLANG.value:
             return self._extract_functions_clang(asm_content)
         else:
             return {}

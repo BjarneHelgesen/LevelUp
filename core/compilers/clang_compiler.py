@@ -5,6 +5,7 @@ from pathlib import Path
 from .base_compiler import BaseCompiler
 from .compiled_file import CompiledFile
 from .. import logger
+from config import CompilerType
 
 
 class ClangCompiler(BaseCompiler):
@@ -49,7 +50,7 @@ class ClangCompiler(BaseCompiler):
     @staticmethod
     def get_id() -> str:
         """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
-        return 'clang'
+        return CompilerType.CLANG.value
 
     @staticmethod
     def get_name() -> str:

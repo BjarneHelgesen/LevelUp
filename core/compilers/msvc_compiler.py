@@ -5,6 +5,7 @@ from pathlib import Path
 from .base_compiler import BaseCompiler
 from .compiled_file import CompiledFile
 from .. import logger
+from config import CompilerType
 
 
 class MSVCCompiler(BaseCompiler):
@@ -57,7 +58,7 @@ class MSVCCompiler(BaseCompiler):
     @staticmethod
     def get_id() -> str:
         """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
-        return 'msvc'
+        return CompilerType.MSVC.value
 
     @staticmethod
     def get_name() -> str:
