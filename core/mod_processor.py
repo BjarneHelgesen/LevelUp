@@ -6,9 +6,8 @@ from .validators.validator_factory import ValidatorFactory
 from .mods.mod_handler import ModHandler
 from .result import Result, ResultStatus
 from .repo.repo import Repo
-from .mod_request import ModRequest, ModSourceType
+from .mod_request import ModRequest
 from .validation_result import ValidationResult
-from .git_commit import GitCommit
 from . import logger
 
 
@@ -27,7 +26,7 @@ class ModProcessor:
         mod_id = mod_request.id
 
         logger.info(f"Processing mod {mod_id}: {mod_request.description}")
-        logger.debug(f"Mod details: repo={mod_request.repo_url}, type={mod_request.source_type}")
+        logger.debug(f"Mod details: repo={mod_request.repo_url}")
 
         try:
             # Initialize repository
@@ -40,17 +39,10 @@ class ModProcessor:
             repo.ensure_cloned()
             repo.prepare_work_branch()
 
-            # Determine mod name for display
-            if mod_request.mod_instance:
-                mod_name = mod_request.mod_instance.get_name()
-            else:
-                mod_name = mod_request.description or 'Commit'
+            # Get mod name for display
+            mod_name = mod_request.mod_instance.get_name()
 
-            # Handle COMMIT source type (legacy path)
-            if mod_request.source_type == ModSourceType.COMMIT:
-                return self._process_commit_mod(mod_request, repo, mod_name)
-
-            # Handle BUILTIN mods with generator pattern
+            # Process the mod
             return self._process_builtin_mod(mod_request, repo, mod_name)
 
         except Exception as e:
@@ -63,50 +55,6 @@ class ModProcessor:
             return Result(
                 status=ResultStatus.ERROR,
                 message=str(e)
-            )
-
-    def _process_commit_mod(self, mod_request: ModRequest, repo: Repo, mod_name: str) -> Result:
-        """Process a COMMIT type mod (legacy path)"""
-        mod_id = mod_request.id
-        logger.debug(f"Cherry-picking commit {mod_request.commit_hash}")
-        repo.cherry_pick(mod_request.commit_hash)
-
-        # Find all C/C++ source and header files
-        source_files = []
-        for pattern in ['**/*.cpp', '**/*.c', '**/*.hpp', '**/*.h']:
-            source_files.extend([f for f in repo.repo_path.glob(pattern)
-                                if not f.name.startswith('_levelup_')])
-
-        # Compile and validate
-        validation_results = []
-        for source_file in source_files:
-            original = self.compiler.compile_file(source_file)
-            modified = self.compiler.compile_file(source_file)
-            is_valid = self.asm_validator.validate(original, modified)
-            validation_results.append(ValidationResult(
-                file=str(source_file),
-                valid=is_valid
-            ))
-
-        valid_count = sum(1 for v in validation_results if v.valid)
-        total_count = len(validation_results)
-        all_valid = valid_count == total_count
-
-        if all_valid:
-            logger.info(f"All validations passed for mod {mod_id}, pushing to remote")
-            repo.push()
-            return Result(
-                status=ResultStatus.SUCCESS,
-                message=mod_name,
-                validation_results=validation_results
-            )
-        else:
-            logger.warning(f"Validation failed for mod {mod_id}, resetting")
-            repo.reset_hard()
-            return Result(
-                status=ResultStatus.FAILED,
-                message=mod_name,
-                validation_results=validation_results
             )
 
     def _process_builtin_mod(self, mod_request: ModRequest, repo: Repo, mod_name: str) -> Result:

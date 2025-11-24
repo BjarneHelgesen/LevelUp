@@ -184,10 +184,6 @@ class Repo:
         """Checkout the work branch for this repository and run post-checkout commands."""
         self.checkout_branch(create=True)
 
-    def cherry_pick(self, commit_hash: str):
-        """Cherry-pick a commit"""
-        return self._run_git(['cherry-pick', commit_hash])
-
     def commit(self, message: str):
         """Create a commit with all changes. Returns True if commit was made, False if nothing to commit."""
         self._run_git(['add', '-A'])
@@ -224,18 +220,6 @@ class Repo:
     def get_commit_hash(self, ref: str = 'HEAD'):
         """Get commit hash for a reference"""
         return self._run_git(['rev-parse', ref])
-
-    def create_patch(self, from_ref: str, to_ref: str = 'HEAD'):
-        """Create a patch between two references"""
-        return self._run_git(['diff', from_ref, to_ref])
-
-    def rebase(self, onto_branch: str):
-        """Rebase current branch onto another branch"""
-        return self._run_git(['rebase', onto_branch])
-
-    def merge(self, branch: str):
-        """Merge a branch into current branch"""
-        return self._run_git(['merge', branch])
 
     def stash(self):
         """Stash current changes"""
@@ -293,30 +277,39 @@ class Repo:
         """Get the path to the Doxygen output directory."""
         return self.repo_path / '.doxygen'
 
+    def get_doxygen_xml_unexpanded_dir(self) -> Path:
+        """Get the path to the Doxygen XML output directory (unexpanded macros)."""
+        return self.get_doxygen_dir() / 'xml_unexpanded'
+
+    def get_doxygen_xml_expanded_dir(self) -> Path:
+        """Get the path to the Doxygen XML output directory (expanded macros)."""
+        return self.get_doxygen_dir() / 'xml_expanded'
+
     def get_doxygen_xml_dir(self) -> Path:
-        """Get the path to the Doxygen XML output directory."""
-        return self.get_doxygen_dir() / 'xml'
+        """Get the path to the Doxygen XML unexpanded directory (for backward compatibility)."""
+        return self.get_doxygen_xml_unexpanded_dir()
 
     def has_doxygen_data(self) -> bool:
         """Check if Doxygen data has been generated for this repo."""
-        xml_dir = self.get_doxygen_xml_dir()
-        return xml_dir.exists() and (xml_dir / 'index.xml').exists()
+        xml_unexpanded = self.get_doxygen_xml_unexpanded_dir()
+        return xml_unexpanded.exists() and (xml_unexpanded / 'index.xml').exists()
 
-    def generate_doxygen(self, doxygen_path: str = 'doxygen') -> Path:
+    def generate_doxygen(self, doxygen_path: str = 'doxygen') -> tuple[Path, Path]:
         """
         Run Doxygen on this repository to generate function dependency data.
+        Generates both unexpanded and expanded versions.
 
         Args:
             doxygen_path: Path to the doxygen executable
 
         Returns:
-            Path to the generated XML directory
+            Tuple of (xml_unexpanded_dir, xml_expanded_dir) paths
         """
         runner = DoxygenRunner(doxygen_path=doxygen_path)
-        xml_dir = runner.run(self.repo_path, self.get_doxygen_dir())
+        xml_dirs = runner.run(self.repo_path, self.get_doxygen_dir())
         # Invalidate cached parser
         self._doxygen_parser = None
-        return xml_dir
+        return xml_dirs
 
     def get_doxygen_parser(self) -> Optional[DoxygenParser]:
         """
@@ -329,7 +322,13 @@ class Repo:
             return None
 
         if self._doxygen_parser is None:
-            self._doxygen_parser = DoxygenParser(self.get_doxygen_xml_dir())
+            xml_unexpanded = self.get_doxygen_xml_unexpanded_dir()
+            xml_expanded = self.get_doxygen_xml_expanded_dir()
+            # Pass expanded dir only if it exists
+            if xml_expanded.exists() and (xml_expanded / 'index.xml').exists():
+                self._doxygen_parser = DoxygenParser(xml_unexpanded, xml_expanded)
+            else:
+                self._doxygen_parser = DoxygenParser(xml_unexpanded)
 
         return self._doxygen_parser
 

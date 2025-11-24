@@ -34,8 +34,8 @@ EXTRACT_STATIC         = YES
 EXTRACT_LOCAL_CLASSES  = YES
 EXTRACT_LOCAL_METHODS  = YES
 
-# Disable macro expansion as requested
-MACRO_EXPANSION        = NO
+# Macro expansion - controlled by parameter
+MACRO_EXPANSION        = {macro_expansion}
 EXPAND_ONLY_PREDEF     = NO
 SKIP_FUNCTION_MACROS   = NO
 
@@ -53,7 +53,7 @@ GENERATE_RTF           = NO
 GENERATE_MAN           = NO
 GENERATE_DOCBOOK       = NO
 GENERATE_XML           = YES
-XML_OUTPUT             = xml
+XML_OUTPUT             = {xml_output}
 XML_PROGRAMLISTING     = YES
 
 # Performance
@@ -72,41 +72,47 @@ REFERENCES_RELATION    = YES
     def __init__(self, doxygen_path: str = 'doxygen'):
         self.doxygen_path = doxygen_path
 
-    def _create_doxyfile(self, project_name: str, input_dir: Path, output_dir: Path) -> str:
+    def _create_doxyfile(self, project_name: str, input_dir: Path, output_dir: Path,
+                        macro_expansion: bool = False, xml_output: str = 'xml') -> str:
         """Generate Doxyfile content with proper settings."""
         return self.DOXYFILE_TEMPLATE.format(
             project_name=project_name,
             input_dir=str(input_dir).replace('\\', '/'),
-            output_dir=str(output_dir).replace('\\', '/')
+            output_dir=str(output_dir).replace('\\', '/'),
+            macro_expansion='YES' if macro_expansion else 'NO',
+            xml_output=xml_output
         )
 
-    def run(self, repo_path: Path, output_dir: Path = None) -> Path:
+    def _run_single(self, repo_path: Path, output_dir: Path, project_name: str,
+                   macro_expansion: bool, xml_output: str) -> Path:
         """
-        Run Doxygen on a repository to generate XML output.
+        Run Doxygen with specific configuration.
 
         Args:
             repo_path: Path to the repository to analyze
-            output_dir: Optional output directory. If not provided, uses repo_path/.doxygen
+            output_dir: Output directory
+            project_name: Project name
+            macro_expansion: Whether to expand macros
+            xml_output: Subdirectory name for XML output
 
         Returns:
             Path to the generated XML directory
         """
-        if output_dir is None:
-            output_dir = repo_path / '.doxygen'
-
-        output_dir.mkdir(parents=True, exist_ok=True)
-        xml_dir = output_dir / 'xml'
-
-        project_name = repo_path.name
+        xml_dir = output_dir / xml_output
 
         # Create Doxyfile
-        doxyfile_content = self._create_doxyfile(project_name, repo_path, output_dir)
-        doxyfile_path = output_dir / 'Doxyfile'
+        doxyfile_content = self._create_doxyfile(
+            project_name, repo_path, output_dir,
+            macro_expansion=macro_expansion,
+            xml_output=xml_output
+        )
+        doxyfile_path = output_dir / f'Doxyfile.{xml_output}'
 
         with open(doxyfile_path, 'w') as f:
             f.write(doxyfile_content)
 
-        logger.info(f"Running Doxygen on {repo_path}")
+        expansion_str = "with macro expansion" if macro_expansion else "without macro expansion"
+        logger.info(f"Running Doxygen on {repo_path} {expansion_str}")
 
         try:
             result = subprocess.run(
@@ -134,6 +140,39 @@ REFERENCES_RELATION    = YES
                 f"Doxygen executable not found at '{self.doxygen_path}'. "
                 "Please install Doxygen and ensure it's in PATH."
             )
+
+    def run(self, repo_path: Path, output_dir: Path = None) -> tuple[Path, Path]:
+        """
+        Run Doxygen on a repository to generate XML output both with and without macro expansion.
+
+        Args:
+            repo_path: Path to the repository to analyze
+            output_dir: Optional output directory. If not provided, uses repo_path/.doxygen
+
+        Returns:
+            Tuple of (xml_unexpanded_dir, xml_expanded_dir) paths
+        """
+        if output_dir is None:
+            output_dir = repo_path / '.doxygen'
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        project_name = repo_path.name
+
+        # Run Doxygen without macro expansion (original behavior)
+        xml_unexpanded = self._run_single(
+            repo_path, output_dir, project_name,
+            macro_expansion=False,
+            xml_output='xml_unexpanded'
+        )
+
+        # Run Doxygen with macro expansion
+        xml_expanded = self._run_single(
+            repo_path, output_dir, project_name,
+            macro_expansion=True,
+            xml_output='xml_expanded'
+        )
+
+        return (xml_unexpanded, xml_expanded)
 
     def is_available(self) -> bool:
         """Check if Doxygen is available on the system."""

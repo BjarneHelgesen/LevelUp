@@ -21,7 +21,7 @@ from core.validators.validator_factory import ValidatorFactory
 from core.mods.mod_factory import ModFactory
 from core.result import Result, ResultStatus
 from core.repo import Repo
-from core.mod_request import ModRequest, ModSourceType
+from core.mod_request import ModRequest
 from core.mod_processor import ModProcessor
 from core.doxygen import DoxygenRunner
 from core import logger
@@ -326,31 +326,23 @@ def submit_mod():
     mod_id = str(uuid.uuid4())
     logger.info(f"Generated mod_id: {mod_id}")
 
-    # Determine source type and create appropriate objects
-    type_str = data['type']
+    # Get mod type and create mod instance
     mod_type_id = data.get('mod_type')
+    if not mod_type_id:
+        return jsonify({'error': 'mod_type is required'}), 400
 
-    # Check if this is a commit validation
-    if type_str == 'commit':
-        source_type = ModSourceType.COMMIT
-        mod_instance = None  # Not needed for COMMIT type
-        commit_hash = data.get('commit_hash', 'HEAD')
-    elif type_str == 'builtin':
-        source_type = ModSourceType.BUILTIN
-        # Create mod instance from string ID (only place string ID is used!)
+    # Create mod instance from string ID (only place string ID is used!)
+    try:
         mod_instance = ModFactory.from_id(mod_type_id)
-        commit_hash = None
-    else:
-        return jsonify({'error': f'Invalid type: {type_str}'}), 400
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
 
     # Create type-safe ModRequest
     mod_request = ModRequest(
         id=mod_id,
         repo_url=data['repo_url'],
-        source_type=source_type,
         description=data['description'],
-        mod_instance=mod_instance,
-        commit_hash=commit_hash
+        mod_instance=mod_instance
     )
 
     # Initialize result
@@ -367,14 +359,10 @@ def submit_mod():
         'id': mod_id,
         'repo_name': data['repo_name'],
         'repo_url': data['repo_url'],
-        'type': type_str,
+        'mod_type': mod_type_id,
         'description': data['description'],
         'validators': data.get('validators', ['asm'])
     }
-    if type_str == 'builtin':
-        response_data['mod_type'] = data['mod_type']
-    elif type_str == 'commit':
-        response_data['commit_hash'] = commit_hash
 
     return jsonify(response_data)
 
