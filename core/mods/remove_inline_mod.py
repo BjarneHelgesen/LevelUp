@@ -37,8 +37,8 @@ class RemoveInlineMod(BaseMod):
             while True:
                 content = source_file.read_text(encoding='utf-8', errors='ignore')
 
-                # Find first 'inline' keyword occurrence
-                match = re.search(r'\binline\b', content)
+                # Find first 'inline' keyword occurrence with trailing whitespace
+                match = re.search(r'\binline\b\s*', content)
 
                 if not match:
                     break
