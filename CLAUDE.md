@@ -63,9 +63,13 @@ User (Web UI)
 4. Mod queued with unique UUID, initial `Result` object created
 5. `core/ModProcessor` processes in worker thread:
    - Clone/pull repo → checkout work branch
-   - Apply mod based on source type (BUILTIN/COMMIT)
-   - Compile original → compile modified → validate
-   - If valid: commit to work branch; if invalid: hard reset
+   - Get validator from mod's `get_validator_id()` via ValidatorFactory
+   - For each atomic change from mod's `generate_changes()`:
+     - Compile original with validator's optimization level
+     - Apply change (mod modifies file in-place)
+     - Compile modified with same optimization level
+     - Validate using mod's specified validator
+     - If valid: commit change; if invalid: revert file
 6. Returns `Result` object with SUCCESS/PARTIAL/FAILED status
 7. Frontend polls for status updates via `/api/mods/{mod_id}/status`
 

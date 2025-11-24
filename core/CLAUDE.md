@@ -17,10 +17,13 @@ The `core` package implements:
 ## Core Components
 
 **ModProcessor (mod_processor.py)**
-- Processes mods asynchronously
-- Orchestrates: Repo → ModHandler → Compiler → Validators
-- Each mod goes through: clone/pull → checkout work branch → apply changes → validate → commit or revert
-- Returns `Result` object (not dict) for type safety
+- Processes mods asynchronously using worker threads
+- Orchestrates: Repo → Compiler → Validators (per mod's specification)
+- Initializes with configured compiler from CompilerFactory
+- For BUILTIN mods: creates validators dynamically per mod's `get_validator_id()`
+- Each atomic change goes through: compile original → apply change → compile modified → validate → commit or revert
+- Atomic branch pattern: creates temporary branch per mod, squashes commits on success
+- Returns `Result` object (not dict) for type safety with SUCCESS/PARTIAL/FAILED/ERROR status
 - Uses only enums and objects internally - no string IDs
 
 **Result (result.py)**
@@ -75,23 +78,55 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 
 **Validator Factory (validators/validator_factory.py)**
 - Enum-based registry: `ValidatorType` enum maps to validator classes
-- `from_id()` creates validator instance from stable ID string
+- `from_id(validator_id: str, compiler=None)` creates validator instance from stable ID string
+- Takes optional compiler parameter; if None, uses configured compiler from `get_compiler()`
 - `get_available_validators()` returns list with id and name for each validator
-- Each validator class has static `get_id()` and `get_name()` methods
+- Each validator class has static `get_id()`, `get_name()`, and `get_optimization_level()` methods
+- Validators instantiated with compiler instance to support different compilers
 
 ## Module Details
 
-**compilers/compiler.py**
-- MSVC compiler wrapper (cl.exe)
+**compilers/base_compiler.py**
+- Abstract base class defining compiler interface
+- Abstract methods: `get_id()`, `get_name()`, `compile_file(source_file: Path, optimization_level: int) -> CompiledFile`
+- All compilers must inherit from BaseCompiler and implement these methods
+- Ensures consistent interface across different compiler implementations
+
+**compilers/msvc_compiler.py**
+- MSVC compiler wrapper (cl.exe) - default compiler
 - Auto-discovers Visual Studio installation via vswhere.exe
-- Key method: `compile_file()` returns `CompiledFile` with assembly output
-- Uses `/FA` flag for assembly generation, `/O2` for optimization
+- Supports optimization levels: 0 (`/Od`), 1-3 (`/O1`, `/O2`, `/O3` mapped to `/O2`)
+- Key method: `compile_file(source_file, optimization_level)` returns `CompiledFile` with assembly output
+- Uses `/FA` flag for assembly generation, includes generated .asm files in temp directory
 - `CompiledFile` class (compiled_file.py) holds source_file and asm_output (string content)
+
+**compilers/clang_compiler.py**
+- Clang compiler wrapper (clang.exe)
+- Auto-discovers Clang installation from PATH or common install locations
+- Supports optimization levels: 0 (`-O0`), 1-3 (`-O1`, `-O2`, `-O3`)
+- Uses `-S -masm=intel` flags for Intel-syntax assembly output
+- Compatible with same assembly parsing as MSVC for cross-compiler validation
+
+**compilers/compiler_factory.py**
+- Manages compiler selection and instantiation
+- `get_compiler()`: Returns singleton instance of configured compiler (default: MSVC)
+- `set_compiler(compiler_id: str)`: Changes active compiler by ID
+- `from_id(compiler_id: str)`: Creates new compiler instance from ID
+- CompilerType enum: MSVC, CLANG
+- Configuration stored in `workspace/config.json` as `{"compiler": "msvc"}`
+
+**validators/base_validator.py**
+- Abstract base class defining validator interface
+- Abstract methods: `get_id()`, `get_name()`, `get_optimization_level()`, `validate(original: CompiledFile, modified: CompiledFile) -> bool`
+- All validators must inherit from BaseValidator and implement these methods
+- Validators specify which compiler optimization level they require
 
 **validators/asm_validator.py**
 - Assembly comparison validator (primary regression detection method)
-- `ASMValidatorO0` and `ASMValidatorO3` classes for different optimization levels
+- `ASMValidatorO0`: Compares assembly at O0 (no optimization) - ID: `asm_o0`
+- `ASMValidatorO3`: Compares assembly at O3 (full optimization) - ID: `asm_o3`
 - Both inherit from `BaseASMValidator` which contains shared comparison logic
+- Takes compiler instance in `__init__` to support different compilers (MSVC, Clang)
 - `validate(original: CompiledFile, modified: CompiledFile)` compares assembly outputs
 - Extracts and compares function bodies by structure:
   - `_extract_functions()` parses PROC/ENDP blocks from assembly
@@ -99,6 +134,14 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
   - `_function_bodies_match()` compares normalized function bodies
 - Handles COMDAT functions (inline functions that linker can discard)
 - Conservative approach: rejects changes if function bodies don't match exactly
+
+**validators/source_diff_validator.py**
+- Source-level comparison validator for simple transformations
+- ID: `source_diff`
+- Validates that only specified keywords/patterns were removed from source
+- Constructor takes `allowed_removals` list (default: `['inline']`)
+- Compares source files with whitespace normalization
+- Useful for mods that only remove keywords without semantic changes
 
 **mods/mod_handler.py**
 - Minimal orchestration class with single method: `apply_mod_instance()`
@@ -125,10 +168,15 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 
 **Adding a New Mod Type**:
 1. Create mod class in `mods/` inheriting from BaseMod
-2. Implement abstract methods: `get_id()`, `get_name()`, `apply(source_file: Path) -> None`
-3. Add to `ModType` enum in `mods/mod_factory.py`
-4. ID from `get_id()` is automatically available in UI via `/api/available/mods`
-5. Pattern: modify source file in-place, `validate_before_apply()` checks if file exists
+2. Implement abstract methods:
+   - `get_id()`: Stable string identifier used in API
+   - `get_name()`: Human-readable name for UI
+   - `get_validator_id()`: Which validator to use (e.g., `"asm_o0"`, `"source_diff"`)
+   - `generate_changes(repo_path: Path)`: Generator yielding `(file_path, commit_message)` tuples
+3. Each yielded change should modify the file in-place before yielding
+4. Add to `ModType` enum in `mods/mod_factory.py`
+5. ID from `get_id()` is automatically available in UI via `/api/available/mods`
+6. Validator choice determines strictness: `source_diff` for simple changes, `asm_o0`/`asm_o3` for semantic validation
 
 **Adding a New Compiler**:
 1. Create compiler class in `compilers/` inheriting from BaseCompiler
