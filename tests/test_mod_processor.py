@@ -464,7 +464,6 @@ class TestModProcessorTempFileCleanup:
         request = ModRequest(
             id="test",
             repo_url="url",
-            source_type=ModSourceType.BUILTIN,
             description="test",
             mod_instance=mock_mod
         )

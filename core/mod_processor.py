@@ -142,7 +142,7 @@ class ModProcessor:
                 status=status,
                 message=mod_name,
                 validation_results=validation_results,
-                accepted_commits=[c.to_dict() for c in accepted_commits],
+                accepted_commits=accepted_commits,
                 rejected_commits=rejected_commits
             )
 
