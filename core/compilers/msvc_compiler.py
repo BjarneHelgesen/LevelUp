@@ -125,6 +125,11 @@ class MSVCCompiler(BaseCompiler):
             # Compile to ASM
             args = self.default_flags.copy()
             args.append(self.OPTIMIZATION_FLAGS.get(optimization_level, '/O2'))
+
+            # Disable iterator debugging for O3 to allow range-based for loop optimizations
+            if optimization_level >= 3:
+                args.append('/D_ITERATOR_DEBUG_LEVEL=0')
+
             args.extend([
                 '/FA',
                 '/Fa' + str(asm_file),

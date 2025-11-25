@@ -148,6 +148,7 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     ValTest("inline_ctor",          'struct S { int x;        S() { x = 0; }        S(int v) { x = v; } }; int f() { S s; return s.x; }',
                                     'struct S { int x; inline S() { x = 0; } inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=0),
+    
     ValTest("delegating_ctor",      'struct S { int x; inline S() { x = 0; } inline S(int v) { x = v; } }; int f() { S s; return s.x; }',
                                     'struct S { int x; inline S() : S(0) {}  inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=3),
 
@@ -242,6 +243,12 @@ VALIDATOR_SMOKE_TESTS = \
                                     'int f() { int x = 5; if (x <= 0) return 0; return x * 2; }', o=3),
 
     # =============================================================================
+    # REFACTOR: modernize for loop (range-based)
+    # =============================================================================
+    ValTest("range_based_for",      'int f() { const int arr[5] = {1, 2, 3, 4, 5}; int sum = 0; for (const int* p = arr; p != arr + 5; ++p) { sum += *p; } return sum; }',
+                                    'int f() { const int arr[5] = {1, 2, 3, 4, 5}; int sum = 0; for (const int& val : arr) { sum += val; } return sum; }', o=3),
+
+    # =============================================================================
     # REFACTOR: replace pointer with reference (parameter)
     # =============================================================================
     ValTest("pointer_to_reference", 'int modify(int* p) { return *p + 1; } int f() { int x = 5; return modify(&x); }',
@@ -252,12 +259,13 @@ VALIDATOR_SMOKE_TESTS = \
     # All pointer members and parameters should be marked as owning the memory the point to
     # or not owning the memory. Only the pointers where it is not clear should be left as 
     # raw, unmarked pointers. This way, we can better reason about code during refactoring.
-    # The owner/non_owner will be removed at the end of refactoring.
-    # The tests declare owner/non_ower, but this should be included from a header
+    # The owner/non_owner syntax will be removed at the end of refactoring.
+    # The ValTests define owner/non_owner for simplicity, but this should be included from a header
     # =============================================================================
     ValTest("add_owner<T>",        '           int* get(int value) {            int* p = new int; *p = value; return p; } int f() {            int *p = get (17); int i = *p; delete p; return i; }',
                                    'namespace gsl { template <typename T> using owner = T*; }\n' +\
                                    'gsl::owner<int> get(int value) { gsl::owner<int> p = new int; *p = value; return p; } int f() { gsl::owner<int> p = get (17); int i = *p; delete p; return i; }', o=0),
+    
     ValTest("add_non_owner<T>",    'int get(               int* p) { return *p; } int f() { int x = 42; return get(&x); }',
                                    'namespace gsl { template <typename T> using non_owner = T*; }\n' +\
                                    'int get(gsl::non_owner<int> p) { return *p; } int f() { int x = 42; return get(&x); }', o=0),

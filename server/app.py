@@ -587,5 +587,195 @@ def get_repo_files(repo_id):
     })
 
 
+@app.route('/api/repos/<repo_id>/symbols', methods=['GET'])
+def get_symbols(repo_id):
+    """Get symbols from repository with optional filtering."""
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if not config_file.exists():
+        return jsonify({'error': 'No repositories found'}), 404
+
+    with open(config_file, 'r') as f:
+        configs = json.load(f)
+
+    repo_config = next((r for r in configs if r['id'] == repo_id), None)
+    if repo_config is None:
+        return jsonify({'error': 'Repository not found'}), 404
+
+    repo = Repo(
+        url=repo_config['url'],
+        repos_folder=CONFIG['repos'],
+        git_path=CONFIG['git_path']
+    )
+
+    if doxygen_status.get(repo_id, {}).get('status') != 'completed':
+        return jsonify({
+            'error': 'Doxygen data not available',
+            'message': 'Run POST /api/repos/{repo_id}/doxygen to generate'
+        }), 404
+
+    parser = repo.get_doxygen_parser()
+    if parser is None:
+        return jsonify({'error': 'Failed to load Doxygen data'}), 500
+
+    kind_filter = request.args.get('kind')
+    file_filter = request.args.get('file')
+    name_filter = request.args.get('name')
+
+    if kind_filter:
+        symbols = parser.get_symbols_by_kind(kind_filter)
+    elif file_filter:
+        symbols = parser.get_symbols_in_file(file_filter)
+    else:
+        symbols = parser.get_all_symbols()
+
+    if name_filter:
+        symbols = [s for s in symbols if name_filter.lower() in s.name.lower()]
+
+    result = []
+    for symbol in symbols:
+        symbol_data = {
+            'kind': symbol.kind,
+            'name': symbol.name,
+            'qualified_name': symbol.qualified_name,
+            'file_path': symbol.file_path,
+            'line_start': symbol.line_start,
+            'line_end': symbol.line_end,
+            'doxygen_id': symbol.doxygen_id,
+            'dependencies_count': len(symbol.dependencies)
+        }
+
+        if symbol.kind == 'function':
+            symbol_data['return_type'] = symbol.return_type
+            symbol_data['parameters'] = [{'type': t, 'name': n} for t, n in symbol.parameters]
+            symbol_data['is_member'] = symbol.is_member
+            symbol_data['class_name'] = symbol.class_name
+        elif symbol.kind in ('class', 'struct'):
+            symbol_data['base_classes'] = symbol.base_classes
+            symbol_data['member_count'] = len(symbol.members)
+        elif symbol.kind == 'enum':
+            symbol_data['value_count'] = len(symbol.enum_values)
+
+        result.append(symbol_data)
+
+    return jsonify({
+        'count': len(result),
+        'symbols': result
+    })
+
+
+@app.route('/api/repos/<repo_id>/symbols/<path:symbol_id>', methods=['GET'])
+def get_symbol_details(repo_id, symbol_id):
+    """Get detailed information about a specific symbol."""
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if not config_file.exists():
+        return jsonify({'error': 'No repositories found'}), 404
+
+    with open(config_file, 'r') as f:
+        configs = json.load(f)
+
+    repo_config = next((r for r in configs if r['id'] == repo_id), None)
+    if repo_config is None:
+        return jsonify({'error': 'Repository not found'}), 404
+
+    repo = Repo(
+        url=repo_config['url'],
+        repos_folder=CONFIG['repos'],
+        git_path=CONFIG['git_path']
+    )
+
+    parser = repo.get_doxygen_parser()
+    if parser is None:
+        return jsonify({'error': 'Doxygen data not available'}), 404
+
+    symbol = parser.get_symbol_by_id(symbol_id)
+    if symbol is None:
+        return jsonify({'error': 'Symbol not found'}), 404
+
+    result = {
+        'kind': symbol.kind,
+        'name': symbol.name,
+        'qualified_name': symbol.qualified_name,
+        'file_path': symbol.file_path,
+        'line_start': symbol.line_start,
+        'line_end': symbol.line_end,
+        'doxygen_id': symbol.doxygen_id,
+        'dependencies': list(symbol.dependencies)
+    }
+
+    if symbol.kind == 'function':
+        result['return_type'] = symbol.return_type
+        result['return_type_expanded'] = symbol.return_type_expanded
+        result['parameters'] = [{'type': t, 'name': n} for t, n in symbol.parameters]
+        result['parameters_expanded'] = [{'type': t, 'name': n} for t, n in symbol.parameters_expanded]
+        result['signature'] = symbol.get_signature()
+        result['signature_expanded'] = symbol.get_signature(expanded=True)
+        result['is_member'] = symbol.is_member
+        result['class_name'] = symbol.class_name
+        result['calls'] = list(symbol.calls)
+        result['called_by'] = list(symbol.called_by)
+    elif symbol.kind in ('class', 'struct'):
+        result['base_classes'] = symbol.base_classes
+        result['members'] = symbol.members
+    elif symbol.kind == 'enum':
+        result['enum_values'] = [{'name': n, 'value': v} for n, v in symbol.enum_values]
+
+    return jsonify(result)
+
+
+@app.route('/api/repos/<repo_id>/symbols/<path:symbol_id>/dependencies', methods=['GET'])
+def get_symbol_dependencies(repo_id, symbol_id):
+    """Get symbols that this symbol depends on."""
+    config_file = CONFIG['workspace'] / 'repos.json'
+    if not config_file.exists():
+        return jsonify({'error': 'No repositories found'}), 404
+
+    with open(config_file, 'r') as f:
+        configs = json.load(f)
+
+    repo_config = next((r for r in configs if r['id'] == repo_id), None)
+    if repo_config is None:
+        return jsonify({'error': 'Repository not found'}), 404
+
+    repo = Repo(
+        url=repo_config['url'],
+        repos_folder=CONFIG['repos'],
+        git_path=CONFIG['git_path']
+    )
+
+    parser = repo.get_doxygen_parser()
+    if parser is None:
+        return jsonify({'error': 'Doxygen data not available'}), 404
+
+    symbol = parser.get_symbol_by_id(symbol_id)
+    if symbol is None:
+        return jsonify({'error': 'Symbol not found'}), 404
+
+    dependencies = []
+    for dep_name in symbol.dependencies:
+        dep_symbol = parser.find_symbol(dep_name)
+        if dep_symbol:
+            dependencies.append({
+                'name': dep_symbol.name,
+                'qualified_name': dep_symbol.qualified_name,
+                'kind': dep_symbol.kind,
+                'file_path': dep_symbol.file_path,
+                'line_start': dep_symbol.line_start,
+                'doxygen_id': dep_symbol.doxygen_id
+            })
+        else:
+            dependencies.append({
+                'name': dep_name,
+                'qualified_name': dep_name,
+                'kind': 'unknown',
+                'resolved': False
+            })
+
+    return jsonify({
+        'symbol': symbol.qualified_name,
+        'count': len(dependencies),
+        'dependencies': dependencies
+    })
+
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)

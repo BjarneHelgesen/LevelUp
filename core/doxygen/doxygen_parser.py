@@ -5,8 +5,10 @@ Parser for Doxygen XML output to extract function dependency information.
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Dict, List, Set, Optional
+import re
 
 from .. import logger
+from .symbol import Symbol, SymbolKind
 
 
 class FunctionInfo:
@@ -80,6 +82,9 @@ class DoxygenParser:
         self._functions: Dict[str, FunctionInfo] = {}
         self._functions_by_name: Dict[str, List[FunctionInfo]] = {}
         self._files: Dict[str, List[FunctionInfo]] = {}
+        self._symbols: Dict[str, Symbol] = {}
+        self._symbols_by_kind: Dict[str, List[Symbol]] = {}
+        self._symbols_by_file: Dict[str, List[Symbol]] = {}
         self._parsed = False
 
     def parse(self) -> None:
@@ -129,10 +134,10 @@ class DoxygenParser:
         self._build_indexes()
         self._parsed = True
 
-        logger.info(f"Parsed {len(self._functions)} functions from Doxygen XML")
+        logger.info(f"Parsed {len(self._functions)} functions and {len(self._symbols)} symbols from Doxygen XML")
 
     def _parse_compound_file(self, file_path: Path, compound_kind: str, expanded: bool) -> None:
-        """Parse a single compound XML file for function definitions."""
+        """Parse a single compound XML file for function definitions and symbols."""
         try:
             tree = ET.parse(file_path)
             root = tree.getroot()
@@ -156,7 +161,13 @@ class DoxygenParser:
         if compoundname_elem is not None and compoundname_elem.text:
             compound_name = compoundname_elem.text
 
-        # Parse all member functions
+        # Parse class/struct as Symbol (not for files or namespaces)
+        if not expanded and compound_kind in ('class', 'struct'):
+            symbol = self._parse_compound_symbol(compounddef, compound_kind)
+            if symbol and symbol.doxygen_id:
+                self._symbols[symbol.doxygen_id] = symbol
+
+        # Parse all member functions and enums
         for sectiondef in compounddef.findall('.//sectiondef'):
             section_kind = sectiondef.get('kind', '')
 
@@ -180,6 +191,14 @@ class DoxygenParser:
                             else:
                                 # First pass - create function entry
                                 self._functions[func_info.doxygen_id] = func_info
+
+            # Enum sections
+            if not expanded and section_kind in ('enum', 'public-type', 'protected-type', 'private-type'):
+                for memberdef in sectiondef.findall('memberdef'):
+                    if memberdef.get('kind') == 'enum':
+                        symbol = self._parse_enum_symbol(memberdef, compound_name, compound_file)
+                        if symbol and symbol.doxygen_id:
+                            self._symbols[symbol.doxygen_id] = symbol
 
     def _parse_memberdef(self, memberdef: ET.Element, compound_name: str, default_file: str, expanded: bool) -> Optional[FunctionInfo]:
         """Parse a memberdef element to extract function information."""
@@ -261,6 +280,125 @@ class DoxygenParser:
                 parts.append(child.tail)
         return ''.join(parts).strip()
 
+    def _parse_compound_symbol(self, compounddef: ET.Element, compound_kind: str) -> Optional[Symbol]:
+        """Parse a compounddef element to extract class/struct symbol."""
+        if compound_kind == 'class':
+            symbol = Symbol(SymbolKind.CLASS)
+        elif compound_kind == 'struct':
+            symbol = Symbol(SymbolKind.STRUCT)
+        else:
+            return None
+
+        symbol.doxygen_id = compounddef.get('id', '')
+
+        compoundname_elem = compounddef.find('compoundname')
+        if compoundname_elem is not None and compoundname_elem.text:
+            symbol.qualified_name = compoundname_elem.text
+            symbol.name = symbol.qualified_name.split('::')[-1]
+        else:
+            return None
+
+        location = compounddef.find('location')
+        if location is not None:
+            symbol.file_path = location.get('file', '')
+            symbol.line_start = int(location.get('line', 0))
+            bodyend = location.get('bodyend')
+            if bodyend:
+                symbol.line_end = int(bodyend)
+            else:
+                symbol.line_end = symbol.line_start
+
+        for basecompoundref in compounddef.findall('basecompoundref'):
+            if basecompoundref.text:
+                symbol.base_classes.append(basecompoundref.text)
+
+        for memberdef in compounddef.findall('.//memberdef'):
+            member_id = memberdef.get('id')
+            if member_id:
+                symbol.members.append(member_id)
+
+        symbol.dependencies = self._extract_dependencies(compounddef)
+
+        return symbol
+
+    def _parse_enum_symbol(self, memberdef: ET.Element, compound_name: str, default_file: str) -> Optional[Symbol]:
+        """Parse a memberdef element to extract enum symbol."""
+        symbol = Symbol(SymbolKind.ENUM)
+
+        symbol.doxygen_id = memberdef.get('id', '')
+
+        name_elem = memberdef.find('name')
+        if name_elem is not None and name_elem.text:
+            symbol.name = name_elem.text
+        else:
+            return None
+
+        qualifiedname_elem = memberdef.find('qualifiedname')
+        if qualifiedname_elem is not None and qualifiedname_elem.text:
+            symbol.qualified_name = qualifiedname_elem.text
+        else:
+            symbol.qualified_name = f"{compound_name}::{symbol.name}" if compound_name else symbol.name
+
+        location = memberdef.find('location')
+        if location is not None:
+            symbol.file_path = location.get('file', default_file)
+            symbol.line_start = int(location.get('line', 0))
+            bodystart = location.get('bodystart')
+            bodyend = location.get('bodyend')
+            if bodystart:
+                symbol.line_start = int(bodystart)
+            if bodyend:
+                symbol.line_end = int(bodyend)
+            else:
+                symbol.line_end = symbol.line_start
+        else:
+            symbol.file_path = default_file
+
+        for enumvalue in memberdef.findall('enumvalue'):
+            name_elem = enumvalue.find('name')
+            initializer_elem = enumvalue.find('initializer')
+            if name_elem is not None and name_elem.text:
+                value_name = name_elem.text
+                value_text = ''
+                if initializer_elem is not None:
+                    value_text = self._get_element_text(initializer_elem)
+                symbol.enum_values.append((value_name, value_text))
+
+        return symbol
+
+    def _extract_dependencies(self, element: ET.Element) -> Set[str]:
+        """Extract all type dependencies from a symbol."""
+        deps = set()
+
+        for type_elem in element.findall('.//type'):
+            type_str = self._get_element_text(type_elem)
+            deps.update(self._parse_type_references(type_str))
+
+        for ref_elem in element.findall('.//ref'):
+            if ref_elem.text:
+                deps.add(ref_elem.text)
+
+        return deps
+
+    def _parse_type_references(self, type_str: str) -> Set[str]:
+        """Parse a type string to extract referenced type names."""
+        refs = set()
+
+        type_str = re.sub(r'\s+', ' ', type_str).strip()
+        type_str = re.sub(r'[*&<>,()]', ' ', type_str)
+
+        keywords = {'const', 'volatile', 'static', 'extern', 'inline',
+                   'virtual', 'unsigned', 'signed', 'long', 'short',
+                   'void', 'int', 'char', 'float', 'double', 'bool'}
+
+        tokens = type_str.split()
+        for token in tokens:
+            token = token.strip()
+            if token and token not in keywords and not token.isdigit():
+                refs.add(token)
+
+        return refs
+
     def _build_indexes(self) -> None:
         """Build lookup indexes after parsing."""
         for func_id, func in self._functions.items():
@@ -274,6 +412,16 @@ class DoxygenParser:
                 if func.file_path not in self._files:
                     self._files[func.file_path] = []
                 self._files[func.file_path].append(func)
+
+        for symbol_id, symbol in self._symbols.items():
+            if symbol.kind not in self._symbols_by_kind:
+                self._symbols_by_kind[symbol.kind] = []
+            self._symbols_by_kind[symbol.kind].append(symbol)
+
+            if symbol.file_path:
+                if symbol.file_path not in self._symbols_by_file:
+                    self._symbols_by_file[symbol.file_path] = []
+                self._symbols_by_file[symbol.file_path].append(symbol)
 
     def get_function_by_id(self, doxygen_id: str) -> Optional[FunctionInfo]:
         """Get a function by its Doxygen ID."""
@@ -381,3 +529,45 @@ class DoxygenParser:
 
         traverse(func, 0)
         return graph
+
+    def get_all_symbols(self) -> List[Symbol]:
+        """Get all parsed symbols."""
+        self.parse()
+        return list(self._symbols.values())
+
+    def get_symbols_by_kind(self, kind: str) -> List[Symbol]:
+        """Get all symbols of a specific kind."""
+        self.parse()
+        return self._symbols_by_kind.get(kind, [])
+
+    def get_symbols_in_file(self, file_path: str) -> List[Symbol]:
+        """Get all symbols in a specific file."""
+        self.parse()
+
+        if file_path in self._symbols_by_file:
+            return self._symbols_by_file[file_path]
+
+        normalized = Path(file_path).name
+        for recorded_path, symbols in self._symbols_by_file.items():
+            if Path(recorded_path).name == normalized:
+                return symbols
+
+        return []
+
+    def get_symbol_by_id(self, doxygen_id: str) -> Optional[Symbol]:
+        """Get a symbol by its Doxygen ID."""
+        self.parse()
+        return self._symbols.get(doxygen_id)
+
+    def find_symbol(self, qualified_name: str) -> Optional[Symbol]:
+        """Find a symbol by its qualified name."""
+        self.parse()
+        for symbol in self._symbols.values():
+            if symbol.qualified_name == qualified_name:
+                return symbol
+        return None
+
+    def get_symbols_at_line(self, file_path: str, line: int) -> List[Symbol]:
+        """Get all symbols that contain a specific line."""
+        symbols = self.get_symbols_in_file(file_path)
+        return [s for s in symbols if s.line_start <= line <= s.line_end]
