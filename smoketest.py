@@ -4,7 +4,7 @@
 import tempfile
 from pathlib import Path
 
-from core.compilers.msvc_compiler import MSVCCompiler
+from core.compilers.compiler_factory import get_compiler
 from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
 from core.mods.mod_factory import ModFactory
 
@@ -68,7 +68,7 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     # USE: =default
     # =============================================================================
-    ValTest("use_default_ctor",     'struct S { int x; S() { x = 0; }        }; int f() { S s; return s.x; }',
+    ValTest("use_default_ctor",     'struct S { int x;     S() { x = 0; }    }; int f() { S s; return s.x; }',
                                     'struct S { int x = 0; S() = default;    }; int f() { S s; return s.x; }', o=0), # o=Any
 
     # =============================================================================
@@ -86,7 +86,7 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     # USE: [[maybe_unused]]
     # =============================================================================
-    ValTest("add_maybe_unused",     'int f() { int               x = 5; return 10; }',
+    ValTest("add_maybe_unused",     'int f() {                  int x = 5; return 10; }',
                                     'int f() { [[maybe_unused]] int x = 5; return 10; }', o=0), # o=Any
 
     # =============================================================================
@@ -110,7 +110,7 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     # USE: trailing return type
     # =============================================================================
-    ValTest("trailing_return",      'int  add(int a, int b)        { return a + b; } int f() { return add(1, 2); }',
+    ValTest("trailing_return_type", 'int  add(int a, int b)        { return a + b; } int f() { return add(1, 2); }',
                                     'auto add(int a, int b) -> int { return a + b; } int f() { return add(1, 2); }', o=0), # o=Any
 
     # =============================================================================
@@ -128,7 +128,7 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     # USE: constexpr function
     # =============================================================================
-    ValTest("use_constexpr_func",   '          int square(int x) { return x * x; } int f() { return square(5); }',
+    ValTest("use_constexpr_func",   'inline    int square(int x) { return x * x; } int f() { return square(5); }',
                                     'constexpr int square(int x) { return x * x; } int f() { return square(5); }', o=3),
 
     # =============================================================================
@@ -148,7 +148,7 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     ValTest("inline_ctor",          'struct S { int x;        S() { x = 0; }        S(int v) { x = v; } }; int f() { S s; return s.x; }',
                                     'struct S { int x; inline S() { x = 0; } inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=0),
-    ValTest("delegating_ctor",      'struct S { int x; inline S() { x = 0; }  inline S(int v) { x = v; } }; int f() { S s; return s.x; }',
+    ValTest("delegating_ctor",      'struct S { int x; inline S() { x = 0; } inline S(int v) { x = v; } }; int f() { S s; return s.x; }',
                                     'struct S { int x; inline S() : S(0) {}  inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=3),
 
     # =============================================================================
@@ -166,8 +166,8 @@ VALIDATOR_SMOKE_TESTS = \
     # =============================================================================
     # REMOVE: unused parameters
     # =============================================================================
-    ValTest("remove_unused_param",  'int add(int a, int b, int unused) { return a + b; } int f() { return add(2, 3, 99); }',
-                                    'int add(int a, int b            ) { return a + b; } int f() { return add(2, 3    ); }', o=3),
+    ValTest("remove_unused_param",  'inline int add(int a, int b, int unused) { return a + b; } int f() { return add(2, 3, 99); }',
+                                    'inline int add(int a, int b            ) { return a + b; } int f() { return add(2, 3    ); }', o=3),
 
     # =============================================================================
     # REMOVE: void argument list
@@ -241,30 +241,26 @@ VALIDATOR_SMOKE_TESTS = \
     ValTest("early_return",         'int f() { int x = 5; if (x > 0) { return x * 2; } else { return 0; } }',
                                     'int f() { int x = 5; if (x <= 0) return 0; return x * 2; }', o=3),
 
-    # NOTE: range-based for loop transformation removed - not suitable for ASM validation
-    # Range-based for loops use pointer iteration which produces fundamentally different
-    # assembly than index-based loops, even though semantically equivalent.
-
     # =============================================================================
     # REFACTOR: replace pointer with reference (parameter)
     # =============================================================================
     ValTest("pointer_to_reference", 'int modify(int* p) { return *p + 1; } int f() { int x = 5; return modify(&x); }',
                                     'int modify(int& p) { return p + 1; }  int f() { int x = 5; return modify(x); }', o=0),
 
-    # NOTE: Smart pointer tests removed - replacing raw pointers with unique_ptr generates
-    # different assembly due to RAII semantics vs manual memory management.
-    # Similarly, span<T> and range-based loops produce fundamentally different code.
-
     # =============================================================================
-    # SAFETY: add/remove non_owner<T> comment annotations
+    # OWNERSHIP/LIFETIME: add owner<T> and non_owner<T>:
+    # All pointer members and parameters should be marked as owning the memory the point to
+    # or not owning the memory. Only the pointers where it is not clear should be left as 
+    # raw, unmarked pointers. This way, we can better reason about code during refactoring.
+    # The owner/non_owner will be removed at the end of refactoring.
+    # The tests declare owner/non_ower, but this should be included from a header
     # =============================================================================
-    ValTest("add_non_owner",        'int get(int*           p) { return *p; } int f() { int x = 42; return get(&x); }',
-                                    'int get(int* /*non_owner*/ p) { return *p; } int f() { int x = 42; return get(&x); }', o=0),
-    ValTest("remove_non_owner_annotation", 'int get(int* /*non_owner*/ p) { return *p; } int f() { int x = 42; return get(&x); }',
-                                           'int get(int* p) { return *p; } int f() { int x = 42; return get(&x); }', o=0),
-
-    # NOTE: Refactoring tests like "replace global with parameter" removed - these change
-    # program structure in ways that enable different optimizations, producing different assembly.
+    ValTest("add_owner<T>",        '           int* get(int value) {            int* p = new int; *p = value; return p; } int f() {            int *p = get (17); int i = *p; delete p; return i; }',
+                                   'namespace gsl { template <typename T> using owner = T*; }\n' +\
+                                   'gsl::owner<int> get(int value) { gsl::owner<int> p = new int; *p = value; return p; } int f() { gsl::owner<int> p = get (17); int i = *p; delete p; return i; }', o=0),
+    ValTest("add_non_owner<T>",    'int get(               int* p) { return *p; } int f() { int x = 42; return get(&x); }',
+                                   'namespace gsl { template <typename T> using non_owner = T*; }\n' +\
+                                   'int get(gsl::non_owner<int> p) { return *p; } int f() { int x = 42; return get(&x); }', o=0),
 
 ]
 
@@ -311,8 +307,9 @@ MOD_SMOKE_TESTS = [
 
 
 def run_validator_smoke_tests():
-    print("Initializing MSVC compiler...")
-    compiler = MSVCCompiler()
+    print("Initializing compiler from config...")
+    compiler = get_compiler()
+    print(f"Using compiler: {compiler.get_name()}")
 
     validators = {
         0: ASMValidatorO0(),
