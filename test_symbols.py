@@ -6,7 +6,7 @@ from pathlib import Path
 from core.doxygen import DoxygenRunner, DoxygenParser, Symbol, SymbolKind
 
 # Test with ExampleCPP repository
-repo_path = Path("workspace/repos/ExampleCPP")
+repo_path = Path("workspace/repos/ExampleCPP").absolute()
 
 if not repo_path.exists():
     print(f"Repository not found at {repo_path}")
@@ -24,7 +24,7 @@ if not runner.is_available():
 
 try:
     xml_unexpanded, xml_expanded = runner.run(repo_path)
-    print(f"   ✓ XML generated at {xml_unexpanded}")
+    print(f"   [OK] XML generated at {xml_unexpanded}")
 except Exception as e:
     print(f"   ERROR: {e}")
     exit(1)
@@ -34,7 +34,7 @@ print("\n2. Parsing Doxygen XML...")
 parser = DoxygenParser(xml_unexpanded, xml_expanded)
 try:
     parser.parse()
-    print(f"   ✓ XML parsed successfully")
+    print(f"   [OK] XML parsed successfully")
 except Exception as e:
     print(f"   ERROR: {e}")
     import traceback
@@ -95,4 +95,4 @@ for symbol in (classes + structs)[:3]:
     print(f"      Members: {len(symbol.members)}")
 
 print("\n" + "=" * 80)
-print("✓ All tests completed successfully!")
+print("[OK] All tests completed successfully!")
