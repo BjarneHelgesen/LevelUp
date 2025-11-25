@@ -101,21 +101,21 @@ class BaseASMValidator(BaseValidator, ABC):
                 comdat_functions.add(match.group(1))
         return comdat_functions
 
-    def _detect_asm_format(self, asm_content: str) -> str:
+    def _detect_asm_format(self, asm_content: str) -> CompilerType | str:
         """Detect whether assembly is MSVC or Clang format.
 
-        Returns CompilerType value ('msvc' or 'clang').
+        Returns CompilerType enum or 'unknown' string.
         """
         if not asm_content:
             return 'unknown'
 
         # MSVC uses PROC/ENDP markers
         if ' PROC' in asm_content and ' ENDP' in asm_content:
-            return CompilerType.MSVC.value
+            return CompilerType.MSVC
 
         # Clang uses .globl directives and label-based functions
         if '.globl' in asm_content or '.text' in asm_content:
-            return CompilerType.CLANG.value
+            return CompilerType.CLANG
 
         return 'unknown'
 
@@ -130,9 +130,9 @@ class BaseASMValidator(BaseValidator, ABC):
 
         format_type = self._detect_asm_format(asm_content)
 
-        if format_type == CompilerType.MSVC.value:
+        if format_type == CompilerType.MSVC:
             return self._extract_functions_msvc(asm_content)
-        elif format_type == CompilerType.CLANG.value:
+        elif format_type == CompilerType.CLANG:
             return self._extract_functions_clang(asm_content)
         else:
             return {}

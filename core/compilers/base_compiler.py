@@ -2,12 +2,13 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from .compiled_file import CompiledFile
+from config import CompilerType
 
 
 class BaseCompiler(ABC):
     @staticmethod
     @abstractmethod
-    def get_id() -> str:
+    def get_id() -> CompilerType:
         """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
         pass
 

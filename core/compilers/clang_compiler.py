@@ -48,9 +48,9 @@ class ClangCompiler(BaseCompiler):
             raise RuntimeError(f"clang not found at {clang_path}")
 
     @staticmethod
-    def get_id() -> str:
+    def get_id() -> CompilerType:
         """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
-        return CompilerType.CLANG.value
+        return CompilerType.CLANG
 
     @staticmethod
     def get_name() -> str:

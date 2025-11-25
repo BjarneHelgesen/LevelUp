@@ -56,9 +56,9 @@ class MSVCCompiler(BaseCompiler):
         logger.info(f"MSVCCompiler initialized with cl.exe at: {self.cl_path}")
 
     @staticmethod
-    def get_id() -> str:
+    def get_id() -> CompilerType:
         """IMPORTANT: Stable identifier used in APIs. Do not change once set."""
-        return CompilerType.MSVC.value
+        return CompilerType.MSVC
 
     @staticmethod
     def get_name() -> str:

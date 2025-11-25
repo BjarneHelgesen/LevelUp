@@ -42,6 +42,6 @@ class CompilerFactory:
     @staticmethod
     def get_available_compilers() -> List[Dict[str, Any]]:
         return [
-            {'id': MSVCCompiler.get_id(), 'name': MSVCCompiler.get_name()},
-            {'id': ClangCompiler.get_id(), 'name': ClangCompiler.get_name()},
+            {'id': MSVCCompiler.get_id().value, 'name': MSVCCompiler.get_name()},
+            {'id': ClangCompiler.get_id().value, 'name': ClangCompiler.get_name()},
         ]
