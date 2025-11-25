@@ -177,6 +177,14 @@ VALIDATOR_SMOKE_TESTS = \
                                     'int f() {                  return 10; }', o=3),
 
     # =============================================================================
+    # REMOVE: unused variables
+    # =============================================================================
+    ValTest("remove_unused_var_o0", 'int f() { int unused = 42; return 10; }',
+                                    'int f() {                  return 10; }', o=0),
+    ValTest("remove_unused_var_o3", 'int f() { int unused = 42; return 10; }',
+                                    'int f() {                  return 10; }', o=3),
+
+    # =============================================================================
     # REMOVE: void argument list
     # =============================================================================
     ValTest("remove_void_args",     'int f(void) { return 42; }',
