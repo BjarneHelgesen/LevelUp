@@ -62,3 +62,9 @@ desktop.ini
 # Visual Studio
 .vs/
 
+# Claude
+.claude
+
+# Pytest
+.pytest_cache
+
