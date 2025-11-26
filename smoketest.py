@@ -284,6 +284,81 @@ VALIDATOR_SMOKE_TESTS = \
                                    'namespace gsl { template <typename T> using non_owner = T*; }\n' +\
                                    'int get(gsl::non_owner<int> p) { return *p; } int f() { int x = 42; return get(&x); }', o=0),
 
+    # =============================================================================
+    # REFACTOR: simplify boolean expressions
+    # =============================================================================
+    ValTest("simplify_bool_comparison", 'int f() { bool b = true; if (b == true) { return 10; } return 0; }',
+                                         'int f() { bool b = true; if (b)        { return 10; } return 0; }', o=3),
+
+    ValTest("simplify_double_negation",  'int f() { bool b = true; return !!b ? 5 : 0; }',
+                                         'int f() { bool b = true; return b   ? 5 : 0; }', o=3),
+
+    # =============================================================================
+    # REPLACE: C-style casts with C++ casts (safer, more searchable)
+    # =============================================================================
+    ValTest("c_cast_to_static_cast",    'int f() { double d = 3.14; int x = (int)d; return x; }',
+                                        'int f() { double d = 3.14; int x = static_cast<int>(d); return x; }', o=0),
+
+    ValTest("c_cast_to_const_cast",     'int modify(int* p) { return *p + 1; } int f() { const int x = 5; return modify((int*)&x); }',
+                                        'int modify(int* p) { return *p + 1; } int f() { const int x = 5; return modify(const_cast<int*>(&x)); }', o=0),
+
+    # =============================================================================
+    # REPLACE: #define constants with constexpr (type-safe, debuggable)
+    # =============================================================================
+    ValTest("define_to_constexpr",      '#define MAX_SIZE 100\nint f() { int arr[MAX_SIZE]; arr[0] = 5; return arr[0]; }',
+                                        'constexpr int MAX_SIZE = 100; int f() { int arr[MAX_SIZE]; arr[0] = 5; return arr[0]; }', o=0),
+
+    ValTest("define_func_to_constexpr", '#define SQUARE(x) ((x) * (x))\nint f() { return SQUARE(5); }',
+                                        'constexpr int square(int x) { return x * x; } int f() { return square(5); }', o=3),
+
+    # =============================================================================
+    # USE: [[fallthrough]] attribute (documents intent, prevents warnings)
+    # =============================================================================
+    ValTest("add_fallthrough",          'int f() { int x = 2; switch(x) { case 1: x += 1; case 2: x += 2; break; default: x = 0; } return x; }',
+                                        'int f() { int x = 2; switch(x) { case 1: x += 1; [[fallthrough]]; case 2: x += 2; break; default: x = 0; } return x; }', o=0),
+
+    # =============================================================================
+    # REPLACE: typedef with using (template-friendly, more readable)
+    # =============================================================================
+    ValTest("typedef_func_ptr_to_using", 'typedef int (*FuncPtr)(int); int apply(FuncPtr f, int x) { return f(x); } int double_it(int x) { return x * 2; } int f() { return apply(double_it, 5); }',
+                                         'using FuncPtr = int (*)(int); int apply(FuncPtr f, int x) { return f(x); } int double_it(int x) { return x * 2; } int f() { return apply(double_it, 5); }', o=3),
+
+    # =============================================================================
+    # REPLACE: multiple returns with single return variable (NRVO-friendly)
+    # =============================================================================
+    ValTest("consolidate_returns",      'int f() { int x = 5; if (x > 0) { return x * 2; } else { return 0; } }',
+                                        'int f() { int x = 5; int result; if (x > 0) { result = x * 2; } else { result = 0; } return result; }', o=3),
+
+    # =============================================================================
+    # REPLACE: size_t with more specific types for better overflow detection
+    # =============================================================================
+    ValTest("explicit_integer_width",   'int f() { unsigned int count = 100; return (int)count; }',
+                                        '#include <cstdint>\nint f() { uint32_t count = 100; return (int)count; }', o=0),
+
+    # =============================================================================
+    # USE: =delete for uncopyable classes (clearer than private declarations)
+    # =============================================================================
+    ValTest("private_to_delete",        'struct S { private: S(const S&); S& operator=(const S&); public: int x; S() : x(0) {} int get() { return x; } }; int f() { S s; return s.get(); }',
+                                        'struct S { S(const S&) = delete; S& operator=(const S&) = delete; int x; S() : x(0) {} int get() { return x; } }; int f() { S s; return s.get(); }', o=0),
+
+    # =============================================================================
+    # REPLACE: char* for string literals with const char* (const correctness)
+    # =============================================================================
+    ValTest("string_literal_const",     'int len(char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len((char*)"test"); }',
+                                        'int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("test"); }', o=0),
+
+    # =============================================================================
+    # USE: inline namespace for versioning (ABI compatibility)
+    # =============================================================================
+    ValTest("add_inline_namespace",     'namespace lib { struct S { int x; }; } int f() { lib::S s; s.x = 5; return s.x; }',
+                                        'namespace lib { inline namespace v1 { struct S { int x; }; } } int f() { lib::S s; s.x = 5; return s.x; }', o=0),
+
+    # =============================================================================
+    # REPLACE: manual RAII with structured bindings for clarity
+    # =============================================================================
+    ValTest("extract_pair_values",      '#include <utility>\nstd::pair<int,int> get_pair() { return std::make_pair(3, 4); } int f() { std::pair<int,int> p = get_pair(); return p.first + p.second; }',
+                                        '#include <utility>\nstd::pair<int,int> get_pair() { return std::make_pair(3, 4); } int f() { auto [x, y] = get_pair(); return x + y; }', o=3),
+
 ]
 
 
