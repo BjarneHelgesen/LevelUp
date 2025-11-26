@@ -28,7 +28,7 @@ def test_create_clang_compiler(clang_compiler):
     print(f"  Compiler ID: {clang_compiler.get_id()}")
     print(f"  Clang path: {clang_compiler.clang_path}")
 
-    assert clang_compiler.get_id() == "clang"
+    assert clang_compiler.get_id() == config.CompilerType.CLANG
 
 
 def test_compile_simple_cpp_file(clang_compiler):

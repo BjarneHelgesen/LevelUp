@@ -233,10 +233,11 @@ class BaseASMValidator(BaseValidator, ABC):
                     current_body = []
                 continue
 
-            # Detect function end: next .globl, next function label, or # -- End function comment
+            # Detect function end: next .globl, next function label, or other section markers
             if current_func:
-                # Check for end markers
-                if line.startswith('.globl') or line.startswith('.addrsig') or line.startswith('.section'):
+                # Check for end markers (sections, metadata, etc.)
+                if (line.startswith('.globl') or line.startswith('.addrsig') or
+                    line.startswith('.section') or line == '.text'):
                     # Save current function and reset
                     if current_body:  # Only save if we collected some instructions
                         functions[current_func] = current_body
