@@ -4,8 +4,8 @@ from pathlib import Path
 
 from .base_compiler import BaseCompiler
 from .compiled_file import CompiledFile
+from .compiler_type import CompilerType
 from .. import logger
-from config import CompilerType
 
 
 class ClangCompiler(BaseCompiler):

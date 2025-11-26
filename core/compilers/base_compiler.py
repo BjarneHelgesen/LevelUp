@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from .compiled_file import CompiledFile
-from config import CompilerType
+from .compiler_type import CompilerType
 
 
 class BaseCompiler(ABC):

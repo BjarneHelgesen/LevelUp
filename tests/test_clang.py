@@ -6,21 +6,20 @@ import re
 import pytest
 from pathlib import Path
 
-import config
-from core.compilers.compiler_factory import get_compiler, reset_compiler
+from core.compilers.compiler_type import CompilerType
+from core.compilers.compiler_factory import get_compiler, set_compiler
 from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
 
 
 @pytest.fixture
 def clang_compiler():
-    original_compiler = config.COMPILER_TYPE
-    config.COMPILER_TYPE = config.CompilerType.CLANG
-    reset_compiler()
+    # Save current compiler and switch to Clang
+    set_compiler('clang')
 
     yield get_compiler()
 
-    config.COMPILER_TYPE = original_compiler
-    reset_compiler()
+    # Restore to default
+    set_compiler('clang')
 
 
 def test_create_clang_compiler(clang_compiler):
@@ -28,7 +27,7 @@ def test_create_clang_compiler(clang_compiler):
     print(f"  Compiler ID: {clang_compiler.get_id()}")
     print(f"  Clang path: {clang_compiler.clang_path}")
 
-    assert clang_compiler.get_id() == config.CompilerType.CLANG
+    assert clang_compiler.get_id() == CompilerType.CLANG
 
 
 def test_compile_simple_cpp_file(clang_compiler):

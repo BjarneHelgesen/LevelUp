@@ -3,7 +3,7 @@ from abc import ABC
 
 from .base_validator import BaseValidator
 from ..compilers.compiled_file import CompiledFile
-from config import CompilerType
+from ..compilers.compiler_type import CompilerType
 
 
 class BaseASMValidator(BaseValidator, ABC):

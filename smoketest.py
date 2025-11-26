@@ -4,9 +4,8 @@
 import tempfile
 from pathlib import Path
 
-import config
-from config import CompilerType
-from core.compilers.compiler_factory import get_compiler, reset_compiler
+from core.compilers.compiler_type import CompilerType
+from core.compilers.compiler_factory import get_compiler, set_compiler
 from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
 from core.mods.mod_factory import ModFactory
 from core.repo.repo import Repo
@@ -420,9 +419,8 @@ def run_validator_smoke_tests():
         print(f"Testing with compiler: {compiler_type.value}")
         print('=' * 60)
 
-        # Set compiler type and reset singleton
-        config.COMPILER_TYPE = compiler_type
-        reset_compiler()
+        # Set compiler type
+        set_compiler(compiler_type.value)
 
         compiler = get_compiler()
         print(f"Initialized compiler: {compiler.get_name()}")

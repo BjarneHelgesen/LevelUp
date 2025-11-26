@@ -6,10 +6,10 @@ from core.mods.add_override_mod import AddOverrideMod
 from core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
 from core.validators.validator_factory import ValidatorFactory, ValidatorType
 from core.validators.asm_validator import ASMValidatorO0, ASMValidatorO3
+from core.compilers.compiler_type import CompilerType
 from core.compilers.compiler_factory import CompilerFactory, get_compiler
 from core.compilers.msvc_compiler import MSVCCompiler
 from core.compilers.clang_compiler import ClangCompiler
-from config import CompilerType
 
 
 class TestModFactory:
@@ -143,15 +143,12 @@ class TestCompilerFactory:
         assert "cl.exe" in compiler.cl_path.lower()
 
     def test_get_compiler_returns_configured_compiler(self):
-        from core.compilers.compiler_factory import reset_compiler
-        from config import COMPILER_TYPE, CompilerType
+        from core.compilers.compiler_factory import reset_compiler, set_compiler
         reset_compiler()
+        # Test with Clang (current default)
+        set_compiler('clang')
         compiler = get_compiler()
-        # Check it matches configured type
-        if COMPILER_TYPE == CompilerType.MSVC:
-            assert isinstance(compiler, MSVCCompiler)
-        elif COMPILER_TYPE == CompilerType.CLANG:
-            assert isinstance(compiler, ClangCompiler)
+        assert isinstance(compiler, ClangCompiler)
 
     def test_get_compiler_returns_same_instance(self):
         from core.compilers.compiler_factory import reset_compiler
