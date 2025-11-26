@@ -7,6 +7,7 @@ from typing import Dict, Any, Generator, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..refactorings.refactoring_base import RefactoringBase
+    from ..refactorings.refactoring_params import RefactoringParams
     from ..doxygen.symbol_table import SymbolTable
     from ..repo.repo import Repo
 
@@ -39,7 +40,7 @@ class BaseMod(ABC):
 
     @abstractmethod
     def generate_refactorings(self, repo: 'Repo', symbols: 'SymbolTable') -> \
-            Generator[Tuple['RefactoringBase', dict], None, None]:
+            Generator[Tuple['RefactoringBase', 'RefactoringParams'], None, None]:
         """
         Generate refactorings for this mod.
 
@@ -48,19 +49,20 @@ class BaseMod(ABC):
             symbols: Symbol table for the repository
 
         Yields:
-            Tuples of (refactoring_instance, parameters_dict)
+            Tuples of (refactoring_instance, typed_parameters)
 
         Example:
             from ..refactorings.add_function_qualifier import AddFunctionQualifier
+            from ..refactorings.refactoring_params import AddFunctionQualifierParams
 
             refactoring = AddFunctionQualifier(repo, symbols)
-            params = {
-                'file_path': Path('foo.cpp'),
-                'function_name': 'myFunc',
-                'qualifier': 'const',
-                'line_number': 42,
-                'validator_type': 'asm_o0'
-            }
+            params = AddFunctionQualifierParams(
+                file_path=Path('foo.cpp'),
+                function_name='myFunc',
+                qualifier='const',
+                line_number=42,
+                validator_type='asm_o0'
+            )
             yield (refactoring, params)
         """
         pass

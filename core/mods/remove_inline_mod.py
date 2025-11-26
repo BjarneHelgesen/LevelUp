@@ -7,6 +7,7 @@ import re
 
 from .base_mod import BaseMod
 from ..refactorings.remove_function_qualifier import RemoveFunctionQualifier
+from ..refactorings.refactoring_params import RemoveFunctionQualifierParams
 from ..refactorings.qualifier_type import QualifierType
 
 
@@ -55,14 +56,14 @@ class RemoveInlineMod(BaseMod):
                     if not function_name:
                         function_name = f"function_at_line_{line_num}"
 
-                    # Generate refactoring parameters
-                    params = {
-                        'file_path': Path(source_file),
-                        'function_name': function_name,
-                        'qualifier': QualifierType.INLINE,
-                        'line_number': line_num,
-                        'validator_type': 'source_diff'  # Use source_diff validator
-                    }
+                    # Generate refactoring parameters (typed!)
+                    params = RemoveFunctionQualifierParams(
+                        file_path=Path(source_file),
+                        function_name=function_name,
+                        qualifier=QualifierType.INLINE,
+                        line_number=line_num,
+                        validator_type='source_diff'
+                    )
 
                     yield (refactoring, params)
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .base_mod import BaseMod
 from ..refactorings.add_function_qualifier import AddFunctionQualifier
+from ..refactorings.refactoring_params import AddFunctionQualifierParams
 from ..refactorings.qualifier_type import QualifierType
 
 
@@ -63,14 +64,14 @@ class AddOverrideMod(BaseMod):
                     if not function_name:
                         continue
 
-                    # Generate refactoring parameters
-                    params = {
-                        'file_path': Path(source_file),
-                        'function_name': function_name,
-                        'qualifier': QualifierType.OVERRIDE,
-                        'line_number': line_num,
-                        'validator_type': 'asm_o0'  # Explicit validator type
-                    }
+                    # Generate refactoring parameters (typed!)
+                    params = AddFunctionQualifierParams(
+                        file_path=Path(source_file),
+                        function_name=function_name,
+                        qualifier=QualifierType.OVERRIDE,
+                        line_number=line_num,
+                        validator_type='asm_o0'
+                    )
 
                     yield (refactoring, params)
 
