@@ -8,10 +8,12 @@ from .refactoring_params import (
     AddFunctionQualifierParams,
     RemoveFunctionQualifierParams
 )
+from .qualifier_type import QualifierType
 
 __all__ = [
     'RefactoringBase',
     'RefactoringParams',
     'AddFunctionQualifierParams',
-    'RemoveFunctionQualifierParams'
+    'RemoveFunctionQualifierParams',
+    'QualifierType'
 ]

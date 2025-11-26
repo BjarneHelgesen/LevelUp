@@ -54,14 +54,16 @@ class BaseMod(ABC):
         Example:
             from ..refactorings.add_function_qualifier import AddFunctionQualifier
             from ..refactorings.refactoring_params import AddFunctionQualifierParams
+            from ..refactorings.qualifier_type import QualifierType
+            from ..validators.validator_id import ValidatorId
 
             refactoring = AddFunctionQualifier(repo, symbols)
             params = AddFunctionQualifierParams(
                 file_path=Path('foo.cpp'),
                 function_name='myFunc',
-                qualifier='const',
+                qualifier=QualifierType.CONST,
                 line_number=42,
-                validator_type='asm_o0'
+                validator_type=ValidatorId.ASM_O0
             )
             yield (refactoring, params)
         """

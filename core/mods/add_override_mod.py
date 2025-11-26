@@ -9,6 +9,7 @@ from .base_mod import BaseMod
 from ..refactorings.add_function_qualifier import AddFunctionQualifier
 from ..refactorings.refactoring_params import AddFunctionQualifierParams
 from ..refactorings.qualifier_type import QualifierType
+from ..validators.validator_id import ValidatorId
 
 
 class AddOverrideMod(BaseMod):
@@ -70,7 +71,7 @@ class AddOverrideMod(BaseMod):
                         function_name=function_name,
                         qualifier=QualifierType.OVERRIDE,
                         line_number=line_num,
-                        validator_type='asm_o0'
+                        validator_type=ValidatorId.ASM_O0
                     )
 
                     yield (refactoring, params)

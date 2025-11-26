@@ -23,7 +23,7 @@ class RefactoringParams:
 
         Args:
             file_path: File to be modified
-            validator_type: Validator ID (e.g., "asm_o0", "asm_o3", "source_diff")
+            validator_type: Validator ID from ValidatorId (e.g., ValidatorId.ASM_O0)
         """
         self.file_path = file_path
         self.validator_type = validator_type

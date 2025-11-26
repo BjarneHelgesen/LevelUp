@@ -9,6 +9,7 @@ from .base_mod import BaseMod
 from ..refactorings.remove_function_qualifier import RemoveFunctionQualifier
 from ..refactorings.refactoring_params import RemoveFunctionQualifierParams
 from ..refactorings.qualifier_type import QualifierType
+from ..validators.validator_id import ValidatorId
 
 
 class RemoveInlineMod(BaseMod):
@@ -62,7 +63,7 @@ class RemoveInlineMod(BaseMod):
                         function_name=function_name,
                         qualifier=QualifierType.INLINE,
                         line_number=line_num,
-                        validator_type='source_diff'
+                        validator_type=ValidatorId.SOURCE_DIFF
                     )
 
                     yield (refactoring, params)
