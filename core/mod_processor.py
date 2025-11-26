@@ -1,36 +1,48 @@
+"""
+ModProcessor - processes mod requests using the refactoring architecture.
+"""
+
 from pathlib import Path
-import uuid
 
 from .compilers.compiler_factory import get_compiler
 from .validators.validator_factory import ValidatorFactory
-from .mods.mod_handler import ModHandler
 from .result import Result, ResultStatus
 from .repo.repo import Repo
 from .mod_request import ModRequest
 from .validation_result import ValidationResult
+from .doxygen.symbol_table import SymbolTable
 from . import logger
 
 
 class ModProcessor:
+    """
+    Processes mod requests using the refactoring architecture.
+
+    All mods follow the same pattern:
+    1. Ensure Doxygen data exists
+    2. Load symbol table
+    3. Generate refactorings from mod
+    4. Apply each refactoring (creates GitCommit)
+    5. Validate each commit
+    6. Rollback invalid commits
+    """
+
     def __init__(self, repos_path: Path, git_path: str = 'git'):
         logger.info(f"ModProcessor initializing with repos_path={repos_path}")
         self.compiler = get_compiler()
-        self.asm_validator = ValidatorFactory.from_id('asm_o0')
-        self.mod_handler = ModHandler()
         self.repos_path = Path(repos_path).resolve()
         self.git_path = git_path
         logger.info("ModProcessor initialized successfully")
 
-
     def process_mod(self, mod_request: ModRequest) -> Result:
+        """Process a mod request using refactorings."""
         mod_id = mod_request.id
+        mod_instance = mod_request.mod_instance
 
-        logger.info(f"Processing mod {mod_id}: {mod_request.description}")
-        logger.debug(f"Mod details: repo={mod_request.repo_url}")
+        logger.info(f"Processing mod {mod_id}: {mod_instance.get_name()}")
 
         try:
             # Initialize repository
-            logger.debug(f"Initializing repo from {mod_request.repo_url}")
             repo = Repo(
                 url=mod_request.repo_url,
                 repos_folder=self.repos_path,
@@ -39,33 +51,63 @@ class ModProcessor:
             repo.ensure_cloned()
             repo.prepare_work_branch()
 
-            # Get mod name for display
-            mod_name = mod_request.mod_instance.get_name()
+            # Ensure Doxygen data exists
+            self._ensure_doxygen_data(repo)
 
-            # Process the mod
-            return self._process_builtin_mod(mod_request, repo, mod_name)
+            # Load symbol table
+            symbols = self._load_symbols(repo)
+
+            # Process mod with refactorings
+            return self._process_refactorings(mod_request, repo, symbols)
 
         except Exception as e:
             logger.exception(f"Error processing mod {mod_id}: {e}")
-            # Reset repo on error to restore original files
             try:
                 repo.reset_hard()
             except Exception:
-                pass  # Best effort reset
+                pass
             return Result(
                 status=ResultStatus.ERROR,
                 message=str(e)
             )
 
-    def _process_builtin_mod(self, mod_request: ModRequest, repo: Repo, mod_name: str) -> Result:
-        """Process a BUILTIN mod using generator pattern for atomic changes"""
-        mod_id = mod_request.id
+    def _ensure_doxygen_data(self, repo: Repo):
+        """
+        Ensure Doxygen XML data exists for repo.
+        Generate if missing or stale.
+        """
+        # Check for unexpanded XML (primary output)
+        xml_dir = repo.repo_path / 'doxygen_output' / 'xml_unexpanded'
+        stale_marker = repo.repo_path / 'doxygen_output' / '.doxygen_stale'
 
-        # Get validator from mod, optimization level from validator
-        validator_id = mod_request.mod_instance.get_validator_id()
-        validator = ValidatorFactory.from_id(validator_id)
-        optimization_level = validator.get_optimization_level()
-        logger.debug(f"Using validator '{validator_id}' with optimization level {optimization_level}")
+        if stale_marker.exists():
+            logger.info("Doxygen data is stale, regenerating...")
+            repo.generate_doxygen()
+            stale_marker.unlink()
+            logger.info("Doxygen data regenerated")
+        elif not xml_dir.exists() or not list(xml_dir.glob('*.xml')):
+            logger.info("Generating Doxygen data...")
+            repo.generate_doxygen()
+            logger.info("Doxygen data generated")
+        else:
+            logger.debug("Doxygen data already exists")
+
+    def _load_symbols(self, repo: Repo) -> SymbolTable:
+        """Load symbol table from Doxygen XML."""
+        symbols = SymbolTable(repo)
+        symbols.load_from_doxygen()
+        logger.info(f"Loaded {len(symbols._symbols)} symbols from Doxygen")
+        return symbols
+
+    def _process_refactorings(self, mod_request: ModRequest,
+                              repo: Repo, symbols: SymbolTable) -> Result:
+        """
+        Process mod using refactoring pattern.
+
+        Each refactoring is applied, validated, and either kept or rolled back.
+        """
+        mod_id = mod_request.id
+        mod_instance = mod_request.mod_instance
 
         # Create atomic branch for this mod's changes
         atomic_branch = f"levelup-atomic-{mod_id}"
@@ -76,45 +118,72 @@ class ModProcessor:
         validation_results = []
 
         try:
-            # Generate and process atomic changes
-            for file_path, commit_message in mod_request.mod_instance.generate_changes(repo.repo_path):
-                logger.debug(f"Processing atomic change: {commit_message}")
+            # Generate refactorings from mod
+            for refactoring, params in mod_instance.generate_refactorings(repo, symbols):
+                logger.debug(f"Applying {refactoring.__class__.__name__} with params: {params}")
 
-                # Store original content before change
+                # Get file path for compilation (needed before and after)
+                file_path = params.get('file_path') or params.get('target_file')
+                if not file_path:
+                    logger.warning(f"Refactoring params missing file_path: {params}")
+                    continue
+
+                # Store original content for potential rollback
                 original_content = file_path.read_text(encoding='utf-8', errors='ignore')
 
-                # Compile original with the optimization level specified by the validator
-                original_compiled = self.compiler.compile_file(file_path, optimization_level=optimization_level)
+                # Apply refactoring
+                # Refactoring modifies file and creates git commit
+                git_commit = refactoring.apply(**params)
 
-                # File has already been modified by the generator
-                # Compile modified version
-                modified_compiled = self.compiler.compile_file(file_path, optimization_level=optimization_level)
+                if git_commit is None:
+                    # Refactoring could not be applied (preconditions failed)
+                    logger.debug(f"Refactoring skipped: {refactoring.__class__.__name__}")
+                    continue
 
-                # Validate using the mod's specified validator
+                # Get validator and optimization level from git_commit
+                validator = ValidatorFactory.from_id(git_commit.validator_type)
+                optimization_level = validator.get_optimization_level()
+
+                # Compile original (need to restore original content first)
+                file_path.write_text(original_content, encoding='utf-8')
+                original_compiled = self.compiler.compile_file(
+                    file_path,
+                    optimization_level=optimization_level
+                )
+
+                # Restore modified content and compile
+                repo.checkout_file(file_path)  # Restore from git commit
+                modified_compiled = self.compiler.compile_file(
+                    file_path,
+                    optimization_level=optimization_level
+                )
+
+                # Validate
                 is_valid = validator.validate(original_compiled, modified_compiled)
 
-                logger.debug(f"Validation result: {'PASS' if is_valid else 'FAIL'}")
-
                 if is_valid:
-                    # Commit this atomic change
-                    repo.commit(commit_message)
-                    accepted_commits.append(commit_message)
-                    logger.info(f"Accepted and committed: {commit_message}")
+                    # Keep commit
+                    accepted_commits.append(git_commit.commit_message)
+                    logger.info(f"Accepted: {git_commit.commit_message}")
 
                     validation_results.append(ValidationResult(
                         file=str(file_path),
                         valid=True
                     ))
                 else:
-                    # Revert this change
-                    file_path.write_text(original_content, encoding='utf-8')
-                    rejected_commits.append(commit_message)
-                    logger.info(f"Rejected and reverted: {commit_message}")
+                    # Rollback commit
+                    git_commit.rollback()
+                    rejected_commits.append(git_commit.commit_message)
+                    logger.info(f"Rejected: {git_commit.commit_message}")
 
                     validation_results.append(ValidationResult(
                         file=str(file_path),
                         valid=False
                     ))
+
+                    # Symbols already invalidated by refactoring, but rollback restored file
+                    # Re-invalidate so symbols get refreshed from restored content
+                    symbols.invalidate_file(file_path)
 
             # Determine result status
             if len(accepted_commits) > 0 and len(rejected_commits) == 0:
@@ -124,34 +193,29 @@ class ModProcessor:
             else:
                 status = ResultStatus.FAILED
 
-            # Squash and rebase accepted commits back to work branch
+            # Squash and rebase accepted commits
             if len(accepted_commits) > 0:
-                logger.info(f"Squashing {len(accepted_commits)} commits and rebasing to {repo.work_branch}")
+                logger.info(f"Squashing {len(accepted_commits)} commits")
                 repo.squash_and_rebase(atomic_branch, repo.work_branch)
-
-                # Push the squashed commit
-                logger.info(f"Pushing squashed changes to remote")
                 repo.push()
             else:
-                # No accepted commits, just switch back to work branch and delete atomic branch
-                logger.info("No accepted commits, cleaning up atomic branch")
+                logger.info("No accepted commits, cleaning up")
                 repo.checkout_branch(repo.work_branch)
                 repo.delete_branch(atomic_branch, force=True)
 
             return Result(
                 status=status,
-                message=mod_name,
+                message=mod_instance.get_name(),
                 validation_results=validation_results,
                 accepted_commits=accepted_commits,
                 rejected_commits=rejected_commits
             )
 
         except Exception as e:
-            # On error, return to work branch and cleanup
-            logger.exception(f"Error during atomic processing: {e}")
+            logger.exception(f"Error during refactoring processing: {e}")
             try:
                 repo.checkout_branch(repo.work_branch)
                 repo.delete_branch(atomic_branch, force=True)
             except Exception:
-                pass  # Best effort cleanup
+                pass
             raise

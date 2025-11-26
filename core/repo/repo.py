@@ -213,6 +213,10 @@ class Repo:
         """Hard reset to a reference"""
         return self._run_git(['reset', '--hard', ref])
 
+    def checkout_file(self, file_path: Path):
+        """Checkout a file from HEAD (restore from last commit)"""
+        return self._run_git(['checkout', 'HEAD', '--', str(file_path)])
+
     def get_current_branch(self):
         """Get current branch name"""
         return self._run_git(['rev-parse', '--abbrev-ref', 'HEAD'])

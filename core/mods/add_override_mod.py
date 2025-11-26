@@ -1,11 +1,22 @@
+"""
+AddOverrideMod - adds override keyword to virtual member functions.
+"""
+
 import re
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Tuple
 
 from .base_mod import BaseMod
+from ..refactorings.add_function_qualifier import AddFunctionQualifier
+from ..refactorings.qualifier_type import QualifierType
 
 
 class AddOverrideMod(BaseMod):
+    """
+    Repo-wide mod that adds 'override' keywords to virtual functions.
+    Uses simple pattern matching to identify virtual member functions.
+    """
+
     def __init__(self):
         super().__init__(
             mod_id='add_override',
@@ -21,15 +32,18 @@ class AddOverrideMod(BaseMod):
     def get_name() -> str:
         return 'Add Override Keywords'
 
-    @staticmethod
-    def get_validator_id() -> str:
-        return 'asm_o0'
+    def generate_refactorings(self, repo, symbols):
+        """
+        Find all virtual member functions without 'override' keyword.
+        Generate AddFunctionQualifier refactoring for each.
+        """
+        # Create refactoring instance (shared for all applications)
+        refactoring = AddFunctionQualifier(repo, symbols)
 
-    def generate_changes(self, repo_path: Path) -> Generator[tuple[Path, str], None, None]:
         # Find all C/C++ source and header files
         source_files = []
         for pattern in ['**/*.cpp', '**/*.c', '**/*.hpp', '**/*.h']:
-            source_files.extend([f for f in repo_path.glob(pattern)
+            source_files.extend([f for f in repo.repo_path.glob(pattern)
                                 if not f.name.startswith('_levelup_')])
 
         for source_file in source_files:
@@ -45,20 +59,26 @@ class AddOverrideMod(BaseMod):
 
                 # Check if this line needs override keyword
                 if in_class and 'virtual' in line and 'override' not in line and ';' in line:
-                    # Store original content
-                    original_lines = lines.copy()
+                    # Extract function name (simple heuristic)
+                    function_name = self._extract_function_name(line)
+                    if not function_name:
+                        continue
 
-                    # Modify this specific line
-                    modified_line = re.sub(r';', ' override;', line)
-                    lines[line_num - 1] = modified_line
+                    # Generate refactoring parameters
+                    params = {
+                        'file_path': Path(source_file),
+                        'function_name': function_name,
+                        'qualifier': QualifierType.OVERRIDE,
+                        'line_number': line_num,
+                        'validator_type': 'asm_o0'  # Explicit validator type
+                    }
 
-                    # Write modified content
-                    source_file.write_text(''.join(lines), encoding='utf-8')
+                    yield (refactoring, params)
 
-                    # Yield this atomic change
-                    commit_msg = f"Add override at {source_file.name}:{line_num}"
-                    yield (source_file, commit_msg)
-
-                    # Re-read current content for next iteration
-                    # (caller may have reverted the change)
-                    lines = source_file.read_text(encoding='utf-8', errors='ignore').splitlines(keepends=True)
+    def _extract_function_name(self, line: str) -> str:
+        """Extract function name from declaration line."""
+        # Simple pattern: look for identifier before '('
+        match = re.search(r'\b(\w+)\s*\(', line)
+        if match:
+            return match.group(1)
+        return ''

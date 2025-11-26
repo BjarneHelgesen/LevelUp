@@ -1,9 +1,26 @@
+"""
+Abstract base class for mods.
+"""
+
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Dict, Any, Generator
+from typing import Dict, Any, Generator, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..refactorings.refactoring_base import RefactoringBase
+    from ..doxygen.symbol_table import SymbolTable
+    from ..repo.repo import Repo
 
 
 class BaseMod(ABC):
+    """
+    Abstract base class for mods.
+
+    Mods are high-level, repo-wide transformations that:
+    1. Analyze symbol table to find refactoring opportunities
+    2. Generate refactorings with parameters
+    3. Refactorings handle actual code modification and validation
+    """
+
     def __init__(self, mod_id: str, description: str):
         self.mod_id = mod_id
         self.description = description
@@ -17,21 +34,34 @@ class BaseMod(ABC):
     @staticmethod
     @abstractmethod
     def get_name() -> str:
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def get_validator_id() -> str:
-        """Returns the validator ID this mod requires for validation."""
+        """Human-readable name for UI."""
         pass
 
     @abstractmethod
-    def generate_changes(self, repo_path: Path) -> Generator[tuple[Path, str], None, None]:
+    def generate_refactorings(self, repo: 'Repo', symbols: 'SymbolTable') -> \
+            Generator[Tuple['RefactoringBase', dict], None, None]:
         """
-        Generate atomic changes for this mod.
-        Yields tuples of (file_path, commit_message) for each atomic change.
-        The file should be modified in-place before yielding.
-        The caller will compile, validate, and commit/revert each change.
+        Generate refactorings for this mod.
+
+        Args:
+            repo: Repository being modified
+            symbols: Symbol table for the repository
+
+        Yields:
+            Tuples of (refactoring_instance, parameters_dict)
+
+        Example:
+            from ..refactorings.add_function_qualifier import AddFunctionQualifier
+
+            refactoring = AddFunctionQualifier(repo, symbols)
+            params = {
+                'file_path': Path('foo.cpp'),
+                'function_name': 'myFunc',
+                'qualifier': 'const',
+                'line_number': 42,
+                'validator_type': 'asm_o0'
+            }
+            yield (refactoring, params)
         """
         pass
 

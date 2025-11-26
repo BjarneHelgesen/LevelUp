@@ -1,11 +1,21 @@
+"""
+RemoveInlineMod - removes inline keywords from functions.
+"""
+
 from pathlib import Path
 import re
-from typing import Generator
+from typing import Generator, Tuple
 
 from .base_mod import BaseMod
+from ..refactorings.remove_function_qualifier import RemoveFunctionQualifier
+from ..refactorings.qualifier_type import QualifierType
 
 
 class RemoveInlineMod(BaseMod):
+    """
+    Repo-wide mod that removes 'inline' keywords from functions.
+    """
+
     def __init__(self):
         super().__init__(
             mod_id='remove_inline',
@@ -21,37 +31,46 @@ class RemoveInlineMod(BaseMod):
     def get_name() -> str:
         return 'Remove Inline Keywords'
 
-    @staticmethod
-    def get_validator_id() -> str:
-        return 'source_diff'
+    def generate_refactorings(self, repo, symbols):
+        """
+        Find all inline keywords and generate RemoveFunctionQualifier refactoring for each.
+        """
+        # Create refactoring instance (shared for all applications)
+        refactoring = RemoveFunctionQualifier(repo, symbols)
 
-    def generate_changes(self, repo_path: Path) -> Generator[tuple[Path, str], None, None]:
         # Find all C/C++ source and header files
         source_files = []
         for pattern in ['**/*.cpp', '**/*.c', '**/*.hpp', '**/*.h']:
-            source_files.extend([f for f in repo_path.glob(pattern)
+            source_files.extend([f for f in repo.repo_path.glob(pattern)
                                 if not f.name.startswith('_levelup_')])
 
         for source_file in source_files:
-            # Process inline occurrences one at a time, re-reading after each
-            while True:
-                content = source_file.read_text(encoding='utf-8', errors='ignore')
+            content = source_file.read_text(encoding='utf-8', errors='ignore')
+            lines = content.splitlines(keepends=True)
 
-                # Find first 'inline' keyword occurrence with trailing whitespace
-                match = re.search(r'\binline\b\s*', content)
+            # Find all 'inline' keyword occurrences
+            for line_num, line in enumerate(lines, start=1):
+                if re.search(r'\binline\b', line):
+                    # Extract function name (simple heuristic)
+                    function_name = self._extract_function_name(line)
+                    if not function_name:
+                        function_name = f"function_at_line_{line_num}"
 
-                if not match:
-                    break
+                    # Generate refactoring parameters
+                    params = {
+                        'file_path': Path(source_file),
+                        'function_name': function_name,
+                        'qualifier': QualifierType.INLINE,
+                        'line_number': line_num,
+                        'validator_type': 'source_diff'  # Use source_diff validator
+                    }
 
-                # Calculate line number for this match
-                line_num = content[:match.start()].count('\n') + 1
+                    yield (refactoring, params)
 
-                # Remove this specific inline occurrence
-                modified_content = content[:match.start()] + content[match.end():]
-
-                # Write modified content
-                source_file.write_text(modified_content, encoding='utf-8')
-
-                # Yield this atomic change
-                commit_msg = f"Remove inline at {source_file.name}:{line_num}"
-                yield (source_file, commit_msg)
+    def _extract_function_name(self, line: str) -> str:
+        """Extract function name from declaration line."""
+        # Simple pattern: look for identifier before '(' after 'inline'
+        match = re.search(r'inline.*?\b(\w+)\s*\(', line)
+        if match:
+            return match.group(1)
+        return ''

@@ -530,6 +530,11 @@ class DoxygenParser:
         traverse(func, 0)
         return graph
 
+    def parse_all_symbols(self) -> List[Symbol]:
+        """Parse Doxygen XML and return all symbols."""
+        self.parse()
+        return list(self._symbols.values())
+
     def get_all_symbols(self) -> List[Symbol]:
         """Get all parsed symbols."""
         self.parse()

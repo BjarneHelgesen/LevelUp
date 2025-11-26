@@ -14,17 +14,8 @@ class TestModProcessorInitialization:
         )
         assert processor.compiler is not None
 
-    def test_init_creates_asm_validator(self, temp_dir):
-        processor = ModProcessor(
-            repos_path=temp_dir
-        )
-        assert processor.asm_validator is not None
-
-    def test_init_creates_mod_handler(self, temp_dir):
-        processor = ModProcessor(
-            repos_path=temp_dir
-        )
-        assert processor.mod_handler is not None
+    # Removed: asm_validator and mod_handler no longer stored as instance variables
+    # They are created dynamically during refactoring processing
 
     def test_init_stores_repos_path(self, temp_dir):
         processor = ModProcessor(
