@@ -4,7 +4,6 @@ RemoveInlineMod - removes inline keywords from functions.
 
 from pathlib import Path
 import re
-from typing import Generator, Tuple
 
 from .base_mod import BaseMod
 from ..refactorings.remove_function_qualifier import RemoveFunctionQualifier

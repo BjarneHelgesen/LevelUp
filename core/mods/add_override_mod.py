@@ -4,7 +4,6 @@ AddOverrideMod - adds override keyword to virtual member functions.
 
 import re
 from pathlib import Path
-from typing import Generator, Tuple
 
 from .base_mod import BaseMod
 from ..refactorings.add_function_qualifier import AddFunctionQualifier

@@ -1,10 +1,6 @@
 """
-MS_MacroReplacement - replaces Microsoft-specific keywords with macros.
+MSMacroReplacementMod - replaces Microsoft-specific keywords with macros.
 """
-
-import re
-from pathlib import Path
-from typing import Generator, Tuple
 
 from .base_mod import BaseMod
 
@@ -38,5 +34,6 @@ class MSMacroReplacementMod(BaseMod):
         TODO: Implement dedicated refactorings for MS macro replacements.
         """
         # Stub: Return no refactorings for now
-        return
-        yield  # Make this a generator
+        # Empty generator - yields nothing
+        if False:
+            yield

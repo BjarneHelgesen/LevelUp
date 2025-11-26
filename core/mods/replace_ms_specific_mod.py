@@ -2,10 +2,6 @@
 ReplaceMSSpecificMod - replaces Microsoft-specific syntax with standard C++.
 """
 
-import re
-from pathlib import Path
-from typing import Generator, Tuple
-
 from .base_mod import BaseMod
 
 
@@ -38,5 +34,6 @@ class ReplaceMSSpecificMod(BaseMod):
         TODO: Implement dedicated refactorings for MS-specific replacements.
         """
         # Stub: Return no refactorings for now
-        return
-        yield  # Make this a generator
+        # Empty generator - yields nothing
+        if False:
+            yield
