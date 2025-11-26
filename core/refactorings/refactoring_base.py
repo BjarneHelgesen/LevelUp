@@ -2,7 +2,7 @@
 Abstract base class for refactorings.
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional
 from pathlib import Path
 
@@ -42,6 +42,19 @@ class RefactoringBase(ABC):
             GitCommit object if successful, None if refactoring cannot be applied
         """
         raise NotImplementedError("Subclasses must implement apply()")
+
+    @abstractmethod
+    def get_regression_risk_percent(self) -> int:
+        """
+        Return estimated regression risk as percentage (0-100).
+
+        Low values (e.g., 10%) indicate safe refactorings with low regression risk.
+        High values (e.g., 90%) indicate speculative changes with high regression risk.
+
+        Returns:
+            Regression risk percentage (0-100)
+        """
+        pass
 
     def _invalidate_symbols(self, file_path: Path):
         """Helper to invalidate symbols for a modified file."""

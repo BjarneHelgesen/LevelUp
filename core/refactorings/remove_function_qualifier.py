@@ -16,6 +16,10 @@ class RemoveFunctionQualifier(RefactoringBase):
     Remove qualifier (inline, static, etc.) from a function.
     """
 
+    def get_regression_risk_percent(self) -> int:
+        """Safe refactoring: removing qualifiers like 'inline' preserves semantics - low regression risk."""
+        return 10
+
     def apply(self, params: RemoveFunctionQualifierParams) -> Optional[GitCommit]:
         """
         Remove qualifier from specific function at given line number.
@@ -68,7 +72,8 @@ class RemoveFunctionQualifier(RefactoringBase):
                 repo=self.repo,
                 commit_message=commit_msg,
                 validator_type=params.validator_type,
-                affected_symbols=[params.function_name]
+                affected_symbols=[params.function_name],
+                regression_risk_percent=self.get_regression_risk_percent()
             )
 
         except Exception as e:

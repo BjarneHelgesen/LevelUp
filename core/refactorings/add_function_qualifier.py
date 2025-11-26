@@ -15,6 +15,10 @@ class AddFunctionQualifier(RefactoringBase):
     Add qualifier (const, noexcept, override, etc.) to a function.
     """
 
+    def get_regression_risk_percent(self) -> int:
+        """Safe refactoring: adding qualifiers preserves semantics - low regression risk."""
+        return 10
+
     def apply(self, params: AddFunctionQualifierParams) -> Optional[GitCommit]:
         """
         Add qualifier to specific function at given line number.
@@ -64,7 +68,8 @@ class AddFunctionQualifier(RefactoringBase):
                 repo=self.repo,
                 commit_message=commit_msg,
                 validator_type=params.validator_type,
-                affected_symbols=[params.function_name]
+                affected_symbols=[params.function_name],
+                regression_risk_percent=self.get_regression_risk_percent()
             )
 
         except Exception as e:

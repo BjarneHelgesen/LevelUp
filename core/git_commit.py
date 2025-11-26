@@ -17,7 +17,8 @@ class GitCommit:
     """
 
     def __init__(self, repo: 'Repo', commit_message: str,
-                 validator_type: str, affected_symbols: List[str]):
+                 validator_type: str, affected_symbols: List[str],
+                 regression_risk_percent: int):
         """
         Create a git commit.
 
@@ -26,6 +27,9 @@ class GitCommit:
             commit_message: Commit message
             validator_type: Validator type ID (e.g., "asm_o0", "asm_o3")
             affected_symbols: List of qualified symbol names affected by this change
+            regression_risk_percent: Estimated regression risk as percentage (0-100)
+                                    Low values (e.g., 10%) = safe/low risk
+                                    High values (e.g., 90%) = speculative/high risk
 
         Raises:
             ValueError: If no changes to commit
@@ -34,6 +38,7 @@ class GitCommit:
         self.commit_message = commit_message
         self.validator_type = validator_type
         self.affected_symbols = affected_symbols if affected_symbols else []
+        self.regression_risk_percent = regression_risk_percent
 
         # Perform the commit
         if not self.repo.commit(self.commit_message):
@@ -51,5 +56,6 @@ class GitCommit:
             'commit_message': self.commit_message,
             'commit_hash': self.commit_hash,
             'validator_type': self.validator_type,
-            'affected_symbols': self.affected_symbols
+            'affected_symbols': self.affected_symbols,
+            'regression_risk_percent': self.regression_risk_percent
         }
