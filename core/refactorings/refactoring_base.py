@@ -44,15 +44,20 @@ class RefactoringBase(ABC):
         raise NotImplementedError("Subclasses must implement apply()")
 
     @abstractmethod
-    def get_regression_risk_percent(self) -> int:
+    def get_probability_of_success(self) -> float:
         """
-        Return estimated regression risk as percentage (0-100).
+        Return estimated probability that this refactoring will be valid (0.0-1.0).
 
-        Low values (e.g., 10%) indicate safe refactorings with low regression risk.
-        High values (e.g., 90%) indicate speculative changes with high regression risk.
+        High values (e.g., 0.9) indicate safe refactorings with high confidence.
+        Low values (e.g., 0.1) indicate speculative changes with low confidence.
+
+        This probability is used to determine when to validate batches of commits.
+        Probabilities are multiplied together; validation happens when product falls
+        below threshold (e.g., 0.8), ensuring likely successful batches with minimal
+        risk of deep rollbacks.
 
         Returns:
-            Regression risk percentage (0-100)
+            Probability of success (0.0-1.0)
         """
         pass
 
