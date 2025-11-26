@@ -24,8 +24,10 @@ Modernizatition could involve:
 ### Prerequisites
 - Python 3.8+
 - Git
-- MSVC (Visual Studio C++ Compiler)
+- Supported compiler MSVC (Visual Studio C++ Compiler) and/or Clang
 - Windows OS (initial version, cross-platform support planned)
+- Doxygen
+- 
 
 ### Setup
 
