@@ -50,10 +50,26 @@ class TestModProcessorProcessMod:
         mock.get_id.return_value = "test_mod"
         mock.get_name.return_value = "Test Mod"
         mock.get_metadata.return_value = {"mod_id": "test", "description": "Test"}
-        mock.get_validator_id.return_value = "asm_o0"
-        # generate_changes returns empty by default, tests should override as needed
-        mock.generate_changes.return_value = iter([])
+        # generate_refactorings returns empty by default, tests should override as needed
+        mock.generate_refactorings.return_value = iter([])
         return mock
+
+    def _create_mock_refactoring(self, file_path, commit_message="Test change", validator_type="asm_o0", apply_returns_commit=True):
+        """Helper to create mock refactoring and params."""
+        mock_refactoring = Mock()
+        mock_params = Mock()
+        mock_params.file_path = file_path
+
+        if apply_returns_commit:
+            mock_git_commit = Mock()
+            mock_git_commit.commit_message = commit_message
+            mock_git_commit.validator_type = validator_type
+            mock_refactoring.apply.return_value = mock_git_commit
+        else:
+            # Refactoring could not be applied (preconditions failed)
+            mock_refactoring.apply.return_value = None
+
+        return (mock_refactoring, mock_params)
 
     @pytest.fixture
     def builtin_mod_request(self, mock_mod_instance):
@@ -114,9 +130,9 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield one change
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_file, "Remove inline at test.cpp:1")
+        # Mock generate_refactorings to yield one refactoring
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_file, "Remove inline at test.cpp:1")
         ])
 
         # Mock compiler to return CompiledFile and validator
@@ -138,9 +154,9 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield one change
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_file, "Remove inline at test.cpp:1")
+        # Mock generate_refactorings to yield one refactoring
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_file, "Remove inline at test.cpp:1")
         ])
 
         mock_compiled = Mock(spec=CompiledFile)
@@ -162,12 +178,10 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield one change
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_file, "Remove inline at test.cpp:1")
+        # Mock generate_refactorings to yield one refactoring
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_file, "Remove inline at test.cpp:1")
         ])
-        # Override get_id to not be 'remove_inline' so validation is applied
-        builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
@@ -195,12 +209,10 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield one change
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_file, "Remove inline at test.cpp:1")
+        # Mock generate_refactorings to yield one refactoring
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_file, "Remove inline at test.cpp:1")
         ])
-        # Override get_id to not be 'remove_inline' so validation is applied
-        builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
@@ -238,9 +250,9 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield one change
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_file, "Remove inline at test.cpp:1")
+        # Mock generate_refactorings to yield one change
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_file, "Remove inline at test.cpp:1")
         ])
 
         mock_compiled = Mock(spec=CompiledFile)
@@ -264,11 +276,11 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield three changes
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_files[0], "Change at test0.cpp:1"),
-            (cpp_files[1], "Change at test1.cpp:1"),
-            (cpp_files[2], "Change at test2.cpp:1"),
+        # Mock generate_refactorings to yield three refactorings
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_files[0], "Change at test0.cpp:1"),
+            self._create_mock_refactoring(cpp_files[1], "Change at test1.cpp:1"),
+            self._create_mock_refactoring(cpp_files[2], "Change at test2.cpp:1"),
         ])
 
         mock_compiled = Mock(spec=CompiledFile)
@@ -291,11 +303,11 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield three changes
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_files[0], "Change at test0.cpp:1"),
-            (cpp_files[1], "Change at test1.cpp:1"),
-            (cpp_files[2], "Change at test2.cpp:1"),
+        # Mock generate_refactorings to yield three refactorings
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_files[0], "Change at test0.cpp:1"),
+            self._create_mock_refactoring(cpp_files[1], "Change at test1.cpp:1"),
+            self._create_mock_refactoring(cpp_files[2], "Change at test2.cpp:1"),
         ])
         # Override get_id to not be 'remove_inline' so validation is applied
         builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
@@ -328,11 +340,11 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield three changes
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_files[0], "Change at test0.cpp:1"),
-            (cpp_files[1], "Change at test1.cpp:1"),
-            (cpp_files[2], "Change at test2.cpp:1"),
+        # Mock generate_refactorings to yield three refactorings
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_files[0], "Change at test0.cpp:1"),
+            self._create_mock_refactoring(cpp_files[1], "Change at test1.cpp:1"),
+            self._create_mock_refactoring(cpp_files[2], "Change at test2.cpp:1"),
         ])
         # Override get_id to not be 'remove_inline' so validation is applied
         builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
@@ -354,9 +366,10 @@ class TestModProcessorProcessMod:
         # Failed file (test1.cpp) should be restored to original content
         assert cpp_files[1].read_text() == original_contents[1]
 
+    @patch("core.mod_processor.ValidatorFactory")
     @patch("core.mod_processor.Repo")
     def test_process_mod_squashes_and_pushes_on_partial(
-        self, mock_repo_class, processor, builtin_mod_request, temp_dir
+        self, mock_repo_class, mock_validator_factory, processor, builtin_mod_request, temp_dir
     ):
         mock_repo = MagicMock()
         cpp_files = [temp_dir / f"test{i}.cpp" for i in range(2)]
@@ -365,20 +378,21 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield two changes
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_files[0], "Change at test0.cpp:1"),
-            (cpp_files[1], "Change at test1.cpp:1"),
+        # Mock generate_refactorings to yield two refactorings
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_files[0], "Change at test0.cpp:1"),
+            self._create_mock_refactoring(cpp_files[1], "Change at test1.cpp:1"),
         ])
-        # Override get_id to not be 'remove_inline' so validation is applied
-        builtin_mod_request.mod_instance.get_id.return_value = "some_other_mod"
 
         mock_compiled = Mock(spec=CompiledFile)
         mock_compiled.asm_output = "mov eax, 1"
         processor.compiler.compile_file = Mock(return_value=mock_compiled)
 
-        # First passes, second fails
-        processor.asm_validator.validate = Mock(side_effect=[True, False])
+        # Mock the validator factory to return a validator where first passes, second fails
+        mock_validator = Mock()
+        mock_validator.validate.side_effect = [True, False]
+        mock_validator.get_optimization_level.return_value = 0
+        mock_validator_factory.from_id.return_value = mock_validator
 
         result = processor.process_mod(builtin_mod_request)
 
@@ -396,9 +410,9 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # Mock generate_changes to yield one change
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([
-            (cpp_file, "Remove inline at test.cpp:1")
+        # Mock generate_refactorings to yield one change
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([
+            self._create_mock_refactoring(cpp_file, "Remove inline at test.cpp:1")
         ])
 
         mock_compiled = Mock(spec=CompiledFile)
@@ -418,8 +432,8 @@ class TestModProcessorProcessMod:
         mock_repo.repo_path = temp_dir
         mock_repo_class.return_value = mock_repo
 
-        # generate_changes returns empty iterator (no changes needed)
-        builtin_mod_request.mod_instance.generate_changes.return_value = iter([])
+        # generate_refactorings returns empty iterator (no changes needed)
+        builtin_mod_request.mod_instance.generate_refactorings.return_value = iter([])
 
         result = processor.process_mod(builtin_mod_request)
 
@@ -448,9 +462,19 @@ class TestModProcessorTempFileCleanup:
         mock_mod = Mock()
         mock_mod.get_id.return_value = "test_mod"
         mock_mod.get_name.return_value = "Test Mod"
-        mock_mod.get_validator_id.return_value = "asm_o0"
-        mock_mod.generate_changes.return_value = iter([
-            (cpp_file, "Change at test.cpp:1")
+
+        # Create mock refactoring manually for this test
+        mock_refactoring = Mock()
+        mock_git_commit = Mock()
+        mock_git_commit.commit_message = "Change at test.cpp:1"
+        mock_git_commit.validator_type = "asm_o0"
+        mock_refactoring.apply.return_value = mock_git_commit
+
+        mock_params = Mock()
+        mock_params.file_path = cpp_file
+
+        mock_mod.generate_refactorings.return_value = iter([
+            (mock_refactoring, mock_params)
         ])
         request = ModRequest(
             id="test",
