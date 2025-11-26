@@ -7,4 +7,4 @@ class CompilerType(Enum):
 
 
 # Compiler used for ALL Mods - change this to switch compilers
-COMPILER_TYPE = CompilerType.MSVC
+COMPILER_TYPE = CompilerType.CLANG

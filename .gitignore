@@ -37,7 +37,7 @@ instance/
 
 # Project specific
 workspace/
-docs/
+docs/html
 *.log
 *.asm
 *.obj
@@ -61,4 +61,4 @@ desktop.ini
 
 # Visual Studio
 .vs/
-/nul
+
