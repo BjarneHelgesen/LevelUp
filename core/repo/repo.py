@@ -7,6 +7,8 @@ import unicodedata
 from pathlib import Path
 from typing import Optional
 
+import git
+
 from .. import logger
 from ..doxygen import DoxygenRunner, DoxygenParser
 
@@ -33,7 +35,7 @@ class Repo:
         Args:
             url: Git repository URL
             repo_path: Local filesystem path for the repository
-            git_path: Path to git executable
+            git_path: Path to git executable (deprecated, kept for compatibility)
             post_checkout: Commands to run after checkout
         """
         self.url = url
@@ -43,6 +45,7 @@ class Repo:
         self.git_path = git_path
         self.post_checkout = post_checkout
         self._doxygen_parser: Optional[DoxygenParser] = None
+        self._git_repo: Optional[git.Repo] = None
 
     @staticmethod
     def get_repo_name(repo_url: str) -> str:
@@ -96,6 +99,16 @@ class Repo:
             post_checkout=config.get('post_checkout', '')
         )
 
+    @property
+    def git_repo(self) -> git.Repo:
+        """Get GitPython Repo object, initializing if needed."""
+        if self._git_repo is None:
+            if self.repo_path.exists():
+                self._git_repo = git.Repo(self.repo_path)
+            else:
+                raise RuntimeError(f"Git repository not found at {self.repo_path}")
+        return self._git_repo
+
     def _run_git(self, args, cwd=None, check=True):
         """Run a git command and return output"""
         cmd = [self.git_path] + args
@@ -131,8 +144,8 @@ class Repo:
     def clone(self) -> 'Repo':
         """Clone the repository to repo_path"""
         logger.info(f"Cloning repository {self.url} to {self.repo_path}")
-        cmd = [self.git_path, 'clone', self.url, str(self.repo_path)]
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        git.Repo.clone_from(self.url, self.repo_path)
+        self._git_repo = None  # Reset to force re-initialization
         logger.info(f"Repository cloned successfully")
         return self
 
@@ -145,16 +158,20 @@ class Repo:
             logger.debug(f"Repo path {self.repo_path} exists, pulling latest")
             # Checkout main branch and pull latest
             try:
-                self._run_git(['checkout', 'main'])
-            except subprocess.CalledProcessError:
+                self.git_repo.heads['main'].checkout()
+            except (IndexError, git.exc.GitCommandError):
                 # Try 'master' if 'main' doesn't exist
                 logger.debug("'main' branch not found, trying 'master'")
-                self._run_git(['checkout', 'master'])
+                self.git_repo.heads['master'].checkout()
             self.pull()
 
     def pull(self):
         """Pull latest changes"""
-        return self._run_git(['pull'])
+        logger.debug("Pulling latest changes")
+        origin = self.git_repo.remote('origin')
+        result = origin.pull()
+        logger.debug(f"Pull completed: {result}")
+        return str(result)
 
     def checkout_branch(self, branch_name: str = None, create: bool = False):
         """
@@ -167,14 +184,15 @@ class Repo:
         branch = branch_name or self.work_branch
 
         if create:
-            # Check if branch exists
-            branches = self._run_git(['branch', '-a'])
-            if branch not in branches:
-                self._run_git(['checkout', '-b', branch])
+            # Check if branch exists locally
+            if branch in self.git_repo.heads:
+                self.git_repo.heads[branch].checkout()
             else:
-                self._run_git(['checkout', branch])
+                # Create new branch
+                self.git_repo.create_head(branch)
+                self.git_repo.heads[branch].checkout()
         else:
-            self._run_git(['checkout', branch])
+            self.git_repo.heads[branch].checkout()
 
         # Execute post-checkout commands if configured
         if self.post_checkout:
@@ -186,15 +204,14 @@ class Repo:
 
     def commit(self, message: str):
         """Create a commit with all changes. Returns True if commit was made, False if nothing to commit."""
-        self._run_git(['add', '-A'])
+        self.git_repo.index.add('*')
 
         # Check if there are changes to commit
-        status = self._run_git(['status', '--porcelain'])
-        if not status:
+        if not self.git_repo.is_dirty(untracked_files=True):
             logger.info("No changes to commit")
             return False
 
-        self._run_git(['commit', '-m', message])
+        self.git_repo.index.commit(message)
         return True
 
     def push(self, branch: str = None):
@@ -202,73 +219,83 @@ class Repo:
         branch = branch or self.work_branch
         logger.info(f"Pushing branch {branch} to remote origin")
         try:
-            result = self._run_git(['push', '-u', 'origin', branch])
+            origin = self.git_repo.remote('origin')
+            result = origin.push(branch, set_upstream=True)
             logger.info(f"Successfully pushed {branch} to remote origin")
-            return result
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to push {branch} to remote origin: {e.stderr}")
+            return str(result)
+        except git.exc.GitCommandError as e:
+            logger.error(f"Failed to push {branch} to remote origin: {e}")
             raise
 
     def reset_hard(self, ref: str = 'HEAD'):
         """Hard reset to a reference"""
-        return self._run_git(['reset', '--hard', ref])
+        logger.debug(f"Hard reset to {ref}")
+        self.git_repo.head.reset(ref, index=True, working_tree=True)
+        return f"Reset to {ref}"
 
     def checkout_file(self, file_path: Path):
         """Checkout a file from HEAD (restore from last commit)"""
-        return self._run_git(['checkout', 'HEAD', '--', str(file_path)])
+        logger.debug(f"Checking out file from HEAD: {file_path}")
+        self.git_repo.index.checkout([str(file_path)], force=True)
+        return f"Checked out {file_path}"
 
     def get_current_branch(self):
         """Get current branch name"""
-        return self._run_git(['rev-parse', '--abbrev-ref', 'HEAD'])
+        return self.git_repo.active_branch.name
 
     def get_commit_hash(self, ref: str = 'HEAD'):
         """Get commit hash for a reference"""
-        return self._run_git(['rev-parse', ref])
+        return self.git_repo.commit(ref).hexsha
 
     def stash(self):
         """Stash current changes"""
-        return self._run_git(['stash'])
+        logger.debug("Stashing changes")
+        self.git_repo.git.stash('push')
+        return "Stashed"
 
     def stash_pop(self):
         """Pop stashed changes"""
-        return self._run_git(['stash', 'pop'])
+        logger.debug("Popping stashed changes")
+        self.git_repo.git.stash('pop')
+        return "Popped stash"
 
     def create_atomic_branch(self, base_branch: str, atomic_branch_name: str):
         """Create a new branch for atomic commits from a base branch"""
-        self._run_git(['checkout', base_branch])
-        self._run_git(['checkout', '-b', atomic_branch_name])
+        self.git_repo.heads[base_branch].checkout()
+        new_branch = self.git_repo.create_head(atomic_branch_name)
+        new_branch.checkout()
         return atomic_branch_name
 
     def squash_and_rebase(self, atomic_branch: str, target_branch: str):
         """Squash all commits on atomic_branch and rebase onto target_branch"""
         # Get the merge base (where atomic_branch diverged from target_branch)
-        merge_base = self._run_git(['merge-base', atomic_branch, target_branch])
+        merge_base = self.git_repo.merge_base(atomic_branch, target_branch)[0].hexsha
 
         # Checkout the atomic branch
-        self._run_git(['checkout', atomic_branch])
+        self.git_repo.heads[atomic_branch].checkout()
 
         # Reset soft to merge base (keeps all changes staged)
-        self._run_git(['reset', '--soft', merge_base])
+        self.git_repo.head.reset(merge_base, index=False, working_tree=False)
 
         # Create single squashed commit if there are staged changes
-        status = self._run_git(['status', '--porcelain'])
-        if status:
-            self._run_git(['commit', '-m', f'Squashed atomic changes from {atomic_branch}'])
+        if self.git_repo.is_dirty(untracked_files=True):
+            self.git_repo.index.commit(f'Squashed atomic changes from {atomic_branch}')
 
         # Rebase onto target branch
-        self._run_git(['rebase', target_branch])
+        self.git_repo.git.rebase(target_branch)
 
         # Checkout target branch and merge the squashed commit
-        self._run_git(['checkout', target_branch])
-        self._run_git(['merge', atomic_branch, '--ff-only'])
+        self.git_repo.heads[target_branch].checkout()
+        self.git_repo.git.merge(atomic_branch, ff_only=True)
 
         # Delete the atomic branch
-        self._run_git(['branch', '-d', atomic_branch])
+        self.git_repo.delete_head(atomic_branch)
 
     def delete_branch(self, branch_name: str, force: bool = False):
         """Delete a branch"""
-        flag = '-D' if force else '-d'
-        return self._run_git(['branch', flag, branch_name])
+        logger.debug(f"Deleting branch {branch_name} (force={force})")
+        self.git_repo.delete_head(branch_name, force=force)
+        return f"Deleted branch {branch_name}"
 
     def __repr__(self) -> str:
         """String representation for debugging"""
