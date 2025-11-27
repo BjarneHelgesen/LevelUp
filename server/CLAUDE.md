@@ -92,11 +92,18 @@ ModProcessor accepts `repos_path` and `git_path` in constructor - no global CONF
 5. Initial `Result` object created with status QUEUED
 6. Returns mod_id to frontend for polling
 
+**Doxygen Integration**:
+1. When adding a repository, Doxygen generation starts automatically in background
+2. Doxygen generates XML output with symbol information
+3. Symbol data used by mods to find refactoring opportunities
+4. Stale marker system ensures Doxygen data refreshed when files change
+
 **Processing and Status Updates**:
 1. ModProcessor picks `ModRequest` from queue in worker thread
-2. Processing updates Result status: QUEUED → PROCESSING → SUCCESS/FAILED/ERROR
-3. Status updated in `results` dict
-4. Frontend polls endpoint to retrieve updated Result via `result.to_dict()`
+2. Processing updates Result status: QUEUED → PROCESSING → SUCCESS/PARTIAL/FAILED/ERROR
+3. Result includes accepted_commits and rejected_commits lists
+4. Status updated in `results` dict
+5. Frontend polls endpoint to retrieve updated Result via `result.to_dict()`
 
 ## Type Safety at API Boundary
 

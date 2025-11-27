@@ -7,9 +7,8 @@ from pathlib import Path
 
 from .base_mod import BaseMod
 from ..refactorings.add_function_qualifier import AddFunctionQualifier
-from ..refactorings.refactoring_params import AddFunctionQualifierParams
 from ..refactorings.qualifier_type import QualifierType
-from ..validators.validator_id import ValidatorId
+from ..doxygen.symbol import Symbol, SymbolKind
 
 
 class AddOverrideMod(BaseMod):
@@ -39,7 +38,7 @@ class AddOverrideMod(BaseMod):
         Generate AddFunctionQualifier refactoring for each.
         """
         # Create refactoring instance (shared for all applications)
-        refactoring = AddFunctionQualifier(repo, symbols)
+        refactoring = AddFunctionQualifier(repo)
 
         # Find all C/C++ source and header files
         source_files = []
@@ -65,16 +64,17 @@ class AddOverrideMod(BaseMod):
                     if not function_name:
                         continue
 
-                    # Generate refactoring parameters (typed!)
-                    params = AddFunctionQualifierParams(
-                        file_path=Path(source_file),
-                        function_name=function_name,
-                        qualifier=QualifierType.OVERRIDE,
-                        line_number=line_num,
-                        validator_type=ValidatorId.ASM_O0
-                    )
+                    # Create mock Symbol object for this function
+                    symbol = Symbol(kind=SymbolKind.FUNCTION)
+                    symbol.name = function_name
+                    symbol.qualified_name = function_name
+                    symbol.file_path = str(source_file)
+                    symbol.line_start = line_num
+                    symbol.line_end = line_num
+                    symbol.prototype = line.strip()
 
-                    yield (refactoring, params)
+                    # Yield refactoring with symbol and qualifier
+                    yield (refactoring, symbol, QualifierType.OVERRIDE)
 
     def _extract_function_name(self, line: str) -> str:
         """Extract function name from declaration line."""

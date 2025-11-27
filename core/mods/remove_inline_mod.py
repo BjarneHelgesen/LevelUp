@@ -7,9 +7,8 @@ import re
 
 from .base_mod import BaseMod
 from ..refactorings.remove_function_qualifier import RemoveFunctionQualifier
-from ..refactorings.refactoring_params import RemoveFunctionQualifierParams
 from ..refactorings.qualifier_type import QualifierType
-from ..validators.validator_id import ValidatorId
+from ..doxygen.symbol import Symbol, SymbolKind
 
 
 class RemoveInlineMod(BaseMod):
@@ -37,7 +36,7 @@ class RemoveInlineMod(BaseMod):
         Find all inline keywords and generate RemoveFunctionQualifier refactoring for each.
         """
         # Create refactoring instance (shared for all applications)
-        refactoring = RemoveFunctionQualifier(repo, symbols)
+        refactoring = RemoveFunctionQualifier(repo)
 
         # Find all C/C++ source and header files
         source_files = []
@@ -57,16 +56,17 @@ class RemoveInlineMod(BaseMod):
                     if not function_name:
                         function_name = f"function_at_line_{line_num}"
 
-                    # Generate refactoring parameters (typed!)
-                    params = RemoveFunctionQualifierParams(
-                        file_path=Path(source_file),
-                        function_name=function_name,
-                        qualifier=QualifierType.INLINE,
-                        line_number=line_num,
-                        validator_type=ValidatorId.SOURCE_DIFF
-                    )
+                    # Create mock Symbol object for this function
+                    symbol = Symbol(kind=SymbolKind.FUNCTION)
+                    symbol.name = function_name
+                    symbol.qualified_name = function_name
+                    symbol.file_path = str(source_file)
+                    symbol.line_start = line_num
+                    symbol.line_end = line_num
+                    symbol.prototype = line.strip()
 
-                    yield (refactoring, params)
+                    # Yield refactoring with symbol and qualifier
+                    yield (refactoring, symbol, QualifierType.INLINE)
 
     def _extract_function_name(self, line: str) -> str:
         """Extract function name from declaration line."""

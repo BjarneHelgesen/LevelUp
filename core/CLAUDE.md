@@ -17,14 +17,15 @@ The `core` package implements:
 ## Core Components
 
 **ModProcessor (mod_processor.py)**
-- Processes mods asynchronously using worker threads
-- Orchestrates: Repo → Compiler → Validators (per mod's specification)
+- Processes mods using the refactoring architecture
+- Orchestrates: Repo → Doxygen → SymbolTable → Mod → Refactorings → Validation
 - Initializes with configured compiler from CompilerFactory
-- For BUILTIN mods: creates validators dynamically per mod's `get_validator_id()`
-- Each atomic change goes through: compile original → apply change → compile modified → validate → commit or revert
+- Each mod generates refactorings; each refactoring applies changes and creates GitCommit
+- Each GitCommit goes through: compile original → apply change → compile modified → validate → keep or rollback
 - Atomic branch pattern: creates temporary branch per mod, squashes commits on success
 - Returns `Result` object (not dict) for type safety with SUCCESS/PARTIAL/FAILED/ERROR status
 - Uses only enums and objects internally - no string IDs
+- Ensures Doxygen data exists before processing (regenerates if stale)
 
 **Result (result.py)**
 - Type-safe result tracking with `ResultStatus` enum (QUEUED, PROCESSING, SUCCESS, PARTIAL, FAILED, ERROR)
@@ -52,12 +53,14 @@ The `core` package implements:
 - Doxygen integration: `generate_doxygen()`, `get_doxygen_parser()`, `get_function_info()`, `get_functions_in_file()`
 
 **Doxygen Integration (doxygen/)**
-- Generates function dependency data for repositories using Doxygen XML output
+- Generates symbol data for repositories using Doxygen XML output
 - `DoxygenRunner`: Runs Doxygen with XML output enabled, macro expansion disabled
-- `DoxygenParser`: Parses Doxygen XML to extract function prototypes, file locations, and call graphs
-- `FunctionInfo`: Data class holding function metadata (name, qualified_name, file_path, line_number, parameters, calls, called_by)
+- `DoxygenParser`: Parses Doxygen XML to extract symbols (functions, classes, enums, etc.)
+- `Symbol`: Class holding symbol metadata (name, qualified_name, file_path, line_start, line_end, prototype, dependencies, etc.)
+- `SymbolTable`: Manages symbols with incremental invalidation (marks files dirty after modification)
 - Automatically runs when adding new repositories
-- Mods can use this data to reduce error rates by understanding function dependencies
+- Stale marker system: `.doxygen_stale` file indicates Doxygen data needs regeneration on next run
+- Mods use SymbolTable to find refactoring opportunities
 
 ## Factory Pattern
 
@@ -143,12 +146,27 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 - Compares source files with whitespace normalization
 - Useful for mods that only remove keywords without semantic changes
 
-**mods/mod_handler.py**
-- Minimal orchestration class with single method: `apply_mod_instance()`
-- Takes mod instance directly (no string IDs)
-- Delegates to mod classes: RemoveInlineMod, AddOverrideMod, ReplaceMSSpecificMod
-- Each mod class modifies files in-place via `apply()` method (returns None)
-- Records mod history with metadata from each mod instance
+**mods/base_mod.py and Mod Classes**
+- `BaseMod`: Abstract base class defining mod interface
+- Mods generate refactorings via `generate_refactorings(repo, symbols)` method
+- Yields tuples of (refactoring_instance, *args) where args are passed to refactoring's `apply()` method
+- Each mod class (RemoveInlineMod, AddOverrideMod, etc.) implements its own refactoring generation logic
+- Mods typically create Symbol objects (real from SymbolTable or mock for simple pattern matching)
+- Example mods: RemoveInlineMod, AddOverrideMod, ReplaceMSSpecificMod, MSMacroReplacementMod
+
+**refactorings/**
+- `RefactoringBase`: Abstract base class for atomic refactorings
+- Refactorings implement `apply(*args) -> Optional[GitCommit]`
+- Each refactoring modifies files in-place and creates a git commit
+- Returns GitCommit object on success, None if refactoring cannot be applied
+- Example refactorings: RemoveFunctionQualifier, AddFunctionQualifier
+- Each refactoring specifies `get_probability_of_success()` for batch validation optimization
+
+**git_commit.py**
+- Represents a single atomic git commit created by refactorings
+- Stores validator_type (e.g., "asm_o0"), affected_symbols, and probability_of_success
+- `rollback()` method reverts commit if validation fails
+- Used for tracking and managing individual atomic changes
 
 ## Code Style
 
@@ -169,14 +187,28 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 **Adding a New Mod Type**:
 1. Create mod class in `mods/` inheriting from BaseMod
 2. Implement abstract methods:
-   - `get_id()`: Stable string identifier used in API
+   - `get_id()`: Stable string identifier used in API (IMPORTANT: Never change once set)
    - `get_name()`: Human-readable name for UI
-   - `get_validator_id()`: Which validator to use (e.g., `"asm_o0"`, `"source_diff"`)
-   - `generate_changes(repo_path: Path)`: Generator yielding `(file_path, commit_message)` tuples
-3. Each yielded change should modify the file in-place before yielding
+   - `generate_refactorings(repo, symbols)`: Generator yielding `(refactoring_instance, *args)` tuples
+3. Each yielded tuple should contain:
+   - A refactoring instance (e.g., RemoveFunctionQualifier(repo))
+   - Arguments that will be passed to the refactoring's `apply()` method
+   - Typically: (refactoring, symbol, qualifier) or similar
 4. Add to `ModType` enum in `mods/mod_factory.py`
 5. ID from `get_id()` is automatically available in UI via `/api/available/mods`
-6. Validator choice determines strictness: `source_diff` for simple changes, `asm_o0`/`asm_o3` for semantic validation
+
+**Adding a New Refactoring Type**:
+1. Create refactoring class in `refactorings/` inheriting from RefactoringBase
+2. Implement required methods:
+   - `get_probability_of_success()`: Return float 0.0-1.0 indicating confidence (e.g., 0.9 for safe changes)
+   - `apply(*args) -> Optional[GitCommit]`: Implement the transformation
+3. In `apply()` method:
+   - Validate preconditions (return None if cannot apply)
+   - Modify file(s) in-place
+   - Create and return GitCommit with validator_type and affected_symbols
+   - Return None if refactoring cannot be applied
+4. Each GitCommit specifies which validator to use (e.g., ValidatorId.ASM_O0)
+5. Validator choice determines strictness: source_diff for simple changes, asm_o0/asm_o3 for semantic validation
 
 **Adding a New Compiler**:
 1. Create compiler class in `compilers/` inheriting from BaseCompiler
@@ -190,13 +222,23 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 - PARTIAL status when some files pass but others fail
 - Result.to_dict() serializes to JSON for frontend
 
+**validators/validator_id.py**
+- Constants for validator IDs: ASM_O0, ASM_O3, SOURCE_DIFF
+- Used by refactorings to specify which validator to use when creating GitCommit
+- Prefer using ValidatorId constants over raw strings for type safety
+
 ## Key Files
 
-- `mod_processor.py`: Business logic - processes ModRequest, returns Result
+- `mod_processor.py`: Business logic - processes ModRequest using refactoring architecture, returns Result
 - `repo.py`: Git operations with repository context
 - `result.py`: Type-safe result tracking with status enum
 - `mod_request.py`: Type-safe mod request with source type enum
-- `mods/mod_handler.py`: Applies mod instances to files
+- `git_commit.py`: Represents atomic git commits created by refactorings
+- `mods/base_mod.py`: Abstract base class for mods
+- `refactorings/refactoring_base.py`: Abstract base class for refactorings
 - `*_factory.py`: Convert string IDs to instances (only used in server/app.py)
 - `doxygen/doxygen_runner.py`: Runs Doxygen to generate XML output
-- `doxygen/doxygen_parser.py`: Parses Doxygen XML for function dependency information
+- `doxygen/doxygen_parser.py`: Parses Doxygen XML to extract symbols
+- `doxygen/symbol_table.py`: Manages symbols with incremental invalidation
+- `doxygen/symbol.py`: Symbol data class
+- `validators/validator_id.py`: Constants for validator IDs

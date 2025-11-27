@@ -49,23 +49,17 @@ class BaseMod(ABC):
             symbols: Symbol table for the repository
 
         Yields:
-            Tuples of (refactoring_instance, typed_parameters)
+            Tuples of (refactoring_instance, symbol, qualifier, ...)
 
         Example:
             from ..refactorings.add_function_qualifier import AddFunctionQualifier
-            from ..refactorings.refactoring_params import AddFunctionQualifierParams
             from ..refactorings.qualifier_type import QualifierType
-            from ..validators.validator_id import ValidatorId
 
-            refactoring = AddFunctionQualifier(repo, symbols)
-            params = AddFunctionQualifierParams(
-                file_path=Path('foo.cpp'),
-                function_name='myFunc',
-                qualifier=QualifierType.CONST,
-                line_number=42,
-                validator_type=ValidatorId.ASM_O0
-            )
-            yield (refactoring, params)
+            # Get symbol from symbol table or create mock for testing
+            symbol = symbols.get_symbol('myFunc')
+
+            refactoring = AddFunctionQualifier(repo)
+            yield (refactoring, symbol, QualifierType.CONST)
         """
         pass
 

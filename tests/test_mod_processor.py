@@ -55,10 +55,11 @@ class TestModProcessorProcessMod:
         return mock
 
     def _create_mock_refactoring(self, file_path, commit_message="Test change", validator_type="asm_o0", apply_returns_commit=True):
-        """Helper to create mock refactoring and params."""
+        """Helper to create mock refactoring tuple (refactoring, symbol, qualifier)."""
         mock_refactoring = Mock()
-        mock_params = Mock()
-        mock_params.file_path = file_path
+        mock_symbol = Mock()
+        mock_symbol.file_path = str(file_path)
+        mock_qualifier = "inline"
 
         if apply_returns_commit:
             mock_git_commit = Mock()
@@ -69,7 +70,7 @@ class TestModProcessorProcessMod:
             # Refactoring could not be applied (preconditions failed)
             mock_refactoring.apply.return_value = None
 
-        return (mock_refactoring, mock_params)
+        return (mock_refactoring, mock_symbol, mock_qualifier)
 
     @pytest.fixture
     def builtin_mod_request(self, mock_mod_instance):
@@ -470,11 +471,11 @@ class TestModProcessorTempFileCleanup:
         mock_git_commit.validator_type = "asm_o0"
         mock_refactoring.apply.return_value = mock_git_commit
 
-        mock_params = Mock()
-        mock_params.file_path = cpp_file
+        mock_symbol = Mock()
+        mock_symbol.file_path = str(cpp_file)
 
         mock_mod.generate_refactorings.return_value = iter([
-            (mock_refactoring, mock_params)
+            (mock_refactoring, mock_symbol, "inline")
         ])
         request = ModRequest(
             id="test",

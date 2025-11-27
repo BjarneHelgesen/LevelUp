@@ -1,33 +1,35 @@
 # LevelUp
 
-LevelUp is a Flask-based server that modernizes legacy C++ code with zero regression risk. The system applies code transformations called "Mods" to legacy C++ codebases and validates changes using assembly comparison and other validators.
+LevelUp is local server that safely and efficiently modernizes code in legacy C/C++ repos without functional changes 
+
 
 ## Objective
-The objective of LevelUp is to modernize legacy C++ code with zero regression risk with zero risk of leaking IP.
-Our estimate is that 80% of the legacy C++ code can be modernized, and that the updates within that part of the code reaches 80% of the desired modernization.
-The reason for the expected shortfall is that some of the potential changes will have regression risks that have not been mitigated.
-No data will be transmitted to the internet. The LevelUp server and clients may be on a network without internet access. All LLMs used by LevelUp need to run on the LevelUp server.
+* Modernizations are guaranteed - proven - to be regression free
+* It should be possible to do all modernizations on-prem. (i.e. no source code or other data is transmitted)
+* 80% automation (i.e. the human effort is 20% compared to upgrading the code manually)
+* 80% of the codebase is coded in a way that LevelUp can upgrade it
+* The upgraded code is 80% modern, 20% legacy
+* Improving architecture, behaviour, user experience, performance, etc. are not objectives. 
 
 ## Use cases
-Modernizatition could involve:
-* Replace MS specific syntax by standards compliant syntax (where possible). This is a required step
-* Make changes required by new C++ standards (e.g. don't allow modifiction of a temporary)
+Modernization could involve:
+* Replace MS specific syntax by standards compliant syntax (where possible). This step enables more tools and updates
+* Make changes required by new C++ standards (e.g. don't allow modification of a temporary)
 * Make the code safer against accidental edits (e.g. const correctness, override, etc)
 * Use modern OOP constructs (e.g. range-based for, exceptions, RAAI, smart pointers, standard containers, string classes, etc)
 * Use a better architecture (e.g. transition the codebase from one internal api to another)
 * Update libraries to more modern versions. This will only have limited support
-* Remove undefined behaviour
+* Remove unwanted undefined behaviour
 * Fix/remove warnings
 
 ## Installation
 
-### Prerequisites
+### Server Prerequisites
 - Python 3.8+
 - Git
 - Supported compiler MSVC (Visual Studio C++ Compiler) and/or Clang
 - Windows OS (initial version, cross-platform support planned)
 - Doxygen
-- 
 
 ### Setup
 
@@ -76,7 +78,7 @@ Mods to LevelUp may be time-consuming, so LevelUp will queue up Mods and execute
 
 Note: Repository name is automatically extracted from the URL. Work branch is hardcoded to "levelup-work".
 
-### Applying Built-in Mods
+### Applying Mods
 
 1. Select a repository from the Repositories screen
 2. In the Mods screen, select a mod type:
@@ -86,29 +88,12 @@ Note: Repository name is automatically extracted from the URL. Work branch is ha
 3. Enter a description
 4. Click "Submit"
 
-### CppDev Workflow (Commit Validation)
-
-1. Make changes to your C++ code locally
-2. Commit your changes:
-   ```bash
-   git add .
-   git commit -m "Your modernization changes"
-   ```
-3. Get the commit hash:
-   ```bash
-   git rev-parse HEAD
-   ```
-4. In LevelUp, select your repository
-5. Select "Validate Commit" mod type
-6. Enter the commit hash and description
-7. Click "Submit"
-
 LevelUp will:
 - Apply your changes to a test environment
-- Compile both original and modified code to assembly
-- Compare the assembly output
-- If validation passes, commit and push changes to the work branch
+- Compile both original and modified code
+- If validation of the object files passes, commit and push changes to the work branch
 - Update the UI with the result
+
 
 ### Monitoring Progress
 
@@ -127,7 +112,7 @@ LevelUp can use a variety of tools to make changes to code, including custom cod
 Mods will be introduced as small changes on a separate branch. Each Mod has to be validated (or regression tested/tested/inspected/approved) which is to declare it regression free,
 No Mods will be merged to the main branch without validation.
 Each Mod will have a list of required validators to be run before merge.
-Regression-free does not mean the exact same behaviour:
+Regression-free does not mean the exact same behaviour. There can be differences in performance or memory use and still be considered regression free:
 * Delaying a delete operation by a fixed number of cycles is okay.
 * If the old code was leaking memory on error, the updated code is allowed delete it.
 * If the old code did not print out usage to stdout, the new code can add it if deemed useful
@@ -135,19 +120,12 @@ Regression-free does not mean the exact same behaviour:
 * All performance improvements are allowed
 
 ### ASM Validation
-The current validator ensures zero regression by:
-1. Compiling original code to assembly with full optimization
-2. Applying the modification
-3. Compiling modified code to assembly with same settings
-4. Comparing normalized assembly output
-5. Accepting only if assembly is functionally identical
+The current validator ensures zero regression by comparing the builds from two versions of the source code. both builds have the same optimization settings. Subsequent builds may use different optimization settings and other compiler options. 
+
 
 ### Acceptable Differences
 The validator allows:
-- Comment changes
-- Label reordering (when safe)
-- Register substitution (same operations, different registers)
-- Equivalent operations (e.g., LEA vs MOV for addresses)
+- Function reordering
 - NOPs and alignment changes
 
 ### Result Statuses
@@ -191,19 +169,18 @@ The initial list of validators is
 More validators may be added later. 
 LLMS are not validators, but may be added as extra checks.
 
-## Code editing tools 
-* Microsoft macro tool.
-  * This will replace Microsoft specific code with macros. Example:
-  * The macro definition will be different for other compilers, so macro LEVELUP__FORCEINLINE will be defined as  __forceinline for microsoft compilers and inline for other standars-compliant compilers.
-  * Normally, Microsoft macros will be reintroduced to compile with MSVC.
+## Refactorings
+The Mods are using a series of specific refactorings, where each refactoring result in an atomic change that can be validated. There are many different Refactorings
+
+## Tools 
 * MSVC for compiling MS code. This will be used to verify that compiling succeeds and no new warnings are introduced
 * Clang for general compile. All projects should compile with Clang after standardization
-* CppDevs can make their own Mods (i.e. git commits) and run them through validators
-* Warning diff to extract which warnings are added or removed.
+* Doxygen to parse symbols
 * Clang-Tidy fixups
-* Splitting a cpp file into separate files for each method to test validate changes to each function in isolation
-* LLMs
-* New or 3rd party plugins to Clang that work on the AST
+* TODO: CppDevs can make their own Mods (i.e. git commits) and run them through validators
+* TODO: Warning diff to extract which warnings are added or removed.
+* TODO: Local LLM
+* TODO: Clang plugins that work on the AST
 
 ## Web UI
 The web interface provides:
@@ -222,22 +199,27 @@ The UI allows cppDevs to:
 Work branch is hardcoded to "levelup-work" and is automatically created from main. Customer reviews changes on this branch before merging to main. 
 
 ## Implementation
-The main priority is that upgraded C++ code will have no regressions. 
-All code, both Flask code (Python) and web code (HTML/JS/CSS) will be hosted in a this repo.
-Flask will serve Web page and take the input from the cppDevs. It will not be a SPA. 
-We may demand tools to be installed on the cppDev workstations, such as diff tools, git, etc. but all LevelUp code should be run or served from Flask.
-Code simplicity and correctness is prioritzed over UI beauty and covering special cases, unless the special case has been found to be important. 
-We prefer compute-intensive Mods, and many Mods, if that gives a better end result than fewer or less compute-intensive Mods. 
-LevelUp server will run on windows initially, but should be written using cross platform syntax. 
-The architecture should allow adding 
+The main priority is that upgraded C++ code will have no regressions.
+All code, both Flask code (Python) and web code (HTML/JS/CSS) are hosted in this repo.
+Flask serves the web page and takes input from cppDevs. It is not a SPA.
+We may require tools to be installed on cppDev workstations, such as diff tools, git, etc., but all LevelUp code runs on the Flask server.
+Code simplicity and correctness is prioritized over UI beauty and covering special cases, unless the special case has been found to be important.
+The system applies code transformations called "Mods" to legacy C++ codebases and validates changes using assembly comparison and other validators.
+Mods generate atomic refactorings; each refactoring modifies files in-place and creates a git commit that is validated before being kept or rolled back.
+We prefer compute-intensive Mods, and many validations, if that gives a better end result.
+LevelUp server runs on Windows initially, but is written using cross-platform syntax.
+The architecture allows adding:
 * New compilers
-* New code editing tools
+* New refactorings
 * New validators
+* New mods
 
 ## Future enhancements
-* Mod and validate against multiple builds
+* Mod, Refactor and validate against multiple builds (multiple repos, multiple branches, multiple platforms, multiple compilers, multiple compiler flags)
   * multi-repo Mods
   * multi-platform targets
   * multiple sets of #defines
   * libraries with several clients
 * GCC extensions
+
+

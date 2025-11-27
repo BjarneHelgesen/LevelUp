@@ -370,12 +370,13 @@ class GitCommit:
         self,
         repo: Repo,
         commit_message: str,
-        validator_type: str,
-        affected_symbols: List[str]
+        validator_type: str,  # e.g., "asm_o0", "asm_o3", "source_diff"
+        affected_symbols: List[str],  # Qualified symbol names
+        probability_of_success: float  # 0.0-1.0, from refactoring's get_probability_of_success()
     )
 
-    def rollback() -> None
-    def to_dict() -> Dict[str, Any]
+    def rollback() -> None  # Reverts commit (git reset --hard)
+    def to_dict() -> Dict[str, Any]  # Serialize for JSON
 ```
 
 ---
@@ -390,7 +391,7 @@ class BaseMod(ABC):
 
     @staticmethod
     @abstractmethod
-    def get_id() -> str
+    def get_id() -> str  # IMPORTANT: Stable identifier used in APIs
 
     @staticmethod
     @abstractmethod
@@ -401,7 +402,10 @@ class BaseMod(ABC):
         self,
         repo: Repo,
         symbols: SymbolTable
-    ) -> Generator[Tuple[RefactoringBase, dict], None, None]
+    ) -> Generator[Tuple[RefactoringBase, ...], None, None]
+        # Yields tuples of (refactoring_instance, *args)
+        # Args are passed to refactoring.apply(*args)
+        # Example: yield (RemoveFunctionQualifier(repo), symbol, qualifier)
 
     def get_metadata() -> Dict[str, Any]
 ```
@@ -434,7 +438,8 @@ class RemoveInlineMod(BaseMod):
     def get_name() -> str  # Returns 'Remove Inline Keywords'
 
     def generate_refactorings(repo: Repo, symbols: SymbolTable)
-        # Yields (RemoveFunctionQualifier, params) tuples
+        # Yields (refactoring, symbol, qualifier) tuples
+        # Example: yield (RemoveFunctionQualifier(repo), symbol, QualifierType.INLINE)
 ```
 
 ### mods/add_override_mod.py
@@ -448,7 +453,8 @@ class AddOverrideMod(BaseMod):
     def get_name() -> str  # Returns 'Add Override Keywords'
 
     def generate_refactorings(repo: Repo, symbols: SymbolTable)
-        # Yields (AddFunctionQualifier, params) tuples
+        # Yields (refactoring, symbol, qualifier) tuples
+        # Example: yield (AddFunctionQualifier(repo), symbol, QualifierType.OVERRIDE)
 ```
 
 ---
@@ -459,38 +465,50 @@ class AddOverrideMod(BaseMod):
 
 ```python
 class RefactoringBase(ABC):
-    def __init__(self, repo: Repo, symbols: SymbolTable)
+    def __init__(self, repo: Repo)
+
+    @abstractmethod
+    def get_probability_of_success() -> float
+        # Return 0.0-1.0 indicating confidence
+        # High values (0.9) = safe refactorings
+        # Low values (0.1) = speculative changes
+        # Used for batch validation optimization
 
     # Subclasses implement apply() with their own named parameters
     # def apply(...) -> Optional[GitCommit]
+    # Returns GitCommit on success, None if cannot be applied
 ```
 
 ### refactorings/add_function_qualifier.py
 
 ```python
 class AddFunctionQualifier(RefactoringBase):
+    def get_probability_of_success() -> float  # Returns ~0.7
+
     def apply(
         self,
-        file_path: Path,
-        function_name: str,
-        qualifier: str,
-        line_number: int,
-        validator_type: str
+        symbol: Symbol,
+        qualifier: str
     ) -> Optional[GitCommit]
+        # Modifies file in-place, creates git commit
+        # Returns GitCommit with validator_type and affected_symbols
+        # Returns None if preconditions fail
 ```
 
 ### refactorings/remove_function_qualifier.py
 
 ```python
 class RemoveFunctionQualifier(RefactoringBase):
+    def get_probability_of_success() -> float  # Returns 0.9
+
     def apply(
         self,
-        file_path: Path,
-        function_name: str,
-        qualifier: str,
-        line_number: int,
-        validator_type: str
+        symbol: Symbol,
+        qualifier: str
     ) -> Optional[GitCommit]
+        # Modifies file in-place, creates git commit
+        # Returns GitCommit with validator_type and affected_symbols
+        # Returns None if preconditions fail
 ```
 
 ### refactorings/qualifier_type.py
@@ -594,6 +612,16 @@ class SourceDiffValidator(BaseValidator):
     def get_optimization_level() -> int  # Returns 0
 
     def validate(original: CompiledFile, modified: CompiledFile) -> bool
+```
+
+### validators/validator_id.py
+
+```python
+class ValidatorId:
+    """Constants for validator IDs (prefer over raw strings)."""
+    ASM_O0 = "asm_o0"
+    ASM_O3 = "asm_o3"
+    SOURCE_DIFF = "source_diff"
 ```
 
 ---
@@ -732,6 +760,12 @@ class Symbol:
 
 - **String IDs**: All `id` fields in responses are stable and should be used for API calls
 - **Type Safety**: Internal code uses enums and type-safe objects; string IDs only at API boundary
-- **Validator Types**: Each mod specifies which validator to use per-refactoring
+- **Validator Types**: Each refactoring specifies which validator to use when creating GitCommit (via ValidatorId constants)
 - **Work Branch**: Hardcoded to `"levelup-work"` - not configurable
-- **Refactoring Pattern**: Mods generate refactorings → refactorings apply changes and create commits → validation → keep or rollback
+- **Refactoring Pattern**:
+  1. Mods generate refactorings via `generate_refactorings(repo, symbols)` → yields `(refactoring, *args)` tuples
+  2. ModProcessor calls `refactoring.apply(*args)` → modifies files and creates GitCommit
+  3. Validation using validator specified in GitCommit
+  4. Keep commit if valid, rollback if invalid
+- **Probability of Success**: Each refactoring reports estimated success probability (0.0-1.0), used for batch validation optimization
+- **Symbol Table**: Loaded from Doxygen XML, invalidated per-file after modifications, full refresh on next run if stale

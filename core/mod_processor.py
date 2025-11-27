@@ -119,18 +119,19 @@ class ModProcessor:
 
         try:
             # Generate refactorings from mod
-            for refactoring, params in mod_instance.generate_refactorings(repo, symbols):
-                logger.debug(f"Applying {refactoring.__class__.__name__} with params: {params.__class__.__name__}")
+            for refactoring, *args in mod_instance.generate_refactorings(repo, symbols):
+                logger.debug(f"Applying {refactoring.__class__.__name__}")
 
-                # Get file path for compilation (now type-safe!)
-                file_path = params.file_path
+                # Get file path from first argument (symbol)
+                symbol = args[0]
+                file_path = Path(symbol.file_path)
 
                 # Store original content for potential rollback
                 original_content = file_path.read_text(encoding='utf-8', errors='ignore')
 
-                # Apply refactoring with typed params
+                # Apply refactoring with arguments
                 # Refactoring modifies file and creates git commit
-                git_commit = refactoring.apply(params)
+                git_commit = refactoring.apply(*args)
 
                 if git_commit is None:
                     # Refactoring could not be applied (preconditions failed)

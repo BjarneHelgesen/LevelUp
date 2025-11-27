@@ -2,13 +2,17 @@
 RemoveFunctionQualifier refactoring - removes a qualifier from a function.
 """
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 import re
+from pathlib import Path
 
 from .refactoring_base import RefactoringBase
-from .refactoring_params import RemoveFunctionQualifierParams
 from ..git_commit import GitCommit
+from ..validators.validator_id import ValidatorId
 from .. import logger
+
+if TYPE_CHECKING:
+    from ..doxygen.symbol import Symbol
 
 
 class RemoveFunctionQualifier(RefactoringBase):
@@ -20,62 +24,61 @@ class RemoveFunctionQualifier(RefactoringBase):
         """Safe refactoring: removing qualifiers like 'inline' preserves semantics - high confidence."""
         return 0.9
 
-    def apply(self, params: RemoveFunctionQualifierParams) -> Optional[GitCommit]:
+    def apply(self, symbol: 'Symbol', qualifier: str) -> Optional[GitCommit]:
         """
         Remove qualifier from specific function at given line number.
 
         Args:
-            params: Typed parameters containing file_path, function_name,
-                   qualifier, line_number, and validator_type
+            symbol: Symbol object containing function metadata
+            qualifier: Qualifier to remove (e.g., 'inline', 'static')
 
         Returns:
             GitCommit object if successful, None if refactoring cannot be applied
         """
         try:
-            if not params.file_path.exists():
+            file_path = Path(symbol.file_path)
+            if not file_path.exists():
                 return None
 
-            content = params.file_path.read_text(encoding='utf-8', errors='ignore')
+            content = file_path.read_text(encoding='utf-8', errors='ignore')
             lines = content.splitlines(keepends=True)
 
-            if params.line_number < 1 or params.line_number > len(lines):
+            line_number = symbol.line_start
+            if line_number < 1 or line_number > len(lines):
                 return None
 
-            line = lines[params.line_number - 1]
+            line = lines[line_number - 1]
 
             # Check if qualifier exists
-            if params.qualifier not in line:
+            if qualifier not in line:
                 return None
 
             # Remove the qualifier (with surrounding whitespace)
             # Match the qualifier as a whole word
-            pattern = r'\b' + re.escape(params.qualifier) + r'\b\s*'
+            pattern = r'\b' + re.escape(qualifier) + r'\b\s*'
             modified_line = re.sub(pattern, '', line, count=1)
 
             # Only apply if something changed
             if modified_line == line:
                 return None
 
-            lines[params.line_number - 1] = modified_line
+            lines[line_number - 1] = modified_line
 
             # Write modified content
-            params.file_path.write_text(''.join(lines), encoding='utf-8')
-
-            # Invalidate symbols for this file
-            self._invalidate_symbols(params.file_path)
+            file_path.write_text(''.join(lines), encoding='utf-8')
 
             # Create commit message (no line number in message)
-            commit_msg = f"Remove {params.qualifier} from {params.function_name} in {params.file_path.name}"
+            commit_msg = f"Remove {qualifier} from {symbol.name} in {file_path.name}"
 
-            # Create and return GitCommit
+            # Create and return GitCommit (all validation with ASM O0 for now)
             return GitCommit(
                 repo=self.repo,
                 commit_message=commit_msg,
-                validator_type=params.validator_type,
-                affected_symbols=[params.function_name],
+                validator_type=ValidatorId.ASM_O0,
+                affected_symbols=[symbol.qualified_name],
                 probability_of_success=self.get_probability_of_success()
             )
 
         except Exception as e:
-            logger.error(f"Failed to remove {params.qualifier} from {params.function_name}: {e}")
+            logger.error(f"Failed to remove {qualifier} from {symbol.name}: {e}")
             return None

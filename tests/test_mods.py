@@ -56,14 +56,14 @@ class TestAddOverrideMod:
         assert len(refactorings) >= 1
 
         # Apply the refactorings
-        for refactoring, params in refactorings:
+        for refactoring, symbol, qualifier in refactorings:
             # Manually apply the change (normally done by refactoring.apply())
             content = cpp_file.read_text()
             lines = content.splitlines(keepends=True)
-            if params.line_number <= len(lines):
-                line = lines[params.line_number - 1]
-                if ';' in line and 'override' not in line:
-                    lines[params.line_number - 1] = line.replace(';', ' override;')
+            if symbol.line_start <= len(lines):
+                line = lines[symbol.line_start - 1]
+                if ';' in line and qualifier not in line:
+                    lines[symbol.line_start - 1] = line.replace(';', f' {qualifier};')
                     cpp_file.write_text(''.join(lines))
 
         content = cpp_file.read_text()

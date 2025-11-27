@@ -63,29 +63,32 @@ User (Web UI)
 4. Mod queued with unique UUID, initial `Result` object created
 5. `core/ModProcessor` processes in worker thread:
    - Clone/pull repo → checkout work branch
-   - Get validator from mod's `get_validator_id()` via ValidatorFactory
-   - For each atomic change from mod's `generate_changes()`:
+   - Ensure Doxygen data exists (regenerate if stale)
+   - Load SymbolTable from Doxygen XML
+   - For each refactoring from mod's `generate_refactorings(repo, symbols)`:
+     - Refactoring applies change (modifies file in-place, creates GitCommit)
      - Compile original with validator's optimization level
-     - Apply change (mod modifies file in-place)
-     - Compile modified with same optimization level
-     - Validate using mod's specified validator
-     - If valid: commit change; if invalid: revert file
+     - Compile modified with validator's optimization level
+     - Validate using validator specified in GitCommit
+     - If valid: keep commit; if invalid: rollback commit
+   - Squash accepted commits and push to work branch
 6. Returns `Result` object with SUCCESS/PARTIAL/FAILED status
 7. Frontend polls for status updates via `/api/mods/{mod_id}/status`
 
 **Validation Flow**:
-1. Mod specifies which validator to use via `get_validator_id()`
-2. Validator created dynamically from ValidatorFactory with appropriate compiler
-3. For each file change:
+1. Refactoring specifies which validator to use when creating GitCommit (via ValidatorId constants)
+2. Validator created dynamically from ValidatorFactory with configured compiler
+3. For each GitCommit:
    - Compile original source with validator's optimization level
-   - Apply mod transformation
+   - Refactoring has already applied transformation and created commit
    - Compile modified source with same optimization level
    - Validator compares outputs (e.g., ASMValidator compares normalized assembly)
-4. Result object contains validation details per file
+   - Keep commit if valid, rollback if invalid
+4. Result object contains validation details per file (accepted_commits, rejected_commits)
 
 ## Validation Types
 
-The system supports multiple validators (each mod chooses which validator to use):
+The system supports multiple validators (each refactoring chooses which validator to use):
 - **ASM O0 comparison** (`asm_o0`): Compares assembly at O0 optimization - useful for detecting semantic changes
 - **ASM O3 comparison** (`asm_o3`): Compares assembly at O3 optimization - stricter, catches optimization-affecting changes
 - **Source diff** (`source_diff`): Validates only expected source-level changes (e.g., keyword removal)
@@ -93,20 +96,16 @@ The system supports multiple validators (each mod chooses which validator to use
 - **Unit tests**: Same results across all inputs (planned)
 - **Human validator**: For non-obvious cases requiring judgment (manual)
 
-Each mod declares its validator via `get_validator_id()`. The ModProcessor creates the appropriate validator from the ValidatorFactory with the configured compiler.
+Each refactoring specifies its validator when creating GitCommit (via ValidatorId constants). The ModProcessor creates the appropriate validator from the ValidatorFactory with the configured compiler.
 
-## Mod Types
+## Mods
 
-**Built-in Mods** (see Mods.md for full list):
-- Remove inline keywords
-- Add const correctness
-- Modernize for loops (range-based)
-- Add override keywords
-- Replace MS-specific syntax with standards-compliant alternatives
+- Remove inline keywords (RemoveInlineMod)
+- Add override keywords (AddOverrideMod)
+- Replace MS-specific syntax with standards-compliant alternatives (ReplaceMSSpecificMod)
+- MS Macro Replacement (MSMacroReplacementMod)
 
-**Custom Mods**:
-- CppDev commits (validated and rebased)
-- Regex-based transformations
+See Mods.md for planned future mods.
 
 ## Important Constraints
 
