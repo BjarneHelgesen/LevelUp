@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Smoke tests for validators and mods."""
 
+import argparse
 import tempfile
 from pathlib import Path
 
@@ -457,8 +458,8 @@ MOD_SMOKE_TESTS = [
 ]
 
 
-def run_validator_smoke_tests():
-    for compiler_type in CompilerType:
+def run_validator_smoke_tests(compilers):
+    for compiler_type in compilers:
         print(f"\n{'=' * 60}")
         print(f"Testing with compiler: {compiler_type.value}")
         print('=' * 60)
@@ -542,7 +543,7 @@ def run_mod_smoke_tests():
                 print(f"  Got:\n{repr(result)}")
 
 
-def run_chained_refactoring_tests():
+def run_chained_refactoring_tests(compilers):
     """Run chained refactoring tests showing progressive modernization."""
     print("\n" + "=" * 80)
     print("CHAINED REFACTORING TESTS")
@@ -550,7 +551,7 @@ def run_chained_refactoring_tests():
 
     import subprocess
 
-    for compiler_type in CompilerType:
+    for compiler_type in compilers:
         print(f"\n{'=' * 60}")
         print(f"Testing with compiler: {compiler_type.value}")
         print('=' * 60)
@@ -880,15 +881,37 @@ int main() {
             print(source_file.read_text())
 
 
-def run_smoke_tests():
+def get_default_compiler():
+    """Get the default compiler (CLANG based on compiler_factory.py)."""
+    return CompilerType.CLANG
+
+
+def run_smoke_tests(compilers):
     print_header("VALIDATOR SMOKE TESTS")
-    run_validator_smoke_tests()
+    run_validator_smoke_tests(compilers)
 
     print_header("MOD SMOKE TESTS")
     run_mod_smoke_tests()
 
     print_header("CHAINED REFACTORING TESTS")
-    run_chained_refactoring_tests()
+    run_chained_refactoring_tests(compilers)
+
 
 if __name__ == "__main__":
-    run_smoke_tests()
+    parser = argparse.ArgumentParser(description="Run LevelUp smoke tests")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run tests with all compilers (default: only default compiler)"
+    )
+    args = parser.parse_args()
+
+    if args.all:
+        compilers = list(CompilerType)
+        print(f"Running smoke tests with ALL compilers: {[c.value for c in compilers]}")
+    else:
+        compilers = [get_default_compiler()]
+        print(f"Running smoke tests with default compiler: {compilers[0].value}")
+        print("(Use --all to test with all compilers)")
+
+    run_smoke_tests(compilers)
