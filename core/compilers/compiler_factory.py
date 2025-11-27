@@ -8,7 +8,7 @@ from .clang_compiler import ClangCompiler
 
 # Singleton instance cache
 _compiler_instance = None
-_compiler_type = CompilerType.CLANG  # Default compiler
+_compiler_type = CompilerType.MSVC  # Default compiler
 
 
 def get_compiler() -> BaseCompiler:

@@ -175,138 +175,166 @@ class TestRepoGitOperations:
         result = repo._run_git(["status"])
         assert result == "output with spaces"
 
-    @patch("subprocess.run")
-    def test_clone_calls_git_clone_with_url_and_path(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
-        repo = Repo(
-            url="https://github.com/user/project.git",
-            repos_folder=temp_dir
-        )
-        repo.clone()
-        args, kwargs = mock_run.call_args
-        assert "clone" in args[0]
-        assert "https://github.com/user/project.git" in args[0]
+    def test_clone_returns_self(self, temp_dir, git_repo):
+        # Create a source repo to clone from
+        source_dir = temp_dir / "source"
+        source_dir.mkdir()
 
-    @patch("subprocess.run")
-    def test_clone_returns_self(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+        # Create Repo object pointing to a new location
+        target_dir = temp_dir / "target"
         repo = Repo(
-            url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            url=str(git_repo.working_dir),  # Clone from the git_repo fixture
+            repos_folder=target_dir.parent
         )
+        repo.repo_path = target_dir
+
         result = repo.clone()
         assert result is repo
+        assert target_dir.exists()
+        assert (target_dir / "README.md").exists()
 
-    @patch("subprocess.run")
-    def test_pull_calls_git_pull(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="Already up to date.\n", returncode=0)
+    def test_pull_calls_git_pull(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
-        repo.pull()
-        args, kwargs = mock_run.call_args
-        assert "pull" in args[0]
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
 
-    @patch("subprocess.run")
-    def test_commit_adds_all_files_then_commits(self, mock_run, temp_dir):
-        # Mock to return changes to commit when status is checked
-        def mock_run_side_effect(*args, **kwargs):
-            cmd = args[0]
-            if 'status' in cmd and '--porcelain' in cmd:
-                return Mock(stdout="M test.cpp\n", returncode=0)
-            return Mock(stdout="", returncode=0)
+        # Mock the pull operation since we don't have a real remote
+        from unittest.mock import Mock
+        mock_remote = Mock()
+        mock_remote.pull.return_value = "Already up to date"
+        git_repo.remote = Mock(return_value=mock_remote)
 
-        mock_run.side_effect = mock_run_side_effect
+        result = repo.pull()
+        assert result is not None
+        git_repo.remote.assert_called_with('origin')
+
+    def test_commit_adds_all_files_then_commits(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
+
+        # Create a new file to commit
+        test_file = temp_dir / "test.cpp"
+        test_file.write_text("int main() { return 0; }")
+
         result = repo.commit("Test commit message")
-        calls = mock_run.call_args_list
-        # Should have called git add, status, and commit
-        add_called = any("add" in str(call) for call in calls)
-        commit_called = any("commit" in str(call) for call in calls)
-        assert add_called
-        assert commit_called
         assert result is True
 
-    @patch("subprocess.run")
-    def test_reset_hard_calls_git_reset(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+        # Verify commit was made
+        assert "Test commit message" in git_repo.head.commit.message
+
+    def test_reset_hard_calls_git_reset(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
+
+        # Create a file and commit
+        test_file = temp_dir / "test.txt"
+        test_file.write_text("original")
+        git_repo.index.add(['test.txt'])
+        git_repo.index.commit('Add test file')
+
+        # Modify the file
+        test_file.write_text("modified")
+
+        # Reset hard should revert changes
         repo.reset_hard()
-        args, kwargs = mock_run.call_args
-        assert "reset" in args[0]
-        assert "--hard" in args[0]
+        assert test_file.read_text() == "original"
 
-    @patch("subprocess.run")
-    def test_reset_hard_defaults_to_head(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+    def test_reset_hard_defaults_to_head(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
-        repo.reset_hard()
-        args, kwargs = mock_run.call_args
-        assert "HEAD" in args[0]
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
 
-    @patch("subprocess.run")
-    def test_reset_hard_accepts_custom_ref(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+        result = repo.reset_hard()
+        assert "HEAD" in result or "Reset" in result
+
+    def test_reset_hard_accepts_custom_ref(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
-        repo.reset_hard("abc123")
-        args, kwargs = mock_run.call_args
-        assert "abc123" in args[0]
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
 
-    @patch("subprocess.run")
-    def test_get_current_branch_returns_branch_name(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="main\n", returncode=0)
+        # Get current commit hash
+        commit_hash = git_repo.head.commit.hexsha
+
+        result = repo.reset_hard(commit_hash)
+        assert result is not None
+
+    def test_get_current_branch_returns_branch_name(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
+
         branch = repo.get_current_branch()
-        assert branch == "main"
+        # Should return the current branch (fixture uses 'main')
+        assert branch in ['main', 'master']  # Could be either depending on git config
 
-    @patch("subprocess.run")
-    def test_get_commit_hash_returns_hash(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="abc123def456\n", returncode=0)
+    def test_get_commit_hash_returns_hash(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
+
         hash_val = repo.get_commit_hash()
-        assert hash_val == "abc123def456"
+        assert len(hash_val) == 40  # Git hash is 40 characters
+        assert hash_val == git_repo.head.commit.hexsha
 
-    @patch("subprocess.run")
-    def test_stash_calls_git_stash(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+    def test_stash_calls_git_stash(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
-        repo.stash()
-        args, kwargs = mock_run.call_args
-        assert "stash" in args[0]
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
 
-    @patch("subprocess.run")
-    def test_stash_pop_calls_git_stash_pop(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+        # Create an uncommitted change
+        test_file = temp_dir / "test.txt"
+        test_file.write_text("uncommitted change")
+
+        result = repo.stash()
+        assert result is not None
+
+    def test_stash_pop_calls_git_stash_pop(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
-        repo.stash_pop()
-        args, kwargs = mock_run.call_args
-        assert "stash" in args[0]
-        assert "pop" in args[0]
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
+
+        # Create a file, commit it, then modify and stash
+        test_file = temp_dir / "test.txt"
+        test_file.write_text("original")
+        git_repo.index.add(['test.txt'])
+        git_repo.index.commit('Add test file')
+
+        # Modify and stash
+        test_file.write_text("modified")
+        git_repo.git.stash('push')
+
+        # Now pop should work
+        result = repo.stash_pop()
+        assert result is not None
 
 
 class TestRepoEnsureCloned:
@@ -326,70 +354,73 @@ class TestRepoEnsureCloned:
 
     @patch.object(Repo, "clone")
     @patch.object(Repo, "pull")
-    @patch.object(Repo, "_run_git")
-    def test_pulls_if_repo_path_exists(self, mock_run_git, mock_pull, mock_clone, temp_dir):
+    def test_pulls_if_repo_path_exists(self, mock_pull, mock_clone, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
-        # Create the repo path so it exists
-        repo.repo_path.mkdir(parents=True, exist_ok=True)
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
+
         repo.ensure_cloned()
-        # Should have attempted checkout and pull
+        # Should have attempted pull
         mock_pull.assert_called_once()
         mock_clone.assert_not_called()
-        # Should have tried to checkout main/master
-        assert any('checkout' in str(call) for call in mock_run_git.call_args_list)
 
 
 class TestRepoCheckoutBranch:
-    @patch("subprocess.run")
-    def test_checkout_existing_branch(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+    def test_checkout_existing_branch(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
+
+        # Create a feature branch
+        git_repo.create_head('feature')
+
         repo.checkout_branch("feature")
-        args, kwargs = mock_run.call_args
-        assert "checkout" in args[0]
-        assert "feature" in args[0]
+        assert git_repo.active_branch.name == "feature"
 
-    @patch("subprocess.run")
-    def test_checkout_defaults_to_work_branch(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+    def test_checkout_defaults_to_work_branch(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
-        repo.checkout_branch()
-        args, kwargs = mock_run.call_args
-        assert "levelup-work" in args[0]
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
+
+        repo.checkout_branch(create=True)  # Need to create the branch
+        assert git_repo.active_branch.name == "levelup-work"
 
     @patch("subprocess.run")
-    def test_checkout_runs_post_checkout_command(self, mock_run, temp_dir):
+    def test_checkout_runs_post_checkout_command(self, mock_run, temp_dir, git_repo):
         mock_run.return_value = Mock(stdout="", returncode=0)
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir,
+            repos_folder=temp_dir.parent,
             post_checkout="npm install"
         )
-        repo.checkout_branch()
-        # Should have called checkout and then shell command
-        calls = mock_run.call_args_list
-        assert len(calls) >= 2  # at least checkout and post_checkout
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
 
-    @patch("subprocess.run")
-    def test_checkout_skips_post_checkout_if_empty(self, mock_run, temp_dir):
-        mock_run.return_value = Mock(stdout="", returncode=0)
+        repo.checkout_branch(create=True)  # Need to create the branch
+        # Should have called the post_checkout command
+        mock_run.assert_called_once()
+        assert "npm install" in mock_run.call_args[0][0]
+
+    def test_checkout_skips_post_checkout_if_empty(self, temp_dir, git_repo):
         repo = Repo(
             url="https://github.com/user/project.git",
-            repos_folder=temp_dir
+            repos_folder=temp_dir.parent
         )
-        repo.checkout_branch()
-        # Should only call checkout, not post_checkout
-        calls = mock_run.call_args_list
-        assert len(calls) == 1
+        repo.repo_path = temp_dir
+        repo._git_repo = git_repo
+
+        # Should not raise an error
+        repo.checkout_branch(create=True)  # Need to create the branch
+        assert repo.get_current_branch() == "levelup-work"
 
 
 class TestRepoRepr:

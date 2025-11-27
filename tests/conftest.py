@@ -1,6 +1,7 @@
 import pytest
 import tempfile
 from pathlib import Path
+import git
 
 
 @pytest.fixture
@@ -84,3 +85,24 @@ def sample_asm_file(temp_dir, sample_asm_content):
     asm_file = temp_dir / "test.asm"
     asm_file.write_text(sample_asm_content)
     return asm_file
+
+
+@pytest.fixture
+def git_repo(temp_dir):
+    """Create an initialized git repository for testing."""
+    repo = git.Repo.init(temp_dir)
+    # Configure git user for commits
+    with repo.config_writer() as config:
+        config.set_value('user', 'name', 'Test User')
+        config.set_value('user', 'email', 'test@test.com')
+
+    # Create an initial commit
+    test_file = temp_dir / "README.md"
+    test_file.write_text("# Test Repo")
+    repo.index.add(['README.md'])
+    repo.index.commit('Initial commit')
+
+    yield repo
+
+    # Cleanup: close repo to release file handles
+    repo.close()

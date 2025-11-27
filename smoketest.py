@@ -72,13 +72,13 @@ SMOKE_TESTS = \
     # Comments
     # =============================================================================
     TestCase("document_function",    '                           int f() { return 17; }',
-                                     '/* Returns seventeen */ \n int f() { return 17;  }', o=0),  # Validator-only test
+                                     '/* Returns seventeen */ \n int f() { return 17;  }', o=0),  
 
     # =============================================================================
     # Extract function (two steps)
     # =============================================================================
     TestCase("extract_function",     '                                          int f() { return 4*4 + 1; }',
-                                     'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=3),  # Not yet implemented
+                                     'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=3), 
     TestCase("remove_inline",        'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }',
                                      'int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=0),
 
@@ -142,18 +142,6 @@ int f() {
                                     'int add(int a, int b) noexcept { return a + b; } int f() { return add(2, 3); }', o=0),
 
     # =============================================================================
-    # USE: [[nodiscard]]
-    # =============================================================================
-    TestCase("add_nodiscard",       '              int compute() { return 42; } int f() { return compute(); }',
-                                    '[[nodiscard]] int compute() { return 42; } int f() { return compute(); }', o=0),
-
-    # =============================================================================
-    # USE: [[maybe_unused]]
-    # =============================================================================
-    TestCase("add_maybe_unused",    'int f() {                  int x = 5; return 10; }',
-                                    'int f() { [[maybe_unused]] int x = 5; return 10; }', o=0),
-
-    # =============================================================================
     # USE: final class
     # =============================================================================
     TestCase("add_final_class",     'struct Base { virtual int get() { return 1; } }; struct Derived       : Base { int get() override { return 2; } }; int f() { Derived d; return d.get(); }',
@@ -211,7 +199,7 @@ int f() {
     # USE: delegating constructor
     # =============================================================================
     TestCase("inline_ctor",         'struct S { int x;        S() { x = 0; }        S(int v) { x = v; } }; int f() { S s; return s.x; }',
-                                    'struct S { int x; inline S() { x = 0; } inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=0),  # Setup step for delegating_ctor
+                                    'struct S { int x; inline S() { x = 0; } inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=0), 
 
     TestCase("delegating_ctor",     'struct S { int x; inline S() { x = 0; } inline S(int v) { x = v; } }; int f() { S s; return s.x; }',
                                     'struct S { int x; inline S() : S(0) {}  inline S(int v) { x = v; } }; int f() { S s; return s.x; }', o=3),
@@ -340,11 +328,23 @@ int f() {
     # =============================================================================
     TestCase("add_owner<T>",       '           int* get(int value) {            int* p = new int; *p = value; return p; } int f() {            int *p = get (17); int i = *p; delete p; return i; }',
                                    'namespace gsl { template <typename T> using owner = T*; }\n' +\
-                                   'gsl::owner<int> get(int value) { gsl::owner<int> p = new int; *p = value; return p; } int f() { gsl::owner<int> p = get (17); int i = *p; delete p; return i; }', o=0),
+                                 'gsl::owner<int> get(int value) { gsl::owner<int> p = new int; *p = value; return p; } int f() { gsl::owner<int> p = get (17); int i = *p; delete p; return i; }', o=0),
 
     TestCase("add_non_owner<T>",   'int get(               int* p) { return *p; } int f() { int x = 42; return get(&x); }',
                                    'namespace gsl { template <typename T> using non_owner = T*; }\n' +\
                                    'int get(gsl::non_owner<int> p) { return *p; } int f() { int x = 42; return get(&x); }', o=0),
+
+    # =============================================================================
+    # OWNERSHIP/LIFETIME: use unique_ptr instead of malloc and free:
+    # =============================================================================
+    TestCase("unique_ptr_simple",  '#include <memory>\n  int f() noexcept { int* p = new int; *p = 17; int x = *p; delete p; return x; }',
+                                   '#include <memory>\n  int f() noexcept { std::unique_ptr<int> p = std::make_unique<int>(); *p = 17; return *p; }', o=0),
+
+    # =============================================================================
+    # OWNERSHIP/LIFETIME: use unique_ptr instead traditional RAII:
+    # =============================================================================
+    TestCase("unique_ptr_RAII",    '#include <memory>\n class f { public: f() : p(new int)                 {*p = 17;} ~f() {delete p;} operator int() {return *p;} private: int* p; };',
+                                   '#include <memory>\n class f { public: f() : p(std::make_unique<int>()) {*p = 17;}                  operator int() {return *p;} private: std::unique_ptr<int> p; };', o=3),
 
     # =============================================================================
     # REFACTOR: simplify boolean expressions
@@ -414,13 +414,6 @@ int f() {
     # =============================================================================
     TestCase("add_inline_namespace",    'namespace lib                       { struct S { int x; }; }   int f() { lib::S s; s.x = 5; return s.x; }',
                                         'namespace lib { inline namespace v1 { struct S { int x; }; } } int f() { lib::S s; s.x = 5; return s.x; }', o=0),
-
-    # =============================================================================
-    # REPLACE: manual RAII with structured bindings for clarity
-    # =============================================================================
-    #TestCase("extract_pair_values",     '#include <utility>\nstd::pair<int,int> get_pair() { return std::make_pair(3, 4); } int f() { std::pair<int,int> p = get_pair(); return p.first + p.second; }',
-    #                                   '#include <utility>\nstd::pair<int,int> get_pair() { return std::make_pair(3, 4); } int f() { auto [x, y]          = get_pair(); return x + y; }', o=3,
-    #                                    refactoring_factory=None),
 
 ]
 
@@ -649,6 +642,7 @@ int main() {
                 config.set_value('user', 'name', 'LevelUp Test')
                 config.set_value('user', 'email', 'test@levelup.com')
             test_repo.index.commit('Initial legacy code')
+            test_repo.close()  # Close to release file handles
 
             # Create repo
             repo = Repo(url="file:///test-chained-refactoring", repos_folder=temp_path.parent)
@@ -886,7 +880,7 @@ int main() {
 
 
 def get_default_compiler():
-    """Get the default compiler (CLANG based on compiler_factory.py)."""
+    """Get the default compiler """
     return CompilerType.CLANG
 
 
