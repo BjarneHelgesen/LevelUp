@@ -576,14 +576,32 @@ inline int cubed(int x) {
     return x * x * x;
 }
 
+inline int add(int a, int b) {
+    return a + b;
+}
+
+int compute() {
+    return 42;
+}
+
+struct Point {
+    int x;
+    int y;
+    Point(int x_val, int y_val) : x(x_val), y(y_val) {}
+    int getX() { return x; }
+    int getY() { return y; }
+};
+
 struct Base {
     virtual int compute(int x);
     virtual int process(int y);
+    virtual int calculate();
 };
 
 struct Derived : Base {
     virtual int compute(int x);
     virtual int process(int y);
+    virtual int calculate();
 };
 
 int Base::compute(int x) {
@@ -594,6 +612,10 @@ int Base::process(int y) {
     return y + 1;
 }
 
+int Base::calculate() {
+    return 10;
+}
+
 int Derived::compute(int x) {
     return cubed(x);
 }
@@ -602,10 +624,15 @@ int Derived::process(int y) {
     return y * 2;
 }
 
+int Derived::calculate() {
+    return 20;
+}
+
 int main() {
+    Point p(3, 4);
     Derived d;
     Base* b = &d;
-    return b->compute(5) + b->process(3);
+    return b->compute(5) + b->process(3) + p.getX() + add(1, 2) + compute();
 }
 """
 
@@ -634,7 +661,9 @@ int main() {
 
             # Define chain of refactorings that build on each other progressively
             # Each refactoring is tested with O0 validation, building cumulative modernization
+            # Tests mimic validator smoke tests but chain together on a single file
             refactoring_chain = [
+                # Test 1: Remove inline qualifiers (mimics remove_inline validator test)
                 {
                     'name': 'Remove inline from squared()',
                     'refactoring_class': RemoveFunctionQualifier,
@@ -650,6 +679,14 @@ int main() {
                     'validator_id': ValidatorId.ASM_O0,
                 },
                 {
+                    'name': 'Remove inline from add()',
+                    'refactoring_class': RemoveFunctionQualifier,
+                    'symbol_lookup': 'add',
+                    'qualifier': QualifierType.INLINE,
+                    'validator_id': ValidatorId.ASM_O0,
+                },
+                # Test 2: Add override qualifiers (mimics add_override validator test)
+                {
                     'name': 'Add override to Derived::compute()',
                     'refactoring_class': AddFunctionQualifier,
                     'symbol_lookup': 'Derived::compute',
@@ -661,6 +698,59 @@ int main() {
                     'refactoring_class': AddFunctionQualifier,
                     'symbol_lookup': 'Derived::process',
                     'qualifier': QualifierType.OVERRIDE,
+                    'validator_id': ValidatorId.ASM_O0,
+                },
+                {
+                    'name': 'Add override to Derived::calculate()',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'Derived::calculate',
+                    'qualifier': QualifierType.OVERRIDE,
+                    'validator_id': ValidatorId.ASM_O0,
+                },
+                # Test 3: Add final to methods (mimics add_final_method validator test)
+                {
+                    'name': 'Add final to Derived::calculate()',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'Derived::calculate',
+                    'qualifier': QualifierType.FINAL,
+                    'validator_id': ValidatorId.ASM_O0,
+                },
+                # Test 4: Add const qualifiers to methods (mimics const_method validator test)
+                {
+                    'name': 'Add const to Point::getX()',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'Point::getX',
+                    'qualifier': QualifierType.CONST,
+                    'validator_id': ValidatorId.ASM_O0,
+                },
+                {
+                    'name': 'Add const to Point::getY()',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'Point::getY',
+                    'qualifier': QualifierType.CONST,
+                    'validator_id': ValidatorId.ASM_O0,
+                },
+                # Test 5: Add noexcept to free functions (mimics add_noexcept validator test)
+                {
+                    'name': 'Add noexcept to squared()',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'squared',
+                    'qualifier': QualifierType.NOEXCEPT,
+                    'validator_id': ValidatorId.ASM_O0,
+                },
+                {
+                    'name': 'Add noexcept to cubed()',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'cubed',
+                    'qualifier': QualifierType.NOEXCEPT,
+                    'validator_id': ValidatorId.ASM_O0,
+                },
+                # Test 6: Add [[nodiscard]] attribute (mimics add_nodiscard validator test)
+                {
+                    'name': 'Add [[nodiscard]] to compute()',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'compute',
+                    'qualifier': QualifierType.NODISCARD,
                     'validator_id': ValidatorId.ASM_O0,
                 },
             ]
@@ -684,16 +774,48 @@ int main() {
                     print(f"  Creating mock symbol for '{symbol_name}'")
                     # Parse file to find the symbol
                     lines = content_before.split('\n')
+                    function_name = symbol_name.split('::')[-1]
+                    class_name = symbol_name.split('::')[0] if '::' in symbol_name else None
+
+                    # Look for function declaration/definition
+                    # For qualified names (Class::method), find the class context first
+                    in_target_class = False
+                    class_depth = 0
+
                     for line_num, line in enumerate(lines, start=1):
-                        if symbol_name.split('::')[-1] in line and ('inline' in line or 'virtual' in line):
-                            symbol = create_mock_symbol(
-                                name=symbol_name.split('::')[-1],
-                                qualified_name=symbol_name,
-                                file_path=source_file,
-                                line_number=line_num,
-                                prototype=line.strip()
-                            )
-                            break
+                        stripped = line.strip()
+
+                        # Track class context for qualified names
+                        if class_name:
+                            if f'struct {class_name}' in stripped or f'class {class_name}' in stripped:
+                                in_target_class = True
+                                class_depth = 0
+                            if in_target_class:
+                                class_depth += stripped.count('{') - stripped.count('}')
+                                if class_depth < 0:
+                                    in_target_class = False
+
+                        # Check if this line contains the function name
+                        if function_name in line:
+                            # For qualified names, check if we're in the right class or it's a definition
+                            if class_name:
+                                # Either in the class declaration or it's an out-of-line definition
+                                is_definition = f'{class_name}::{function_name}' in stripped
+                                if not (in_target_class or is_definition):
+                                    continue
+
+                            # Check if it looks like a function declaration or definition
+                            if (('(' in stripped and function_name in stripped) or
+                                ('virtual' in stripped and function_name in stripped) or
+                                (f'{function_name}(' in stripped)):
+                                symbol = create_mock_symbol(
+                                    name=function_name,
+                                    qualified_name=symbol_name,
+                                    file_path=source_file,
+                                    line_number=line_num,
+                                    prototype=stripped
+                                )
+                                break
 
                 if symbol is None:
                     print(f"  FAIL - Could not find symbol '{symbol_name}'")
