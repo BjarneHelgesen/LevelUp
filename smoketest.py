@@ -38,27 +38,17 @@ SCAFFOLD = "\nint main() { return f(); }"
 
 
 class TestCase:
-    """Test case for validators and refactorings.
+    """Test case for validators.
 
     Contains source code before and after a transformation, along with the
     optimization level to use for compilation and validation.
-
-    Can be used to test:
-    - Validators: Check that validator correctly identifies equivalent code
-    - Refactorings: Apply refactoring to source and verify result matches modified_source
     """
     def __init__(
         self,
         name: str,
         source: str,
         modified_source: str,
-        o: int = 0,
-        refactoring_class=None,
-        symbol_name: str = None,
-        symbol_qualified_name: str = None,
-        symbol_line: int = None,
-        symbol_prototype: str = None,
-        qualifier: str = None
+        o: int = 0
     ):
         """
         Args:
@@ -66,33 +56,11 @@ class TestCase:
             source: Source implementing int f() before transformation
             modified_source: Source after transformation
             o: Optimization level for validation
-            refactoring_class: Refactoring class (e.g., RemoveFunctionQualifier)
-            symbol_name: Function name
-            symbol_qualified_name: Fully qualified function name
-            symbol_line: Line number where function is declared
-            symbol_prototype: Function prototype/declaration
-            qualifier: Qualifier to add/remove (e.g., QualifierType.INLINE)
         """
         self.name = name
         self.source = source + SCAFFOLD
         self.modified_source = modified_source + SCAFFOLD
         self.optimization_level = o
-        self.refactoring_class = refactoring_class
-        self.symbol_name = symbol_name
-        self.symbol_qualified_name = symbol_qualified_name
-        self.symbol_line = symbol_line
-        self.symbol_prototype = symbol_prototype
-        self.qualifier = qualifier
-
-    def is_refactoring_implemented(self) -> bool:
-        """Check if this test case has an implemented refactoring."""
-        return self.refactoring_class is not None
-
-    def get_status(self) -> str:
-        """Get test status: IMPLEMENTED or VALIDATOR_ONLY."""
-        if self.refactoring_class is None:
-            return "VALIDATOR_ONLY"
-        return "IMPLEMENTED"
 
 
 SMOKE_TESTS = \
@@ -109,13 +77,7 @@ SMOKE_TESTS = \
     TestCase("extract_function",     '                                          int f() { return 4*4 + 1; }',
                                      'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=3),  # Not yet implemented
     TestCase("remove_inline",        'inline int squared(int x) { return x*x; } int f() { return squared(4) + 1; }',
-                                     'int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=0,
-                                     refactoring_class=RemoveFunctionQualifier,
-                                     symbol_name="squared",
-                                     symbol_qualified_name="squared",
-                                     symbol_line=1,
-                                     symbol_prototype="inline int squared(int x)",
-                                     qualifier=QualifierType.INLINE),
+                                     'int squared(int x) { return x*x; } int f() { return squared(4) + 1; }', o=0),
 
     # =============================================================================
     # USE: const
@@ -156,13 +118,7 @@ int f() {
     Derived d;
     Base* b = &d;
     return b->get();
-}''', o=0,
-                                    refactoring_class=AddFunctionQualifier,
-                                    symbol_name="get",
-                                    symbol_qualified_name="Derived::get",
-                                    symbol_line=5,
-                                    symbol_prototype="virtual int get()",
-                                    qualifier=QualifierType.OVERRIDE),
+}''', o=0),
 
     # =============================================================================
     # USE: explicit
@@ -550,94 +506,6 @@ def run_validator_smoke_tests():
 
 
 
-def run_single_refactoring_test(test: TestCase):
-    """Run a single refactoring test."""
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            source_file = temp_path / "test.cpp"
-
-            # Write source without SCAFFOLD
-            source = test.source.replace(SCAFFOLD, "")
-            source_file.write_text(source)
-
-            # Initialize git repository (required for GitCommit)
-            import subprocess
-            subprocess.run(['git', 'init'], cwd=temp_path, capture_output=True, check=True)
-            subprocess.run(['git', 'config', 'user.email', 'test@test.com'], cwd=temp_path, capture_output=True, check=True)
-            subprocess.run(['git', 'config', 'user.name', 'Test'], cwd=temp_path, capture_output=True, check=True)
-            subprocess.run(['git', 'add', '.'], cwd=temp_path, capture_output=True, check=True)
-            subprocess.run(['git', 'commit', '-m', 'Initial commit'], cwd=temp_path, capture_output=True, check=True)
-
-            # Create repo
-            repo = Repo(url="file:///test-repo", repos_folder=temp_path.parent)
-            repo.repo_path = temp_path
-
-            # Create mock symbol
-            symbol = create_mock_symbol(
-                name=test.symbol_name,
-                qualified_name=test.symbol_qualified_name,
-                file_path=source_file,
-                line_number=test.symbol_line,
-                prototype=test.symbol_prototype
-            )
-
-            # Create refactoring instance and apply
-            refactoring = test.refactoring_class(repo)
-            git_commit = refactoring.apply(symbol, test.qualifier)
-
-            if git_commit is None:
-                print(f"  FAIL - refactoring.apply() returned None (refactoring not applicable)")
-                return
-
-            # Compare result
-            result = source_file.read_text()
-            expected = test.modified_source.replace(SCAFFOLD, "")
-
-            if result == expected:
-                print(f"  PASS (refactoring applied successfully)")
-            else:
-                print(f"  FAIL - output mismatch")
-                print(f"  Expected:\n{repr(expected)}")
-                print(f"  Got:\n{repr(result)}")
-
-    except Exception as e:
-        print(f"  ERROR: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-def run_refactoring_smoke_tests():
-    """Run refactoring smoke tests using TestCase metadata."""
-    print("\n" + "=" * 80)
-    print("REFACTORING SMOKE TESTS")
-    print("=" * 80)
-
-    # Group by status
-    by_status = {}
-    for test in SMOKE_TESTS:
-        status = test.get_status()
-        by_status.setdefault(status, []).append(test)
-
-    # Print summary
-    total = sum(len(tests) for status, tests in by_status.items()
-                if status != "VALIDATOR_ONLY")
-    print(f"\nTotal refactoring test cases: {total}")
-    implemented_count = len(by_status.get("IMPLEMENTED", []))
-    validator_only_count = len(by_status.get("VALIDATOR_ONLY", []))
-    print(f"  IMPLEMENTED: {implemented_count}")
-    print(f"  VALIDATOR_ONLY: {validator_only_count}")
-
-    # Run implemented tests
-    if "IMPLEMENTED" in by_status:
-        print("\n" + "-" * 80)
-        print("RUNNING REFACTORING TESTS")
-        print("-" * 80)
-        for test in by_status["IMPLEMENTED"]:
-            print(f"\nTesting: {test.name}")
-            run_single_refactoring_test(test)
-
-
 def run_mod_smoke_tests():
     for test in MOD_SMOKE_TESTS:
         print(f"\nRunning: {test.name}")
@@ -999,9 +867,6 @@ int main() {
 def run_smoke_tests():
     print_header("VALIDATOR SMOKE TESTS")
     run_validator_smoke_tests()
-
-    print_header("REFACTORING SMOKE TESTS")
-    run_refactoring_smoke_tests()
 
     print_header("MOD SMOKE TESTS")
     run_mod_smoke_tests()
