@@ -16,6 +16,9 @@ class MSVCCompiler(BaseCompiler):
         3: '/Ox',
     }
 
+    # Class-level cache for expensive initialization
+    _cache = {}
+
     def __init__(self, arch="x64"):
         logger.info(f"Initializing MSVCCompiler with arch={arch}")
         self.arch = arch
@@ -24,6 +27,16 @@ class MSVCCompiler(BaseCompiler):
             '/nologo',
             '/W3',
         ]
+
+        # Check cache first
+        cache_key = f"msvc_{arch}"
+        if cache_key in MSVCCompiler._cache:
+            cached = MSVCCompiler._cache[cache_key]
+            self.vcvarsall = cached['vcvarsall']
+            self.env = cached['env']
+            self.cl_path = cached['cl_path']
+            logger.info(f"MSVCCompiler initialized from cache: cl.exe at {self.cl_path}")
+            return
 
         # Locate vswhere
         vswhere = r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -54,6 +67,14 @@ class MSVCCompiler(BaseCompiler):
         logger.assert_true(cl_path, "cl.exe not found in configured environment PATH")
         self.cl_path = cl_path
         logger.info(f"MSVCCompiler initialized with cl.exe at: {self.cl_path}")
+
+        # Cache the results
+        MSVCCompiler._cache[cache_key] = {
+            'vcvarsall': self.vcvarsall,
+            'env': self.env,
+            'cl_path': self.cl_path
+        }
+        logger.debug(f"Cached MSVC compiler configuration for {cache_key}")
 
     @staticmethod
     def get_id() -> CompilerType:

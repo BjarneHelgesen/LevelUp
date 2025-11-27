@@ -639,12 +639,18 @@ int main() {
 
             source_file.write_text(initial_source)
 
-            # Initialize git repository
+            # Initialize git repository with optimized subprocess calls
+            # Use environment variables instead of git config commands
+            import os
+            git_env = os.environ.copy()
+            git_env['GIT_AUTHOR_NAME'] = 'LevelUp Test'
+            git_env['GIT_AUTHOR_EMAIL'] = 'test@levelup.com'
+            git_env['GIT_COMMITTER_NAME'] = 'LevelUp Test'
+            git_env['GIT_COMMITTER_EMAIL'] = 'test@levelup.com'
+
             subprocess.run(['git', 'init'], cwd=temp_path, capture_output=True, check=True)
-            subprocess.run(['git', 'config', 'user.email', 'test@levelup.com'], cwd=temp_path, capture_output=True, check=True)
-            subprocess.run(['git', 'config', 'user.name', 'LevelUp Test'], cwd=temp_path, capture_output=True, check=True)
-            subprocess.run(['git', 'add', '.'], cwd=temp_path, capture_output=True, check=True)
-            subprocess.run(['git', 'commit', '-m', 'Initial legacy code'], cwd=temp_path, capture_output=True, check=True)
+            subprocess.run(['git', 'add', '.'], cwd=temp_path, env=git_env, capture_output=True, check=True)
+            subprocess.run(['git', 'commit', '-m', 'Initial legacy code'], cwd=temp_path, env=git_env, capture_output=True, check=True)
 
             # Create repo
             repo = Repo(url="file:///test-chained-refactoring", repos_folder=temp_path.parent)

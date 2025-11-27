@@ -16,8 +16,22 @@ class ClangCompiler(BaseCompiler):
         3: '-O3',
     }
 
+    # Class-level cache for expensive initialization
+    _cached_clang_path = None
+    _cached_version = None
+
     def __init__(self, clang_path: str = None):
         logger.info(f"Initializing ClangCompiler with path={clang_path}")
+
+        # Check cache first (only if auto-discovering)
+        if clang_path is None and ClangCompiler._cached_clang_path is not None:
+            self.clang_path = ClangCompiler._cached_clang_path
+            self.default_flags = [
+                '-std=c++17',
+                '-Wall',
+            ]
+            logger.info(f"ClangCompiler initialized from cache: {ClangCompiler._cached_version}")
+            return
 
         # Auto-discover clang++ if not provided
         if clang_path is None:
@@ -43,7 +57,14 @@ class ClangCompiler(BaseCompiler):
             )
             if result.returncode != 0:
                 raise RuntimeError(f"clang not found at {clang_path}")
-            logger.info(f"ClangCompiler initialized: {result.stdout.splitlines()[0]}")
+            version_line = result.stdout.splitlines()[0]
+            logger.info(f"ClangCompiler initialized: {version_line}")
+
+            # Cache the results (only if auto-discovered)
+            if clang_path == self._find_clang():
+                ClangCompiler._cached_clang_path = self.clang_path
+                ClangCompiler._cached_version = version_line
+                logger.debug(f"Cached clang compiler configuration")
         except FileNotFoundError:
             raise RuntimeError(f"clang not found at {clang_path}")
 

@@ -51,12 +51,14 @@ def set_compiler(compiler_id: str):
 
     # Convert string ID to enum
     try:
-        _compiler_type = CompilerType(compiler_id)
+        new_type = CompilerType(compiler_id)
     except ValueError:
         raise ValueError(f"Unknown compiler ID: {compiler_id}. Valid options: {[ct.value for ct in CompilerType]}")
 
-    # Reset singleton to force re-creation with new type
-    _compiler_instance = None
+    # Only reset if compiler type actually changed
+    if new_type != _compiler_type:
+        _compiler_type = new_type
+        _compiler_instance = None
 
 
 class CompilerFactory:
