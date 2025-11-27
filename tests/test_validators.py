@@ -31,25 +31,3 @@ class TestASMValidatorO3Basics:
     def test_can_be_constructed(self):
         validator = ASMValidatorO3()
         assert validator is not None
-
-
-from core.validators.source_diff_validator import SourceDiffValidator
-
-
-class TestSourceDiffValidatorBasics:
-    def test_get_id_returns_stable_identifier(self):
-        assert SourceDiffValidator.get_id() == "source_diff"
-
-    def test_get_name_returns_human_readable_name(self):
-        assert SourceDiffValidator.get_name() == "Source Diff Validator"
-
-    def test_get_optimization_level_returns_0(self):
-        assert SourceDiffValidator.get_optimization_level() == 0
-
-    def test_can_be_constructed_with_default_allowed_removals(self):
-        validator = SourceDiffValidator()
-        assert validator.allowed_removals == ['inline']
-
-    def test_can_be_constructed_with_custom_allowed_removals(self):
-        validator = SourceDiffValidator(allowed_removals=['inline', 'const'])
-        assert validator.allowed_removals == ['inline', 'const']

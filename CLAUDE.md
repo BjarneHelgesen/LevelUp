@@ -91,7 +91,6 @@ User (Web UI)
 The system supports multiple validators (each refactoring chooses which validator to use):
 - **ASM O0 comparison** (`asm_o0`): Compares assembly at O0 optimization - useful for detecting semantic changes
 - **ASM O3 comparison** (`asm_o3`): Compares assembly at O3 optimization - stricter, catches optimization-affecting changes
-- **Source diff** (`source_diff`): Validates only expected source-level changes (e.g., keyword removal)
 - **AST diff**: Abstract syntax tree comparison (planned)
 - **Unit tests**: Same results across all inputs (planned)
 - **Human validator**: For non-obvious cases requiring judgment (manual)

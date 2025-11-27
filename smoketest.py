@@ -674,6 +674,359 @@ def run_mod_smoke_tests():
                 print(f"  Got:\n{repr(result)}")
 
 
+def run_chained_refactoring_tests():
+    """Run chained refactoring tests on real C++ file with Doxygen symbols."""
+    print("\n" + "=" * 80)
+    print("CHAINED REFACTORING TESTS (with Doxygen)")
+    print("=" * 80)
+
+    import subprocess
+
+    for compiler_type in CompilerType:
+        print(f"\n{'=' * 60}")
+        print(f"Testing with compiler: {compiler_type.value}")
+        print('=' * 60)
+
+        # Set compiler type
+        set_compiler(compiler_type.value)
+        compiler = get_compiler()
+        print(f"Initialized compiler: {compiler.get_name()}")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            source_file = temp_path / "modernize_me.cpp"
+
+            # Create C++ file with various modernization opportunities
+            # This file will be progressively modernized through chained refactorings
+            initial_source = """// Legacy C++ code needing modernization
+
+inline int squared(int x) {
+    return x * x;
+}
+
+inline int cubed(int x) {
+    return x * x * x;
+}
+
+struct Base {
+    virtual int compute(int x);
+    virtual int process(int y);
+};
+
+struct Derived : Base {
+    virtual int compute(int x);
+    virtual int process(int y);
+};
+
+int Base::compute(int x) {
+    return squared(x);
+}
+
+int Base::process(int y) {
+    return y + 1;
+}
+
+int Derived::compute(int x) {
+    return cubed(x);
+}
+
+int Derived::process(int y) {
+    return y * 2;
+}
+
+int main() {
+    Derived d;
+    Base* b = &d;
+    return b->compute(5) + b->process(3);
+}
+"""
+
+            source_file.write_text(initial_source)
+
+            # Initialize git repository
+            subprocess.run(['git', 'init'], cwd=temp_path, capture_output=True, check=True)
+            subprocess.run(['git', 'config', 'user.email', 'test@levelup.com'], cwd=temp_path, capture_output=True, check=True)
+            subprocess.run(['git', 'config', 'user.name', 'LevelUp Test'], cwd=temp_path, capture_output=True, check=True)
+            subprocess.run(['git', 'add', '.'], cwd=temp_path, capture_output=True, check=True)
+            subprocess.run(['git', 'commit', '-m', 'Initial legacy code'], cwd=temp_path, capture_output=True, check=True)
+
+            # Create repo
+            repo = Repo(url="file:///test-chained-refactoring", repos_folder=temp_path.parent)
+            repo.repo_path = temp_path
+
+            # Run Doxygen to extract symbols
+            print("\nGenerating Doxygen symbols...")
+            try:
+                repo.generate_doxygen()
+                symbols = repo.get_symbol_table()
+                print(f"  Doxygen generated {len(symbols.symbols)} symbols")
+            except Exception as e:
+                print(f"  WARNING: Doxygen failed ({e}), using mock symbols")
+                symbols = SymbolTable(repo)
+
+            # Define chain of refactorings to apply sequentially
+            # Each refactoring must make a change (test fails if no change)
+            refactoring_chain = [
+                {
+                    'name': 'Remove inline from squared()',
+                    'refactoring_class': RemoveFunctionQualifier,
+                    'symbol_lookup': 'squared',
+                    'qualifier': QualifierType.INLINE,
+                    'validator_id': ValidatorId.ASM_O0,
+                    'optimization_level': 0,
+                },
+                {
+                    'name': 'Remove inline from cubed()',
+                    'refactoring_class': RemoveFunctionQualifier,
+                    'symbol_lookup': 'cubed',
+                    'qualifier': QualifierType.INLINE,
+                    'validator_id': ValidatorId.ASM_O0,
+                    'optimization_level': 0,
+                },
+                {
+                    'name': 'Add override to Derived::compute()',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'Derived::compute',
+                    'qualifier': QualifierType.OVERRIDE,
+                    'validator_id': ValidatorId.ASM_O0,
+                    'optimization_level': 0,
+                },
+                {
+                    'name': 'Add override to Derived::process()',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'Derived::process',
+                    'qualifier': QualifierType.OVERRIDE,
+                    'validator_id': ValidatorId.ASM_O0,
+                    'optimization_level': 0,
+                },
+            ]
+
+            # Also run with O3 validation on the same refactorings
+            refactoring_chain_o3 = [
+                {
+                    'name': 'Remove inline from squared() [O3]',
+                    'refactoring_class': RemoveFunctionQualifier,
+                    'symbol_lookup': 'squared',
+                    'qualifier': QualifierType.INLINE,
+                    'validator_id': ValidatorId.ASM_O3,
+                    'optimization_level': 3,
+                },
+                {
+                    'name': 'Remove inline from cubed() [O3]',
+                    'refactoring_class': RemoveFunctionQualifier,
+                    'symbol_lookup': 'cubed',
+                    'qualifier': QualifierType.INLINE,
+                    'validator_id': ValidatorId.ASM_O3,
+                    'optimization_level': 3,
+                },
+                {
+                    'name': 'Add override to Derived::compute() [O3]',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'Derived::compute',
+                    'qualifier': QualifierType.OVERRIDE,
+                    'validator_id': ValidatorId.ASM_O3,
+                    'optimization_level': 3,
+                },
+                {
+                    'name': 'Add override to Derived::process() [O3]',
+                    'refactoring_class': AddFunctionQualifier,
+                    'symbol_lookup': 'Derived::process',
+                    'qualifier': QualifierType.OVERRIDE,
+                    'validator_id': ValidatorId.ASM_O3,
+                    'optimization_level': 3,
+                },
+            ]
+
+            # Apply O0 refactorings first
+            print("\n" + "-" * 60)
+            print("Chained Refactorings (O0 validation)")
+            print("-" * 60)
+
+            for step_num, step in enumerate(refactoring_chain, start=1):
+                print(f"\nStep {step_num}: {step['name']}")
+
+                # Store content before refactoring
+                content_before = source_file.read_text()
+
+                # Find symbol (from Doxygen or create mock)
+                symbol_name = step['symbol_lookup']
+                symbol = symbols.get_symbol(symbol_name) if symbols.symbols else None
+
+                if symbol is None:
+                    # Create mock symbol if Doxygen didn't find it
+                    print(f"  Creating mock symbol for '{symbol_name}'")
+                    # Parse file to find the symbol
+                    lines = content_before.split('\n')
+                    for line_num, line in enumerate(lines, start=1):
+                        if symbol_name.split('::')[-1] in line and ('inline' in line or 'virtual' in line):
+                            symbol = create_mock_symbol(
+                                name=symbol_name.split('::')[-1],
+                                qualified_name=symbol_name,
+                                file_path=source_file,
+                                line_number=line_num,
+                                prototype=line.strip()
+                            )
+                            break
+
+                if symbol is None:
+                    print(f"  FAIL - Could not find symbol '{symbol_name}'")
+                    continue
+
+                # Compile original
+                try:
+                    original_compiled = compiler.compile_file(
+                        source_file, optimization_level=step['optimization_level']
+                    )
+                except Exception as e:
+                    print(f"  FAIL - Original compilation failed: {e}")
+                    continue
+
+                # Apply refactoring
+                refactoring = step['refactoring_class'](repo)
+                git_commit = refactoring.apply(symbol, step['qualifier'])
+
+                if git_commit is None:
+                    print(f"  FAIL - Refactoring returned None (not applicable)")
+                    continue
+
+                # Check that file was modified
+                content_after = source_file.read_text()
+                if content_before == content_after:
+                    print(f"  FAIL - No changes made to file (refactoring must make changes)")
+                    continue
+
+                print(f"  File modified: {len(content_after)} bytes (was {len(content_before)} bytes)")
+
+                # Compile modified
+                try:
+                    modified_compiled = compiler.compile_file(
+                        source_file, optimization_level=step['optimization_level']
+                    )
+                except Exception as e:
+                    print(f"  FAIL - Modified compilation failed: {e}")
+                    # Rollback for next test
+                    source_file.write_text(content_before)
+                    continue
+
+                # Validate using appropriate validator
+                from core.validators.validator_factory import ValidatorFactory
+                validator = ValidatorFactory.from_id(step['validator_id'], compiler)
+
+                is_valid = validator.validate(original_compiled, modified_compiled)
+
+                if is_valid:
+                    print(f"  PASS - Validation successful with {step['validator_id']}")
+                    # Keep the change (commit already created by refactoring)
+                else:
+                    print(f"  FAIL - Validation failed with {step['validator_id']}")
+                    # Rollback
+                    source_file.write_text(content_before)
+
+            # Reset to initial state for O3 tests
+            print("\n" + "-" * 60)
+            print("Resetting to initial state for O3 validation")
+            print("-" * 60)
+
+            source_file.write_text(initial_source)
+            subprocess.run(['git', 'add', '.'], cwd=temp_path, capture_output=True, check=True)
+            subprocess.run(['git', 'commit', '-m', 'Reset for O3 tests'], cwd=temp_path, capture_output=True, check=True)
+
+            # Regenerate symbols if using Doxygen
+            if symbols.symbols:
+                try:
+                    repo.generate_doxygen()
+                    symbols = repo.get_symbol_table()
+                except:
+                    pass
+
+            # Apply O3 refactorings
+            print("\n" + "-" * 60)
+            print("Chained Refactorings (O3 validation)")
+            print("-" * 60)
+
+            for step_num, step in enumerate(refactoring_chain_o3, start=1):
+                print(f"\nStep {step_num}: {step['name']}")
+
+                # Store content before refactoring
+                content_before = source_file.read_text()
+
+                # Find symbol
+                symbol_name = step['symbol_lookup']
+                symbol = symbols.get_symbol(symbol_name) if symbols.symbols else None
+
+                if symbol is None:
+                    # Create mock symbol
+                    lines = content_before.split('\n')
+                    for line_num, line in enumerate(lines, start=1):
+                        if symbol_name.split('::')[-1] in line and ('inline' in line or 'virtual' in line):
+                            symbol = create_mock_symbol(
+                                name=symbol_name.split('::')[-1],
+                                qualified_name=symbol_name,
+                                file_path=source_file,
+                                line_number=line_num,
+                                prototype=line.strip()
+                            )
+                            break
+
+                if symbol is None:
+                    print(f"  FAIL - Could not find symbol '{symbol_name}'")
+                    continue
+
+                # Compile original
+                try:
+                    original_compiled = compiler.compile_file(
+                        source_file, optimization_level=step['optimization_level']
+                    )
+                except Exception as e:
+                    print(f"  FAIL - Original compilation failed: {e}")
+                    continue
+
+                # Apply refactoring
+                refactoring = step['refactoring_class'](repo)
+                git_commit = refactoring.apply(symbol, step['qualifier'])
+
+                if git_commit is None:
+                    print(f"  FAIL - Refactoring returned None (not applicable)")
+                    continue
+
+                # Check that file was modified
+                content_after = source_file.read_text()
+                if content_before == content_after:
+                    print(f"  FAIL - No changes made to file (refactoring must make changes)")
+                    continue
+
+                print(f"  File modified: {len(content_after)} bytes (was {len(content_before)} bytes)")
+
+                # Compile modified
+                try:
+                    modified_compiled = compiler.compile_file(
+                        source_file, optimization_level=step['optimization_level']
+                    )
+                except Exception as e:
+                    print(f"  FAIL - Modified compilation failed: {e}")
+                    source_file.write_text(content_before)
+                    continue
+
+                # Validate using appropriate validator
+                from core.validators.validator_factory import ValidatorFactory
+                validator = ValidatorFactory.from_id(step['validator_id'], compiler)
+
+                is_valid = validator.validate(original_compiled, modified_compiled)
+
+                if is_valid:
+                    print(f"  PASS - Validation successful with {step['validator_id']}")
+                    # Keep the change
+                else:
+                    print(f"  FAIL - Validation failed with {step['validator_id']}")
+                    source_file.write_text(content_before)
+
+            # Print final modernized code
+            print("\n" + "-" * 60)
+            print("Final modernized code:")
+            print("-" * 60)
+            print(source_file.read_text())
+
+
 def run_smoke_tests():
     print_header("VALIDATOR SMOKE TESTS")
     run_validator_smoke_tests()
@@ -683,6 +1036,9 @@ def run_smoke_tests():
 
     print_header("MOD SMOKE TESTS")
     run_mod_smoke_tests()
+
+    print_header("CHAINED REFACTORING TESTS")
+    run_chained_refactoring_tests()
 
 if __name__ == "__main__":
     run_smoke_tests()

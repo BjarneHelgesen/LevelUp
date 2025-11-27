@@ -138,14 +138,6 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 - Handles COMDAT functions (inline functions that linker can discard)
 - Conservative approach: rejects changes if function bodies don't match exactly
 
-**validators/source_diff_validator.py**
-- Source-level comparison validator for simple transformations
-- ID: `source_diff`
-- Validates that only specified keywords/patterns were removed from source
-- Constructor takes `allowed_removals` list (default: `['inline']`)
-- Compares source files with whitespace normalization
-- Useful for mods that only remove keywords without semantic changes
-
 **mods/base_mod.py and Mod Classes**
 - `BaseMod`: Abstract base class defining mod interface
 - Mods generate refactorings via `generate_refactorings(repo, symbols)` method
@@ -208,7 +200,7 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
    - Create and return GitCommit with validator_type and affected_symbols
    - Return None if refactoring cannot be applied
 4. Each GitCommit specifies which validator to use (e.g., ValidatorId.ASM_O0)
-5. Validator choice determines strictness: source_diff for simple changes, asm_o0/asm_o3 for semantic validation
+5. Validator choice determines strictness: asm_o0 for most changes, asm_o3 for stricter validation
 
 **Adding a New Compiler**:
 1. Create compiler class in `compilers/` inheriting from BaseCompiler
@@ -223,7 +215,7 @@ All factories use the same pattern: enum-based registry with `from_id()` and `ge
 - Result.to_dict() serializes to JSON for frontend
 
 **validators/validator_id.py**
-- Constants for validator IDs: ASM_O0, ASM_O3, SOURCE_DIFF
+- Constants for validator IDs: ASM_O0, ASM_O3
 - Used by refactorings to specify which validator to use when creating GitCommit
 - Prefer using ValidatorId constants over raw strings for type safety
 

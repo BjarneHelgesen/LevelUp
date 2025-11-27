@@ -224,10 +224,6 @@ Base URL: `/api`
   {
     "id": "asm_o3",
     "name": "Assembly O3 Comparison"
-  },
-  {
-    "id": "source_diff",
-    "name": "Source Diff"
   }
 ]
 ```
@@ -370,7 +366,7 @@ class GitCommit:
         self,
         repo: Repo,
         commit_message: str,
-        validator_type: str,  # e.g., "asm_o0", "asm_o3", "source_diff"
+        validator_type: str,  # e.g., "asm_o0", "asm_o3"
         affected_symbols: List[str],  # Qualified symbol names
         probability_of_success: float  # 0.0-1.0, from refactoring's get_probability_of_success()
     )
@@ -557,7 +553,6 @@ class BaseValidator(ABC):
 class ValidatorType(Enum):
     ASM_O0 = ASMValidatorO0
     ASM_O3 = ASMValidatorO3
-    SOURCE_DIFF = SourceDiffValidator
 
 class ValidatorFactory:
     @staticmethod
@@ -596,24 +591,6 @@ class ASMValidatorO3(BaseValidator):
     def validate(original: CompiledFile, modified: CompiledFile) -> bool
 ```
 
-### validators/source_diff_validator.py
-
-```python
-class SourceDiffValidator(BaseValidator):
-    def __init__(self, allowed_removals: List[str] = None)
-
-    @staticmethod
-    def get_id() -> str  # Returns 'source_diff'
-
-    @staticmethod
-    def get_name() -> str  # Returns 'Source Diff'
-
-    @staticmethod
-    def get_optimization_level() -> int  # Returns 0
-
-    def validate(original: CompiledFile, modified: CompiledFile) -> bool
-```
-
 ### validators/validator_id.py
 
 ```python
@@ -621,7 +598,6 @@ class ValidatorId:
     """Constants for validator IDs (prefer over raw strings)."""
     ASM_O0 = "asm_o0"
     ASM_O3 = "asm_o3"
-    SOURCE_DIFF = "source_diff"
 ```
 
 ---
