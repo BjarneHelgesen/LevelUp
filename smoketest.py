@@ -756,13 +756,13 @@ int main() {
 
             # Run Doxygen to extract symbols
             print("\nGenerating Doxygen symbols...")
+            symbols = SymbolTable(repo)
             try:
                 repo.generate_doxygen()
-                symbols = repo.get_symbol_table()
-                print(f"  Doxygen generated {len(symbols.symbols)} symbols")
+                symbols.load_from_doxygen()
+                print(f"  Doxygen generated {len(symbols.get_all_symbols())} symbols")
             except Exception as e:
                 print(f"  WARNING: Doxygen failed ({e}), using mock symbols")
-                symbols = SymbolTable(repo)
 
             # Define chain of refactorings to apply sequentially
             # Each refactoring must make a change (test fails if no change)
@@ -850,7 +850,7 @@ int main() {
 
                 # Find symbol (from Doxygen or create mock)
                 symbol_name = step['symbol_lookup']
-                symbol = symbols.get_symbol(symbol_name) if symbols.symbols else None
+                symbol = symbols.get_symbol(symbol_name)
 
                 if symbol is None:
                     # Create mock symbol if Doxygen didn't find it
@@ -931,13 +931,12 @@ int main() {
             subprocess.run(['git', 'add', '.'], cwd=temp_path, capture_output=True, check=True)
             subprocess.run(['git', 'commit', '-m', 'Reset for O3 tests'], cwd=temp_path, capture_output=True, check=True)
 
-            # Regenerate symbols if using Doxygen
-            if symbols.symbols:
-                try:
-                    repo.generate_doxygen()
-                    symbols = repo.get_symbol_table()
-                except:
-                    pass
+            # Regenerate symbols after reset
+            try:
+                repo.generate_doxygen()
+                symbols.load_from_doxygen()
+            except:
+                pass
 
             # Apply O3 refactorings
             print("\n" + "-" * 60)
@@ -952,7 +951,7 @@ int main() {
 
                 # Find symbol
                 symbol_name = step['symbol_lookup']
-                symbol = symbols.get_symbol(symbol_name) if symbols.symbols else None
+                symbol = symbols.get_symbol(symbol_name)
 
                 if symbol is None:
                     # Create mock symbol
