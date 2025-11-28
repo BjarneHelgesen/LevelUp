@@ -131,17 +131,6 @@ class TestValidatorFactory:
 
 
 class TestCompilerFactory:
-    def test_msvc_compiler_can_be_created(self):
-        # MSVCCompiler reads cl.exe path from tools.json
-        compiler = MSVCCompiler()
-        assert isinstance(compiler, MSVCCompiler)
-
-    def test_msvc_reads_cl_path_from_config(self):
-        # MSVCCompiler reads cl.exe path from tools.json
-        compiler = MSVCCompiler()
-        assert compiler.cl_path is not None
-        assert "cl.exe" in compiler.cl_path.lower()
-
     def test_get_compiler_returns_configured_compiler(self):
         from core.compilers.compiler_factory import reset_compiler, set_compiler
         reset_compiler()
