@@ -5,7 +5,7 @@ SymbolTable class for managing symbols with incremental updates.
 from pathlib import Path
 from typing import Dict, List, Set, Optional, TYPE_CHECKING
 
-from .symbol import Symbol
+from .symbols import BaseSymbol
 from .. import logger
 
 if TYPE_CHECKING:
@@ -23,7 +23,7 @@ class SymbolTable:
     def __init__(self, repo: 'Repo'):
         self.repo = repo
         self.repo_path = repo.repo_path
-        self._symbols: Dict[str, Symbol] = {}
+        self._symbols: Dict[str, BaseSymbol] = {}
         self._file_index: Dict[Path, Set[str]] = {}
         self._dirty_files: Set[Path] = set()
         self._needs_full_refresh = False
@@ -91,7 +91,7 @@ class SymbolTable:
             marker_file.unlink()
             logger.info("Doxygen data refreshed")
 
-    def get_symbol(self, qualified_name: str, auto_refresh: bool = True) -> Optional[Symbol]:
+    def get_symbol(self, qualified_name: str, auto_refresh: bool = True) -> Optional[BaseSymbol]:
         """
         Get symbol by qualified name.
 
@@ -104,7 +104,7 @@ class SymbolTable:
 
         return self._symbols.get(qualified_name)
 
-    def get_symbols_in_file(self, file_path: Path, auto_refresh: bool = True) -> List[Symbol]:
+    def get_symbols_in_file(self, file_path: Path, auto_refresh: bool = True) -> List[BaseSymbol]:
         """Get all symbols defined in a file."""
         if auto_refresh:
             self.refresh_dirty_files()
@@ -113,7 +113,7 @@ class SymbolTable:
         qual_names = self._file_index.get(file_path, set())
         return [self._symbols[qn] for qn in qual_names if qn in self._symbols]
 
-    def get_all_symbols(self, auto_refresh: bool = True) -> List[Symbol]:
+    def get_all_symbols(self, auto_refresh: bool = True) -> List[BaseSymbol]:
         """Get all symbols in the repository."""
         if auto_refresh:
             self.refresh_dirty_files()

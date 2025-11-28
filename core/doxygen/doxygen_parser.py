@@ -8,58 +8,9 @@ from typing import Dict, List, Set, Optional
 import re
 
 from .. import logger
-from .symbol import Symbol, SymbolKind
+from .symbols import SymbolKind, BaseSymbol, FunctionSymbol, ClassSymbol, EnumSymbol, SymbolFactory
 
 
-class FunctionInfo:
-    """
-    Information about a function extracted from Doxygen XML.
-
-    Attributes:
-        name: Function name (without namespace/class prefix)
-        qualified_name: Fully qualified name (namespace::class::function)
-        file_path: Path to the file where the function is defined
-        line_number: Line number of the function definition
-        return_type: Return type of the function (unexpanded)
-        return_type_expanded: Return type with macros expanded
-        parameters: List of (type, name) tuples for parameters (unexpanded)
-        parameters_expanded: List of (type, name) tuples with macros expanded
-        calls: Set of function IDs this function calls
-        called_by: Set of function IDs that call this function
-        is_member: True if this is a class member function
-        class_name: Name of the class (if member function)
-        doxygen_id: Unique Doxygen identifier for this function
-    """
-
-    def __init__(self):
-        self.name: str = ''
-        self.qualified_name: str = ''
-        self.file_path: str = ''
-        self.line_number: int = 0
-        self.return_type: str = ''
-        self.return_type_expanded: str = ''
-        self.parameters: List[tuple] = []
-        self.parameters_expanded: List[tuple] = []
-        self.calls: Set[str] = set()
-        self.called_by: Set[str] = set()
-        self.is_member: bool = False
-        self.class_name: str = ''
-        self.doxygen_id: str = ''
-
-    def get_signature(self, expanded: bool = False) -> str:
-        """
-        Return the function signature as a string.
-
-        Args:
-            expanded: If True, return signature with expanded macros
-        """
-        params = self.parameters_expanded if expanded else self.parameters
-        ret_type = self.return_type_expanded if expanded else self.return_type
-        params_str = ', '.join(f'{ptype} {pname}' for ptype, pname in params)
-        return f'{ret_type} {self.qualified_name}({params_str})'
-
-    def __repr__(self) -> str:
-        return f"FunctionInfo({self.qualified_name} at {self.file_path}:{self.line_number})"
 
 
 class DoxygenParser:
@@ -79,12 +30,9 @@ class DoxygenParser:
         """
         self.xml_unexpanded_dir = Path(xml_unexpanded_dir)
         self.xml_expanded_dir = Path(xml_expanded_dir) if xml_expanded_dir else None
-        self._functions: Dict[str, FunctionInfo] = {}
-        self._functions_by_name: Dict[str, List[FunctionInfo]] = {}
-        self._files: Dict[str, List[FunctionInfo]] = {}
-        self._symbols: Dict[str, Symbol] = {}
-        self._symbols_by_kind: Dict[str, List[Symbol]] = {}
-        self._symbols_by_file: Dict[str, List[Symbol]] = {}
+        self._symbols: Dict[str, BaseSymbol] = {}
+        self._symbols_by_kind: Dict[SymbolKind, List[BaseSymbol]] = {}
+        self._symbols_by_file: Dict[str, List[BaseSymbol]] = {}
         self._parsed = False
 
     def parse(self) -> None:
@@ -134,7 +82,7 @@ class DoxygenParser:
         self._build_indexes()
         self._parsed = True
 
-        logger.info(f"Parsed {len(self._functions)} functions and {len(self._symbols)} symbols from Doxygen XML")
+        logger.info(f"Parsed {len(self._symbols)} symbols from Doxygen XML")
 
     def _parse_compound_file(self, file_path: Path, compound_kind: str, expanded: bool) -> None:
         """Parse a single compound XML file for function definitions and symbols."""
@@ -163,7 +111,7 @@ class DoxygenParser:
 
         # Parse class/struct as Symbol (not for files or namespaces)
         if not expanded and compound_kind in ('class', 'struct'):
-            symbol = self._parse_compound_symbol(compounddef, compound_kind)
+            symbol = self._parse_class_symbol(compounddef, compound_kind)
             if symbol and symbol.doxygen_id:
                 self._symbols[symbol.doxygen_id] = symbol
 
@@ -176,21 +124,22 @@ class DoxygenParser:
                                'public-static-func', 'protected-static-func', 'private-static-func'):
                 for memberdef in sectiondef.findall('memberdef'):
                     if memberdef.get('kind') == 'function':
-                        func_info = self._parse_memberdef(memberdef, compound_name, compound_file, expanded)
-                        if func_info and func_info.doxygen_id:
+                        func_symbol = self._parse_function_symbol(memberdef, compound_name, compound_file, expanded)
+                        if func_symbol and func_symbol.doxygen_id:
                             if expanded:
                                 # Merge expanded data into existing function by matching qualified name + file + line
                                 # Can't use doxygen_id because it changes between runs due to signature changes
-                                match_key = (func_info.qualified_name, func_info.file_path, func_info.line_number)
-                                for existing_id, existing_func in self._functions.items():
-                                    existing_key = (existing_func.qualified_name, existing_func.file_path, existing_func.line_number)
-                                    if match_key == existing_key:
-                                        existing_func.return_type_expanded = func_info.return_type
-                                        existing_func.parameters_expanded = func_info.parameters
-                                        break
+                                match_key = (func_symbol.qualified_name, func_symbol.file_path, func_symbol.line_start)
+                                for existing_id, existing_sym in self._symbols.items():
+                                    if isinstance(existing_sym, FunctionSymbol):
+                                        existing_key = (existing_sym.qualified_name, existing_sym.file_path, existing_sym.line_start)
+                                        if match_key == existing_key:
+                                            existing_sym.return_type_expanded = func_symbol.return_type
+                                            existing_sym.parameters_expanded = func_symbol.parameters
+                                            break
                             else:
                                 # First pass - create function entry
-                                self._functions[func_info.doxygen_id] = func_info
+                                self._symbols[func_symbol.doxygen_id] = func_symbol
 
             # Enum sections
             if not expanded and section_kind in ('enum', 'public-type', 'protected-type', 'private-type'):
@@ -200,9 +149,9 @@ class DoxygenParser:
                         if symbol and symbol.doxygen_id:
                             self._symbols[symbol.doxygen_id] = symbol
 
-    def _parse_memberdef(self, memberdef: ET.Element, compound_name: str, default_file: str, expanded: bool) -> Optional[FunctionInfo]:
+    def _parse_function_symbol(self, memberdef: ET.Element, compound_name: str, default_file: str, expanded: bool) -> Optional[FunctionSymbol]:
         """Parse a memberdef element to extract function information."""
-        func = FunctionInfo()
+        func = FunctionSymbol()
 
         func.doxygen_id = memberdef.get('id', '')
 
@@ -245,7 +194,15 @@ class DoxygenParser:
         location = memberdef.find('location')
         if location is not None:
             func.file_path = location.get('file', default_file)
-            func.line_number = int(location.get('line', 0))
+            func.line_start = int(location.get('line', 0))
+            bodystart = location.get('bodystart')
+            bodyend = location.get('bodyend')
+            if bodystart:
+                func.line_start = int(bodystart)
+            if bodyend:
+                func.line_end = int(bodyend)
+            else:
+                func.line_end = func.line_start
         else:
             func.file_path = default_file
 
@@ -280,12 +237,12 @@ class DoxygenParser:
                 parts.append(child.tail)
         return ''.join(parts).strip()
 
-    def _parse_compound_symbol(self, compounddef: ET.Element, compound_kind: str) -> Optional[Symbol]:
+    def _parse_class_symbol(self, compounddef: ET.Element, compound_kind: str) -> Optional[ClassSymbol]:
         """Parse a compounddef element to extract class/struct symbol."""
         if compound_kind == 'class':
-            symbol = Symbol(SymbolKind.CLASS)
+            symbol = ClassSymbol(SymbolKind.CLASS)
         elif compound_kind == 'struct':
-            symbol = Symbol(SymbolKind.STRUCT)
+            symbol = ClassSymbol(SymbolKind.STRUCT)
         else:
             return None
 
@@ -321,9 +278,9 @@ class DoxygenParser:
 
         return symbol
 
-    def _parse_enum_symbol(self, memberdef: ET.Element, compound_name: str, default_file: str) -> Optional[Symbol]:
+    def _parse_enum_symbol(self, memberdef: ET.Element, compound_name: str, default_file: str) -> Optional[EnumSymbol]:
         """Parse a memberdef element to extract enum symbol."""
-        symbol = Symbol(SymbolKind.ENUM)
+        symbol = EnumSymbol()
 
         symbol.doxygen_id = memberdef.get('id', '')
 
@@ -401,18 +358,6 @@ class DoxygenParser:
 
     def _build_indexes(self) -> None:
         """Build lookup indexes after parsing."""
-        for func_id, func in self._functions.items():
-            # Index by simple name
-            if func.name not in self._functions_by_name:
-                self._functions_by_name[func.name] = []
-            self._functions_by_name[func.name].append(func)
-
-            # Index by file
-            if func.file_path:
-                if func.file_path not in self._files:
-                    self._files[func.file_path] = []
-                self._files[func.file_path].append(func)
-
         for symbol_id, symbol in self._symbols.items():
             if symbol.kind not in self._symbols_by_kind:
                 self._symbols_by_kind[symbol.kind] = []
@@ -423,12 +368,13 @@ class DoxygenParser:
                     self._symbols_by_file[symbol.file_path] = []
                 self._symbols_by_file[symbol.file_path].append(symbol)
 
-    def get_function_by_id(self, doxygen_id: str) -> Optional[FunctionInfo]:
+    def get_function_by_id(self, doxygen_id: str) -> Optional[FunctionSymbol]:
         """Get a function by its Doxygen ID."""
         self.parse()
-        return self._functions.get(doxygen_id)
+        symbol = self._symbols.get(doxygen_id)
+        return symbol if isinstance(symbol, FunctionSymbol) else None
 
-    def get_functions_by_name(self, name: str) -> List[FunctionInfo]:
+    def get_functions_by_name(self, name: str) -> List[FunctionSymbol]:
         """
         Get all functions matching a name.
 
@@ -436,12 +382,13 @@ class DoxygenParser:
             name: Simple function name (without namespace/class prefix)
 
         Returns:
-            List of FunctionInfo objects matching the name
+            List of FunctionSymbol objects matching the name
         """
         self.parse()
-        return self._functions_by_name.get(name, [])
+        return [s for s in self._symbols.values()
+                if isinstance(s, FunctionSymbol) and s.name == name]
 
-    def get_functions_in_file(self, file_path: str) -> List[FunctionInfo]:
+    def get_functions_in_file(self, file_path: str) -> List[FunctionSymbol]:
         """
         Get all functions defined in a file.
 
@@ -449,43 +396,34 @@ class DoxygenParser:
             file_path: Path to the source file (as recorded by Doxygen)
 
         Returns:
-            List of FunctionInfo objects in the file
+            List of FunctionSymbol objects in the file
         """
-        self.parse()
+        symbols = self.get_symbols_in_file(file_path)
+        return [s for s in symbols if isinstance(s, FunctionSymbol)]
 
-        # Try exact match first
-        if file_path in self._files:
-            return self._files[file_path]
-
-        # Try normalized path matching
-        normalized = Path(file_path).name
-        for recorded_path, functions in self._files.items():
-            if Path(recorded_path).name == normalized:
-                return functions
-
-        return []
-
-    def get_callers(self, func: FunctionInfo) -> List[FunctionInfo]:
+    def get_callers(self, func: FunctionSymbol) -> List[FunctionSymbol]:
         """Get all functions that call the given function."""
         self.parse()
-        return [self._functions[fid] for fid in func.called_by if fid in self._functions]
+        return [self._symbols[fid] for fid in func.called_by
+                if fid in self._symbols and isinstance(self._symbols[fid], FunctionSymbol)]
 
-    def get_callees(self, func: FunctionInfo) -> List[FunctionInfo]:
+    def get_callees(self, func: FunctionSymbol) -> List[FunctionSymbol]:
         """Get all functions called by the given function."""
         self.parse()
-        return [self._functions[fid] for fid in func.calls if fid in self._functions]
+        return [self._symbols[fid] for fid in func.calls
+                if fid in self._symbols and isinstance(self._symbols[fid], FunctionSymbol)]
 
-    def get_all_functions(self) -> List[FunctionInfo]:
+    def get_all_functions(self) -> List[FunctionSymbol]:
         """Get all parsed functions."""
         self.parse()
-        return list(self._functions.values())
+        return [s for s in self._symbols.values() if isinstance(s, FunctionSymbol)]
 
     def get_all_files(self) -> List[str]:
-        """Get list of all files with functions."""
+        """Get list of all files with symbols."""
         self.parse()
-        return list(self._files.keys())
+        return list(self._symbols_by_file.keys())
 
-    def find_function(self, qualified_name: str) -> Optional[FunctionInfo]:
+    def find_function(self, qualified_name: str) -> Optional[FunctionSymbol]:
         """
         Find a function by its qualified name.
 
@@ -493,15 +431,15 @@ class DoxygenParser:
             qualified_name: Fully qualified name like "namespace::class::function"
 
         Returns:
-            FunctionInfo if found, None otherwise
+            FunctionSymbol if found, None otherwise
         """
         self.parse()
-        for func in self._functions.values():
-            if func.qualified_name == qualified_name:
-                return func
+        for symbol in self._symbols.values():
+            if isinstance(symbol, FunctionSymbol) and symbol.qualified_name == qualified_name:
+                return symbol
         return None
 
-    def get_call_graph(self, func: FunctionInfo, depth: int = 3) -> Dict[str, Set[str]]:
+    def get_call_graph(self, func: FunctionSymbol, depth: int = 3) -> Dict[str, Set[str]]:
         """
         Get the call graph starting from a function up to a certain depth.
 
@@ -516,7 +454,7 @@ class DoxygenParser:
         graph = {}
         visited = set()
 
-        def traverse(f: FunctionInfo, current_depth: int):
+        def traverse(f: FunctionSymbol, current_depth: int):
             if current_depth > depth or f.doxygen_id in visited:
                 return
             visited.add(f.doxygen_id)
@@ -530,22 +468,22 @@ class DoxygenParser:
         traverse(func, 0)
         return graph
 
-    def parse_all_symbols(self) -> List[Symbol]:
+    def parse_all_symbols(self) -> List[BaseSymbol]:
         """Parse Doxygen XML and return all symbols."""
         self.parse()
         return list(self._symbols.values())
 
-    def get_all_symbols(self) -> List[Symbol]:
+    def get_all_symbols(self) -> List[BaseSymbol]:
         """Get all parsed symbols."""
         self.parse()
         return list(self._symbols.values())
 
-    def get_symbols_by_kind(self, kind: str) -> List[Symbol]:
+    def get_symbols_by_kind(self, kind: SymbolKind) -> List[BaseSymbol]:
         """Get all symbols of a specific kind."""
         self.parse()
         return self._symbols_by_kind.get(kind, [])
 
-    def get_symbols_in_file(self, file_path: str) -> List[Symbol]:
+    def get_symbols_in_file(self, file_path: str) -> List[BaseSymbol]:
         """Get all symbols in a specific file."""
         self.parse()
 
@@ -559,12 +497,12 @@ class DoxygenParser:
 
         return []
 
-    def get_symbol_by_id(self, doxygen_id: str) -> Optional[Symbol]:
+    def get_symbol_by_id(self, doxygen_id: str) -> Optional[BaseSymbol]:
         """Get a symbol by its Doxygen ID."""
         self.parse()
         return self._symbols.get(doxygen_id)
 
-    def find_symbol(self, qualified_name: str) -> Optional[Symbol]:
+    def find_symbol(self, qualified_name: str) -> Optional[BaseSymbol]:
         """Find a symbol by its qualified name."""
         self.parse()
         for symbol in self._symbols.values():
@@ -572,7 +510,7 @@ class DoxygenParser:
                 return symbol
         return None
 
-    def get_symbols_at_line(self, file_path: str, line: int) -> List[Symbol]:
+    def get_symbols_at_line(self, file_path: str, line: int) -> List[BaseSymbol]:
         """Get all symbols that contain a specific line."""
         symbols = self.get_symbols_in_file(file_path)
         return [s for s in symbols if s.line_start <= line <= s.line_end]
