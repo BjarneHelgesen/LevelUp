@@ -17,7 +17,10 @@ class BaseASMValidator(BaseValidator, ABC):
             r'(\?[\w@]+Z\b)|'     # Mangled names (e.g., ?func@@YAHXZ)
             r'(\$LN\d+@\w+)|'     # Local labels with function (e.g., $LN3@func)
             r'(\$LN\d+:?)|'       # Standalone local labels (e.g., $LN6, $LN6:)
-            r'(\$SG\d+)'          # String/data labels (e.g., $SG1234)
+            r'(\$SG\d+)|'         # String/data labels (e.g., $SG1234)
+            r'(\.LBB\d+_\d+)|'    # Clang basic block labels (e.g., .LBB0_1, .LBB1_3)
+            r'(\.Ltmp\d+)|'       # Clang temp labels (e.g., .Ltmp0)
+            r'(\.L[A-Z]+\d+)'     # Other Clang labels (e.g., .LCPI0_0)
         )
 
     def validate(self, original: CompiledFile, modified: CompiledFile) -> bool:
@@ -71,10 +74,10 @@ class BaseASMValidator(BaseValidator, ABC):
                     if identifier.startswith('?'):
                         local_map[identifier] = f'F{func_counter}'
                         func_counter += 1
-                    elif identifier.startswith('$LN'):
+                    elif identifier.startswith('$LN') or identifier.startswith('.LBB') or identifier.startswith('.Ltmp'):
                         local_map[identifier] = f'L{label_counter}'
                         label_counter += 1
-                    elif identifier.startswith('$SG'):
+                    elif identifier.startswith('$SG') or identifier.startswith('.L'):
                         local_map[identifier] = f'D{data_counter}'
                         data_counter += 1
                 return local_map.get(identifier, identifier)
@@ -196,21 +199,49 @@ class BaseASMValidator(BaseValidator, ABC):
         current_func = None
         current_body = []
         in_debug_section = False
+        in_text_section = True  # Start assuming we're in .text (code) section
 
         for line in asm_content.splitlines():
             line = line.rstrip()
 
-            # Skip debug sections entirely
-            if line.strip().startswith('.section') and 'debug' in line.lower():
-                in_debug_section = True
+            # Track section changes
+            if line.strip().startswith('.section'):
+                # Save current function before changing sections
+                if current_func and current_body:
+                    functions[current_func] = current_body
+                current_func = None
+                current_body = []
+
+                # Check if this is a code section (.text) or data section (.bss, .data, etc.)
+                if 'debug' in line.lower():
+                    in_debug_section = True
+                    in_text_section = False
+                elif '.text' in line:
+                    in_debug_section = False
+                    in_text_section = True
+                else:
+                    # Other sections (.bss, .data, .rodata, etc.) are not code
+                    in_debug_section = False
+                    in_text_section = False
                 continue
 
-            # Exit debug section when we hit another section or function
+            # .text directive puts us back in code section
+            if line.strip() == '.text':
+                in_text_section = True
+                in_debug_section = False
+                if current_func and current_body:
+                    functions[current_func] = current_body
+                current_func = None
+                current_body = []
+                continue
+
+            # Skip debug sections entirely
             if in_debug_section:
-                if line.strip().startswith('.text') or line.strip().startswith('.globl'):
-                    in_debug_section = False
-                else:
-                    continue
+                continue
+
+            # Skip non-code sections
+            if not in_text_section:
+                continue
 
             # Strip comments (Clang uses # for comments)
             if '#' in line:
@@ -221,6 +252,15 @@ class BaseASMValidator(BaseValidator, ABC):
             line = ' '.join(line.split())
 
             if not line:
+                continue
+
+            # Detect function end/start markers
+            if line.startswith('.globl') or line.startswith('.addrsig'):
+                # Save current function and reset
+                if current_func and current_body:
+                    functions[current_func] = current_body
+                current_func = None
+                current_body = []
                 continue
 
             # Detect function start: label followed by colon (e.g., "main:" or "\"?add@@YAHHH@Z\":")
@@ -234,17 +274,8 @@ class BaseASMValidator(BaseValidator, ABC):
                     current_body = []
                 continue
 
-            # Detect function end: next .globl, next function label, or other section markers
+            # Collect actual instructions within functions
             if current_func:
-                # Check for end markers (sections, metadata, etc.)
-                if (line.startswith('.globl') or line.startswith('.addrsig') or
-                    line.startswith('.section') or line == '.text'):
-                    # Save current function and reset
-                    if current_body:  # Only save if we collected some instructions
-                        functions[current_func] = current_body
-                    current_func = None
-                    current_body = []
-                    continue
 
                 # Skip assembler directives and metadata
                 if any(line.startswith(p) for p in ['.seh_', '.def', '.scl', '.type', '.endef',

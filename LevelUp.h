@@ -1,6 +1,8 @@
 #ifndef LEVELUP_H
 #define LEVELUP_H
 
+#include <type_traits>
+
 #ifdef LEVELUP_USE_STD_UNIQUE_PTR
     #include <memory>
 #endif

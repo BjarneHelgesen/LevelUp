@@ -23,7 +23,7 @@ class ClangCompiler(BaseCompiler):
         levelup_header = Path(__file__).parent.parent.parent / "LevelUp.h"
 
         self.default_flags = [
-            '-std=c++17',
+            '-std=c++20',
             '-Wall',
             f'-include',
             str(levelup_header),

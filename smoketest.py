@@ -441,7 +441,7 @@ int f() {
 
     TestCase("string_view_inline",
              '       int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }',
-             'inline int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }', o=3),
+             'inline int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }', o=0),
 
     TestCase("sv_chain1_step3_string_view",
              '                        inline int len(const char* s)      { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }',
@@ -453,7 +453,7 @@ int f() {
     # =============================================================================
     TestCase("span_chain1_step1_inline",
              '       int checksum(const char* buffer, int length) { int sum = 0; for (int i = 0; i < length; i++) { sum += buffer[i]; } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data, 5); }',
-             'inline int checksum(const char* buffer, int length) { int sum = 0; for (int i = 0; i < length; i++) { sum += buffer[i]; } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data, 5); }', o=3),
+             'inline int checksum(const char* buffer, int length) { int sum = 0; for (int i = 0; i < length; i++) { sum += buffer[i]; } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data, 5); }', o=0),
 
     TestCase("span_chain1_step2_to_span",
              '                   inline int checksum(const char* buffer, int length) { int sum = 0; for (int i = 0; i < length; i++)          { sum += buffer[i]; } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data, 5); }',

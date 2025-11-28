@@ -10,7 +10,8 @@ import re
 from .. import logger
 from .symbols import SymbolKind, BaseSymbol, FunctionSymbol, ClassSymbol, EnumSymbol, SymbolFactory
 
-
+# Type alias for backward compatibility
+FunctionInfo = FunctionSymbol
 
 
 class DoxygenParser:
