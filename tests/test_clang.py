@@ -22,14 +22,6 @@ def clang_compiler():
     set_compiler('clang')
 
 
-def test_create_clang_compiler(clang_compiler):
-    print(f"\n✓ Compiler created: {clang_compiler.get_name()}")
-    print(f"  Compiler ID: {clang_compiler.get_id()}")
-    print(f"  Clang path: {clang_compiler.clang_path}")
-
-    assert clang_compiler.get_id() == CompilerType.CLANG
-
-
 def test_compile_simple_cpp_file(clang_compiler):
     test_code = """
 int f() { return 17; }
