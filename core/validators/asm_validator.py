@@ -15,7 +15,8 @@ class BaseASMValidator(BaseValidator, ABC):
         # Pattern for identifiers to canonicalize within function bodies
         self.identifier_pattern = re.compile(
             r'(\?[\w@]+Z\b)|'     # Mangled names (e.g., ?func@@YAHXZ)
-            r'(\$LN\d+@\w+)|'     # Local labels (e.g., $LN3@func)
+            r'(\$LN\d+@\w+)|'     # Local labels with function (e.g., $LN3@func)
+            r'(\$LN\d+:?)|'       # Standalone local labels (e.g., $LN6, $LN6:)
             r'(\$SG\d+)'          # String/data labels (e.g., $SG1234)
         )
 

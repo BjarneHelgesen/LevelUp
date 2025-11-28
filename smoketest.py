@@ -337,14 +337,14 @@ int f() {
     # =============================================================================
     # OWNERSHIP/LIFETIME: use unique_ptr instead of malloc and free:
     # =============================================================================
-    #TestCase("unique_ptr_simple",  '#include <memory>\n  int f() noexcept { int* p = new int; *p = 17; int x = *p; delete p; return x; }',
-    #                               '#include <memory>\n  int f() noexcept { std::unique_ptr<int> p = std::make_unique<int>(); *p = 17; return *p; }', o=0),
+    TestCase("unique_ptr_simple",  'int f() noexcept { int* p = new int; *p = 17; int x = *p; delete p; return x; }',
+                                   'int f() noexcept { LevelUp::unique_ptr<int> p = LevelUp::make_unique<int>(); *p = 17; return *p; }', o=3),
 
     # =============================================================================
     # OWNERSHIP/LIFETIME: use unique_ptr instead traditional RAII:
     # =============================================================================
-    #TestCase("unique_ptr_RAII",    '#include <memory>\n class f { public: f() : p(new int)                 {*p = 17;} ~f() {delete p;} operator int() {return *p;} private: int* p; };',
-    #                               '#include <memory>\n class f { public: f() : p(std::make_unique<int>()) {*p = 17;}                  operator int() {return *p;} private: std::unique_ptr<int> p; };', o=3),
+    TestCase("unique_ptr_RAII",    'class f { public: f() : p(new int)                         {*p = 17;} ~f() {delete p;} operator int() {return *p;} private: int* p; };',
+                                   'class f { public: f() : p(LevelUp::make_unique<int>()) {*p = 17;}                  operator int() {return *p;} private: LevelUp::unique_ptr<int> p; };', o=3),
 
     # =============================================================================
     # REFACTOR: simplify boolean expressions
