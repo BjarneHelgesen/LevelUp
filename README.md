@@ -120,13 +120,16 @@ Regression-free does not mean the exact same behaviour. There can be differences
 * All performance improvements are allowed
 
 ### ASM Validation
-The current validator ensures zero regression by comparing the builds from two versions of the source code. both builds have the same optimization settings. Subsequent builds may use different optimization settings and other compiler options. 
+The current validator ensures zero regression by comparing the builds from two versions of the source code. both builds have the same optimization settings. Subsequent builds may use different optimization settings and other compiler options. We may switch between any supported compilers. 
 
-
-### Acceptable Differences
-The validator allows:
+The ASM validator allows:
 - Function reordering
 - NOPs and alignment changes
+
+### Library Replacement Validation
+We will validate that replacing one library function with another does not introduce regressions. We may write naiive library functions and require that standard library functions don't regress from the naiive implementation. The advantage is that we have full control over the naiive impementation, which makes is easier to prove it equal to the old, potentially naiive, source.  
+e.g. if LevelUp::unique_ptr<T> works, then we guarantee that replacing it with std::unique_ptr<T> will not introduce regressions. 
+This does not validated that LevelUp::unique_ptr<T> works, just that the change to std::unique_ptr<T> does not introduce regressions
 
 ### Result Statuses
 - **SUCCESS**: All files passed validation
@@ -213,6 +216,15 @@ The architecture allows adding:
 * New refactorings
 * New validators
 * New mods
+* 
+## Limitations
+These types of nonstandard or Undefined Behaviour breaks the guarantee of no regressions and may or may not be rejected by LevelUp: 
+* Linking in different code than what was compiled
+* Relying on perator new returning nullptr when Out of Memory
+* Goto out of functions
+* Values retrieved by dereferencing dangling pointers (use after delete, invalid stack frames, etc) 
+* Memory mapped IO that is not marked as volatile
+* Missing synchronizatino (i.e. regressions caused by performance differences )  
 
 ## Future enhancements
 * Mod, Refactor and validate against multiple builds (multiple repos, multiple branches, multiple platforms, multiple compilers, multiple compiler flags)
