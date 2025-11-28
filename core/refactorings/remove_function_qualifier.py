@@ -37,6 +37,8 @@ class RemoveFunctionQualifier(RefactoringBase):
         """
         try:
             file_path = Path(symbol.file_path)
+            if not file_path.is_absolute():
+                file_path = self.repo.repo_path / file_path
             if not file_path.exists():
                 return None
 

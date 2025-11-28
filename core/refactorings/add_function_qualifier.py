@@ -36,6 +36,8 @@ class AddFunctionQualifier(RefactoringBase):
         """
         try:
             file_path = Path(symbol.file_path)
+            if not file_path.is_absolute():
+                file_path = self.repo.repo_path / file_path
             if not file_path.exists():
                 return None
 
@@ -74,6 +76,56 @@ class AddFunctionQualifier(RefactoringBase):
                 import re
                 if re.search(r'\b' + re.escape(qualifier) + r'\b', line):
                     return None
+
+                # For override/final qualifiers, detect out-of-line definitions
+                # These qualifiers only apply to in-class declarations, not definitions
+                # Out-of-line definitions have ClassName:: in them
+                if qualifier in ['override', 'final'] and '::' in line:
+                    # This is an out-of-line definition - find the in-class declaration
+                    # Search backwards for the in-class declaration
+                    # Pattern: look for same function name without ::, ending in ; or { }
+                    func_name = symbol.name
+                    class_name = symbol.qualified_name.rsplit('::', 1)[0] if '::' in symbol.qualified_name else ''
+
+                    # Search for in-class declaration
+                    # Strategy: Find the class definition, then search within it for the declaration
+                    declaration_line_num = None
+                    class_start = None
+                    class_end = None
+
+                    # First, find the class boundaries
+                    for i in range(line_number - 1, -1, -1):
+                        check_line = lines[i]
+                        if class_name and (f'struct {class_name}' in check_line or f'class {class_name}' in check_line):
+                            class_start = i
+                            # Find the closing brace
+                            brace_depth = 0
+                            for j in range(i, len(lines)):
+                                brace_depth += lines[j].count('{') - lines[j].count('}')
+                                if brace_depth == 0 and '}' in lines[j]:
+                                    class_end = j
+                                    break
+                            break
+
+                    # Now search within the class for the declaration
+                    if class_start is not None and class_end is not None:
+                        for i in range(class_start, class_end + 1):
+                            check_line = lines[i]
+                            # Look for declaration: has function name, has ), has ; or virtual
+                            if (func_name in check_line and '(' in check_line and ')' in check_line
+                                and ('virtual' in check_line or ';' in check_line)):
+                                # Verify it's not a :: definition
+                                if '::' not in check_line:
+                                    declaration_line_num = i + 1
+                                    break
+
+                    if declaration_line_num:
+                        # Use the declaration line instead
+                        line_number = declaration_line_num
+                        line = lines[line_number - 1]
+                    else:
+                        # Can't find declaration, skip this refactoring
+                        return None
 
                 # Find the position to insert qualifier
                 # Look for patterns: ") {", ");", ") override {", ") const;", etc.
