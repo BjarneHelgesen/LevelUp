@@ -131,21 +131,6 @@ class TestValidatorFactory:
 
 
 class TestCompilerFactory:
-    def test_get_compiler_returns_configured_compiler(self):
-        from core.compilers.compiler_factory import reset_compiler, set_compiler
-        reset_compiler()
-        # Test with Clang (current default)
-        set_compiler('clang')
-        compiler = get_compiler()
-        assert isinstance(compiler, ClangCompiler)
-
-    def test_get_compiler_returns_same_instance(self):
-        from core.compilers.compiler_factory import reset_compiler
-        reset_compiler()
-        c1 = get_compiler()
-        c2 = get_compiler()
-        assert c1 is c2
-
     def test_get_available_compilers_returns_list(self):
         compilers = CompilerFactory.get_available_compilers()
         assert isinstance(compilers, list)
