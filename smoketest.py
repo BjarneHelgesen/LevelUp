@@ -454,6 +454,9 @@ MOD_SMOKE_TESTS = [
 
 
 def run_validator_smoke_tests(compilers):
+    total_passed = 0
+    total_failed = 0
+
     for compiler_type in compilers:
         print(f"\n{'=' * 60}")
         print(f"Testing with compiler: {compiler_type.value}")
@@ -495,14 +498,21 @@ def run_validator_smoke_tests(compilers):
 
                 if result:
                     print(f"  PASS")
+                    total_passed += 1
                 else:
                     print(f"  FAIL - validator returned False (expected True)")
                     print(f"  Original ASM:\n{original_compiled.asm_output}")
                     print(f"  Modified ASM:\n{modified_compiled.asm_output}")
+                    total_failed += 1
+
+    return total_passed, total_failed
 
 
 
 def run_mod_smoke_tests():
+    total_passed = 0
+    total_failed = 0
+
     for test in MOD_SMOKE_TESTS:
         print(f"\nRunning: {test.name}")
 
@@ -532,10 +542,14 @@ def run_mod_smoke_tests():
 
             if result == test.expected:
                 print(f"  PASS")
+                total_passed += 1
             else:
                 print(f"  FAIL - output does not match expected")
                 print(f"  Expected:\n{repr(test.expected)}")
                 print(f"  Got:\n{repr(result)}")
+                total_failed += 1
+
+    return total_passed, total_failed
 
 
 def run_chained_refactoring_tests(compilers):
@@ -547,6 +561,9 @@ def run_chained_refactoring_tests(compilers):
     import subprocess
     import gc
     import platform
+
+    total_passed = 0
+    total_failed = 0
 
     for compiler_type in compilers:
         print(f"\n{'=' * 60}")
@@ -828,6 +845,7 @@ int main() {
 
                 if symbol is None:
                     print(f"  FAIL - Could not find symbol '{symbol_name}'")
+                    total_failed += 1
                     continue
 
                 # Get validator and optimization level
@@ -842,6 +860,7 @@ int main() {
                     )
                 except Exception as e:
                     print(f"  FAIL - Original compilation failed: {e}")
+                    total_failed += 1
                     continue
 
                 # Apply refactoring
@@ -850,12 +869,14 @@ int main() {
 
                 if git_commit is None:
                     print(f"  FAIL - Refactoring returned None (not applicable)")
+                    total_failed += 1
                     continue
 
                 # Check that file was modified
                 content_after = source_file.read_text()
                 if content_before == content_after:
                     print(f"  FAIL - No changes made to file (refactoring must make changes)")
+                    total_failed += 1
                     continue
 
                 print(f"  File modified: {len(content_after)} bytes (was {len(content_before)} bytes)")
@@ -869,6 +890,7 @@ int main() {
                     print(f"  FAIL - Modified compilation failed: {e}")
                     # Rollback for next test
                     source_file.write_text(content_before)
+                    total_failed += 1
                     continue
 
                 # Validate
@@ -876,9 +898,11 @@ int main() {
 
                 if is_valid:
                     print(f"  PASS - Validation successful")
+                    total_passed += 1
                     # Keep the change (commit already created by refactoring)
                 else:
                     print(f"  FAIL - Validation failed")
+                    total_failed += 1
                     # Rollback
                     source_file.write_text(content_before)
 
@@ -901,6 +925,8 @@ int main() {
                 print(f"\n  WARNING: Could not clean up temp directory: {temp_dir}")
                 pass
 
+    return total_passed, total_failed
+
 
 def get_default_compiler():
     """Get the default compiler """
@@ -909,13 +935,33 @@ def get_default_compiler():
 
 def run_smoke_tests(compilers):
     print_header("VALIDATOR SMOKE TESTS")
-    run_validator_smoke_tests(compilers)
+    validator_passed, validator_failed = run_validator_smoke_tests(compilers)
 
     print_header("MOD SMOKE TESTS")
-    run_mod_smoke_tests()
+    mod_passed, mod_failed = run_mod_smoke_tests()
 
     print_header("CHAINED REFACTORING TESTS")
-    run_chained_refactoring_tests(compilers)
+    chain_passed, chain_failed = run_chained_refactoring_tests(compilers)
+
+    # Print final summary
+    total_passed = validator_passed + mod_passed + chain_passed
+    total_failed = validator_failed + mod_failed + chain_failed
+    total_tests = total_passed + total_failed
+
+    print("\n" + "=" * 60)
+    print("FINAL TEST SUMMARY")
+    print("=" * 60)
+    print(f"Validator tests:           {validator_passed:3d} passed, {validator_failed:3d} failed")
+    print(f"Mod tests:                 {mod_passed:3d} passed, {mod_failed:3d} failed")
+    print(f"Chained refactoring tests: {chain_passed:3d} passed, {chain_failed:3d} failed")
+    print("-" * 60)
+    print(f"TOTAL:                     {total_passed:3d} passed, {total_failed:3d} failed ({total_tests} total)")
+    print("=" * 60)
+
+    if total_failed == 0:
+        print("\nAll tests PASSED!")
+    else:
+        print(f"\n{total_failed} test(s) FAILED")
 
 
 if __name__ == "__main__":
