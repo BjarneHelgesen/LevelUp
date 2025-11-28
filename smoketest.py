@@ -51,7 +51,9 @@ class TestCase:
         name: str,
         source: str,
         modified_source: str,
-        o: int = 0
+        o: int = 0,
+        additional_flags: str = None,
+        modified_additional_flags: str = None
     ):
         """
         Args:
@@ -59,11 +61,15 @@ class TestCase:
             source: Source implementing int f() before transformation
             modified_source: Source after transformation
             o: Optimization level for validation
+            additional_flags: Compiler flags for original source (e.g., preprocessor defines)
+            modified_additional_flags: Compiler flags for modified source (defaults to additional_flags)
         """
         self.name = name
         self.source = source + SCAFFOLD
         self.modified_source = modified_source + SCAFFOLD
         self.optimization_level = o
+        self.additional_flags = additional_flags
+        self.modified_additional_flags = modified_additional_flags if modified_additional_flags is not None else additional_flags
 
 
 SMOKE_TESTS = \
@@ -347,6 +353,17 @@ int f() {
                                    'class f { public: f() : p(LevelUp::make_unique<int>()) {*p = 17;}                  operator int() {return *p;} private: LevelUp::unique_ptr<int> p; };', o=3),
 
     # =============================================================================
+    # OWNERSHIP/LIFETIME: verify LevelUp::unique_ptr with std impl == std::unique_ptr
+    # This test validates that LevelUp::unique_ptr (when using LEVELUP_USE_STD_UNIQUE_PTR)
+    # produces identical assembly to std::unique_ptr, proving behavioral equivalence
+    # =============================================================================
+    TestCase("unique_ptr_levelup_std_equiv",
+             '#include <memory>\nint f() noexcept { std::unique_ptr<int> p = std::make_unique<int>(); *p = 17; return *p; }',
+             'int f() noexcept { LevelUp::unique_ptr<int> p = LevelUp::make_unique<int>(); *p = 17; return *p; }',
+             o=3,
+             modified_additional_flags='/DLEVELUP_USE_STD_UNIQUE_PTR'),
+
+    # =============================================================================
     # REFACTOR: simplify boolean expressions
     # =============================================================================
     TestCase("simplify_bool_comparison", 'int f() { bool b = true; if (b == true) { return 10; } return 0; }',
@@ -487,11 +504,23 @@ def run_validator_smoke_tests(compilers):
                 original_file.write_text(test.source)
                 modified_file.write_text(test.modified_source)
 
+                # Convert flags for current compiler (MSVC uses /D, Clang uses -D)
+                def convert_flags(flags):
+                    if flags is None:
+                        return None
+                    if compiler_type == CompilerType.CLANG:
+                        return flags.replace('/D', '-D')
+                    return flags
+
                 original_compiled = compiler.compile_file(
-                    original_file, optimization_level=test.optimization_level
+                    original_file,
+                    additional_flags=convert_flags(test.additional_flags),
+                    optimization_level=test.optimization_level
                 )
                 modified_compiled = compiler.compile_file(
-                    modified_file, optimization_level=test.optimization_level
+                    modified_file,
+                    additional_flags=convert_flags(test.modified_additional_flags),
+                    optimization_level=test.optimization_level
                 )
 
                 result = validator.validate(original_compiled, modified_compiled)
