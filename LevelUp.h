@@ -1,8 +1,26 @@
 #ifndef LEVELUP_H
 #define LEVELUP_H
 
+#ifdef LEVELUP_USE_STD_UNIQUE_PTR
+    #include <memory>
+#endif
+
 namespace LevelUp {
 
+#ifdef LEVELUP_USE_STD_UNIQUE_PTR
+
+// Use std::unique_ptr implementation
+template<typename T>
+using unique_ptr = std::unique_ptr<T>;
+
+template<typename T, typename... Args>
+auto make_unique(Args&&... args) -> decltype(std::make_unique<T>(std::forward<Args>(args)...)) {
+    return std::make_unique<T>(std::forward<Args>(args)...);
+}
+
+#else
+
+// Use LevelUp custom implementation
 template<typename T>
 class unique_ptr {
 private:
@@ -124,6 +142,8 @@ template<typename T>
 unique_ptr<T> make_unique(size_t size) {
     return unique_ptr<T>(new typename std::remove_extent<T>::type[size]());
 }
+
+#endif
 
 }
 
