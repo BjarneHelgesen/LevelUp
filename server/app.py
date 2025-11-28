@@ -25,6 +25,7 @@ from core.mod_request import ModRequest
 from core.mod_processor import ModProcessor
 from core.doxygen import DoxygenRunner
 from core import logger
+from core.tool_config import ToolConfig
 
 # Track Doxygen generation status per repo
 doxygen_status: Dict[str, dict] = {}
@@ -38,12 +39,13 @@ mod_queue = queue.Queue()
 results: Dict[str, Result] = {}  # Store results by mod_id
 
 # Configuration
+tool_config = ToolConfig()
 CONFIG = {
     'workspace': Path('workspace'),
     'repos': Path('workspace/repos'),
     'temp': Path('workspace/temp'),
-    'git_path': os.environ.get('GIT_PATH', 'git'),
-    'doxygen_path': os.environ.get('DOXYGEN_PATH', 'doxygen'),
+    'git_path': tool_config.git_path,
+    'doxygen_path': tool_config.doxygen_path,
 }
 
 # Ensure workspace directories exist

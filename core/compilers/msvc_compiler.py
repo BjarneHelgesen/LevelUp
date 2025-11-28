@@ -6,6 +6,7 @@ from .base_compiler import BaseCompiler
 from .compiled_file import CompiledFile
 from .compiler_type import CompilerType
 from .. import logger
+from ..tool_config import ToolConfig
 
 
 class MSVCCompiler(BaseCompiler):
@@ -16,65 +17,18 @@ class MSVCCompiler(BaseCompiler):
         3: '/Ox',
     }
 
-    # Class-level cache for expensive initialization
-    _cache = {}
-
-    def __init__(self, arch="x64"):
-        logger.info(f"Initializing MSVCCompiler with arch={arch}")
-        self.arch = arch
+    def __init__(self):
+        logger.info("Initializing MSVCCompiler")
         self.default_flags = [
             '/EHsc',
             '/nologo',
             '/W3',
         ]
 
-        # Check cache first
-        cache_key = f"msvc_{arch}"
-        if cache_key in MSVCCompiler._cache:
-            cached = MSVCCompiler._cache[cache_key]
-            self.vcvarsall = cached['vcvarsall']
-            self.env = cached['env']
-            self.cl_path = cached['cl_path']
-            logger.info(f"MSVCCompiler initialized from cache: cl.exe at {self.cl_path}")
-            return
-
-        # Locate vswhere
-        vswhere = r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-        logger.assert_true(Path(vswhere).exists(), f"vswhere.exe not found at {vswhere}")
-
-        # Query VS installation path
-        logger.debug(f"Running vswhere to find VS installation")
-        result = subprocess.run(
-            [vswhere, "-latest", "-products", "*", "-property", "installationPath"],
-            capture_output=True,
-            text=True
-        )
-        install_path = result.stdout.strip()
-        logger.assert_true(install_path, "vswhere returned empty installation path")
-
-        logger.debug(f"Found VS installation at: {install_path}")
-
-        # Locate vcvarsall.bat
-        self.vcvarsall = Path(install_path) / "VC" / "Auxiliary" / "Build" / "vcvarsall.bat"
-        logger.assert_true(self.vcvarsall.exists(), f"vcvarsall.bat not found at: {self.vcvarsall}")
-
-        # Extract environment variables set by vcvarsall
-        logger.debug("Loading MSVC environment variables")
-        self.env = self._load_msvc_environment()
-
-        # Locate cl.exe
-        cl_path = self._find_cl()
-        logger.assert_true(cl_path, "cl.exe not found in configured environment PATH")
-        self.cl_path = cl_path
+        config = ToolConfig()
+        self.cl_path = config.cl_path
+        logger.assert_true(Path(self.cl_path).exists(), f"cl.exe not found at {self.cl_path}")
         logger.info(f"MSVCCompiler initialized with cl.exe at: {self.cl_path}")
-
-        # Cache the results
-        MSVCCompiler._cache[cache_key] = {
-            'vcvarsall': self.vcvarsall,
-            'env': self.env,
-            'cl_path': self.cl_path
-        }
-        logger.debug(f"Cached MSVC compiler configuration for {cache_key}")
 
     @staticmethod
     def get_id() -> CompilerType:
@@ -85,31 +39,6 @@ class MSVCCompiler(BaseCompiler):
     def get_name() -> str:
         return "Microsoft Visual C++"
 
-    def _load_msvc_environment(self):
-        cmd = f'"{self.vcvarsall}" {self.arch} && set'
-
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True
-        )
-
-        if result.returncode != 0:
-            raise RuntimeError("Failed to run vcvarsall.bat")
-
-        env = {}
-        for line in result.stdout.splitlines():
-            if "=" in line:
-                key, val = line.split("=", 1)
-                env[key.upper()] = val
-        return env
-
-    def _find_cl(self):
-        path_dirs = self.env.get("PATH", "").split(";")
-        for p in path_dirs:
-            cl = Path(p) / "cl.exe"
-            if cl.exists():
-                return str(cl)
-        return None
-
     def _run_cl(self, args, cwd=None, check=True):
         cmd = [self.cl_path] + args
         logger.debug(f"Running cl.exe: {' '.join(cmd)}")
@@ -119,8 +48,7 @@ class MSVCCompiler(BaseCompiler):
             cwd=cwd,
             capture_output=True,
             text=True,
-            check=check,
-            env=self.env
+            check=check
         )
 
         if result.returncode != 0:

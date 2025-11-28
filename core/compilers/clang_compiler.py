@@ -6,6 +6,7 @@ from .base_compiler import BaseCompiler
 from .compiled_file import CompiledFile
 from .compiler_type import CompilerType
 from .. import logger
+from ..tool_config import ToolConfig
 
 
 class ClangCompiler(BaseCompiler):
@@ -16,39 +17,16 @@ class ClangCompiler(BaseCompiler):
         3: '-O3',
     }
 
-    # Class-level cache for expensive initialization
-    _cached_clang_path = None
-    _cached_version = None
-
-    def __init__(self, clang_path: str = None):
-        logger.info(f"Initializing ClangCompiler with path={clang_path}")
-
-        # Check cache first (only if auto-discovering)
-        if clang_path is None and ClangCompiler._cached_clang_path is not None:
-            self.clang_path = ClangCompiler._cached_clang_path
-            self.default_flags = [
-                '-std=c++17',
-                '-Wall',
-            ]
-            logger.info(f"ClangCompiler initialized from cache: {ClangCompiler._cached_version}")
-            return
-
-        # Auto-discover clang++ if not provided
-        if clang_path is None:
-            clang_path = self._find_clang()
-            if clang_path is None:
-                raise RuntimeError(
-                    "clang++ not found. Please install LLVM/Clang from https://releases.llvm.org/ "
-                    "or set the path manually."
-                )
-
-        self.clang_path = clang_path
+    def __init__(self):
+        logger.info("Initializing ClangCompiler")
         self.default_flags = [
             '-std=c++17',
             '-Wall',
         ]
 
-        # Verify clang is available
+        config = ToolConfig()
+        self.clang_path = config.clang_path
+
         try:
             result = subprocess.run(
                 [self.clang_path, '--version'],
@@ -56,17 +34,11 @@ class ClangCompiler(BaseCompiler):
                 text=True
             )
             if result.returncode != 0:
-                raise RuntimeError(f"clang not found at {clang_path}")
+                raise RuntimeError(f"clang not found at {self.clang_path}")
             version_line = result.stdout.splitlines()[0]
             logger.info(f"ClangCompiler initialized: {version_line}")
-
-            # Cache the results (only if auto-discovered)
-            if clang_path == self._find_clang():
-                ClangCompiler._cached_clang_path = self.clang_path
-                ClangCompiler._cached_version = version_line
-                logger.debug(f"Cached clang compiler configuration")
         except FileNotFoundError:
-            raise RuntimeError(f"clang not found at {clang_path}")
+            raise RuntimeError(f"clang not found at {self.clang_path}")
 
     @staticmethod
     def get_id() -> CompilerType:
@@ -76,35 +48,6 @@ class ClangCompiler(BaseCompiler):
     @staticmethod
     def get_name() -> str:
         return "Clang/LLVM"
-
-    def _find_clang(self):
-        """Auto-discover clang++ installation."""
-        # Try PATH first
-        try:
-            result = subprocess.run(
-                ['clang++', '--version'],
-                capture_output=True,
-                text=True
-            )
-            if result.returncode == 0:
-                logger.debug("Found clang++ in PATH")
-                return 'clang++'
-        except FileNotFoundError:
-            pass
-
-        # Try common Windows installation locations
-        common_paths = [
-            r"C:\Program Files\LLVM\bin\clang++.exe",
-            r"C:\Program Files (x86)\LLVM\bin\clang++.exe",
-        ]
-
-        for path in common_paths:
-            if Path(path).exists():
-                logger.debug(f"Found clang++ at {path}")
-                return path
-
-        logger.warning("clang++ not found in PATH or common installation locations")
-        return None
 
     def _run_clang(self, args, cwd=None, check=True):
         cmd = [self.clang_path] + args
