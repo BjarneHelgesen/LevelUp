@@ -19,9 +19,14 @@ class ClangCompiler(BaseCompiler):
 
     def __init__(self):
         logger.info("Initializing ClangCompiler")
+
+        levelup_header = Path(__file__).parent.parent.parent / "LevelUp.h"
+
         self.default_flags = [
             '-std=c++17',
             '-Wall',
+            f'-include',
+            str(levelup_header),
         ]
 
         config = ToolConfig()

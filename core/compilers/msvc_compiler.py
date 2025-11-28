@@ -21,10 +21,14 @@ class MSVCCompiler(BaseCompiler):
 
     def __init__(self):
         logger.info("Initializing MSVCCompiler")
+
+        levelup_header = Path(__file__).parent.parent.parent / "LevelUp.h"
+
         self.default_flags = [
             '/EHsc',
             '/nologo',
             '/W3',
+            f'/FI{levelup_header}',
         ]
 
         config = ToolConfig()
