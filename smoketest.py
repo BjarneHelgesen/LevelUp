@@ -432,6 +432,50 @@ int f() {
     TestCase("add_inline_namespace",    'namespace lib                       { struct S { int x; }; }   int f() { lib::S s; s.x = 5; return s.x; }',
                                         'namespace lib { inline namespace v1 { struct S { int x; }; } } int f() { lib::S s; s.x = 5; return s.x; }', o=0),
 
+    # =============================================================================
+    # REPLACE: const char* -> std::string_view (multi-step modernization)
+    # These tests demonstrate progressive modernization from char* to std::string_view
+    # Each step is validated using ASM comparison to ensure no behavior change
+    # =============================================================================
+
+    # Step 1: char* -> const char* (const correctness, ASM-equivalent)
+    TestCase("char_ptr_to_const_char_ptr",
+             'int len(char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len((char*)"hello"); }',
+             'int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }', o=0),
+
+    # Step 2a: Add std::string_view overload alongside const char* version
+    # This intermediate step allows gradual migration
+    TestCase("add_string_view_overload",
+             '#include <string_view>\ninline int len_sv(const char* s) { int i = 0; while(s[i]) i++; return i; } inline int len_sv(std::string_view s) { return len_sv(s.data()); } int f() { return len_sv("hello"); }',
+             '#include <string_view>\ninline int len_sv(std::string_view s) { return len_sv(s.data()); } inline int len_sv(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len_sv("hello"); }', o=3),
+
+    # Step 2b: const char* parameter accepts string_view via .data() without changing implementation
+    # This shows the parameter type can change while keeping same logic (requires O3 for inlining)
+    TestCase("const_char_ptr_param_unchanged",
+             '#include <string_view>\ninline int get_first(const char* s) { return s[0]; } int f() { return get_first("test"); }',
+             '#include <string_view>\ninline int get_first(std::string_view s) { return s.data()[0]; } int f() { return get_first("test"); }', o=3),
+
+    # Step 2c: Use string_view's length() but verify ASM equivalence with O3
+    TestCase("string_view_use_length",
+             '#include <string_view>\ninline int is_empty(const char* s) { return s[0] == 0; } int f() { return is_empty(""); }',
+             '#include <string_view>\ninline int is_empty(std::string_view s) { return s.length() == 0; } int f() { return is_empty(""); }', o=3),
+
+    # Step 3: Complete example showing progressive transformation
+    # Step 3a: char* -> const char*
+    TestCase("progressive_step1_add_const",
+             'int first_char(char* str) { return *str; } int f() { return first_char((char*)"abc"); }',
+             'int first_char(const char* str) { return *str; } int f() { return first_char("abc"); }', o=0),
+
+    # Step 3b: const char* -> std::string_view using .data() (requires O3 for inlining)
+    TestCase("progressive_step2_string_view_data",
+             '#include <string_view>\ninline int first_char(const char* str) { return *str; } int f() { return first_char("abc"); }',
+             '#include <string_view>\ninline int first_char(std::string_view str) { return *str.data(); } int f() { return first_char("abc"); }', o=3),
+
+    # Step 3c: Use string_view operator[] for cleaner code (O3 optimizes to same ASM)
+    TestCase("progressive_step3_string_view_index",
+             '#include <string_view>\ninline int first_char(std::string_view str) { return *str.data(); } int f() { return first_char("abc"); }',
+             '#include <string_view>\ninline int first_char(std::string_view str) { return str[0]; } int f() { return first_char("abc"); }', o=3),
+
 ]
 
 
