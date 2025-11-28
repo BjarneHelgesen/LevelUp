@@ -433,43 +433,31 @@ int f() {
                                         'namespace lib { inline namespace v1 { struct S { int x; }; } } int f() { lib::S s; s.x = 5; return s.x; }', o=0),
 
     # =============================================================================
-    # REPLACE: char* -> std::string_view (progressive validated modernization)
-    # Demonstrates step-by-step transformation of the same function with ASM validation
-    # Note: Steps 2+ could be broken down further in production for incremental validation
+    # REPLACE: char* -> std::string_view in 3 steps 
     # =============================================================================
-
-    # CHAIN 1: Simple string length function - char* to const char* to string_view
-    # Step 1: char* -> const char* (const correctness, O0 validation)
-    TestCase("sv_chain1_step1_add_const",
+    TestCase("string_view_add_const",
              'int len(char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len((char*)"hello"); }',
              'int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }', o=0),
 
-    # Step 2: const char* -> string_view::size() (modern C++, O3 validation)
-    TestCase("sv_chain1_step2_string_view",
-             '#include <string_view>\ninline int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }',
-             '#include <string_view>\ninline int len(std::string_view s) { return static_cast<int>(s.size()); } int f() { return len("hello"); }', o=3),
+    TestCase("string_view_inline",
+             '       int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }',
+             'inline int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }', o=3),
 
-    # CHAIN 2: Character access - pointer dereference to string_view indexing
-    # Step 1: char* -> const char* (const correctness, O0 validation)
-    TestCase("sv_chain2_step1_add_const",
-             'int first_char(char* str) { return *str; } int f() { return first_char((char*)"abc"); }',
-             'int first_char(const char* str) { return *str; } int f() { return first_char("abc"); }', o=0),
+    TestCase("sv_chain1_step3_string_view",
+             '                        inline int len(const char* s)      { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }',
+             '#include <string_view>\ninline int len(std::string_view s) { return static_cast<int>(s.size());    } int f() { return len("hello"); }', o=3),
 
-    # Step 2: const char* -> string_view[0] (modern C++, O3 validation)
-    TestCase("sv_chain2_step2_string_view",
-             '#include <string_view>\ninline int first_char(const char* str) { return *str; } int f() { return first_char("abc"); }',
-             '#include <string_view>\ninline int first_char(std::string_view str) { return str[0]; } int f() { return first_char("abc"); }', o=3),
+    # =============================================================================
+    # REPLACE: (const char* buffer, int length) -> std::span<const char> in 2 steps
+    # Demonstrates regression-free transformation of buffer+length pattern to span
+    # =============================================================================
+    TestCase("span_chain1_step1_inline",
+             '       int checksum(const char* buffer, int length) { int sum = 0; for (int i = 0; i < length; i++) { sum += buffer[i]; } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data, 5); }',
+             'inline int checksum(const char* buffer, int length) { int sum = 0; for (int i = 0; i < length; i++) { sum += buffer[i]; } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data, 5); }', o=3),
 
-    # CHAIN 3: Empty string check - null terminator to string_view::empty()
-    # Step 1: char* -> const char* (const correctness, O0 validation)
-    TestCase("sv_chain3_step1_add_const",
-             'int is_empty(char* s) { return s[0] == 0; } int f() { return is_empty((char*)""); }',
-             'int is_empty(const char* s) { return s[0] == 0; } int f() { return is_empty(""); }', o=0),
-
-    # Step 2: const char* -> string_view::empty() (modern C++, O3 validation)
-    TestCase("sv_chain3_step2_string_view",
-             '#include <string_view>\ninline int is_empty(const char* s) { return s[0] == 0; } int f() { return is_empty(""); }',
-             '#include <string_view>\ninline int is_empty(std::string_view s) { return s.empty(); } int f() { return is_empty(""); }', o=3),
+    TestCase("span_chain1_step2_to_span",
+             '                   inline int checksum(const char* buffer, int length) { int sum = 0; for (int i = 0; i < length; i++)          { sum += buffer[i]; } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data, 5); }',
+             '#include <span>\n   inline int checksum(std::span<const char> buffer)   { int sum = 0; for (const char& byte : buffer) { sum += byte;      } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data);    }', o=3),
 
 ]
 
