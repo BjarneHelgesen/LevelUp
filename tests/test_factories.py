@@ -132,12 +132,12 @@ class TestValidatorFactory:
 
 class TestCompilerFactory:
     def test_msvc_compiler_can_be_created(self):
-        # MSVCCompiler auto-discovers cl.exe, so we just verify it can be created
+        # MSVCCompiler reads cl.exe path from tools.json
         compiler = MSVCCompiler()
         assert isinstance(compiler, MSVCCompiler)
 
-    def test_msvc_auto_discovers_cl_path(self):
-        # MSVCCompiler now auto-discovers cl.exe path
+    def test_msvc_reads_cl_path_from_config(self):
+        # MSVCCompiler reads cl.exe path from tools.json
         compiler = MSVCCompiler()
         assert compiler.cl_path is not None
         assert "cl.exe" in compiler.cl_path.lower()
