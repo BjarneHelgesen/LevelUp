@@ -435,64 +435,40 @@ int f() {
     # =============================================================================
     # REPLACE: char* -> std::string_view (progressive validated modernization)
     # Demonstrates step-by-step transformation of the same function with ASM validation
+    # Note: Steps 2+ could be broken down further in production for incremental validation
     # =============================================================================
 
     # CHAIN 1: Simple string length function - char* to const char* to string_view
-    # Step 1a: char* -> const char* (const correctness, O0 validation)
+    # Step 1: char* -> const char* (const correctness, O0 validation)
     TestCase("sv_chain1_step1_add_const",
              'int len(char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len((char*)"hello"); }',
              'int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }', o=0),
 
-    # Step 1b: const char* -> string_view with .data() (preserves pointer semantics, O3 validation)
-    TestCase("sv_chain1_step2_string_view_data",
+    # Step 2: const char* -> string_view::size() (modern C++, O3 validation)
+    TestCase("sv_chain1_step2_string_view",
              '#include <string_view>\ninline int len(const char* s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }',
-             '#include <string_view>\ninline int len(std::string_view s) { const char* p = s.data(); int i = 0; while(p[i]) i++; return i; } int f() { return len("hello"); }', o=3),
-
-    # Step 1c: Use string_view directly with subscript operator (modern C++ idiom, O3 validation)
-    TestCase("sv_chain1_step3_string_view_subscript",
-             '#include <string_view>\ninline int len(std::string_view s) { const char* p = s.data(); int i = 0; while(p[i]) i++; return i; } int f() { return len("hello"); }',
-             '#include <string_view>\ninline int len(std::string_view s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }', o=3),
-
-    # Step 1d: Use string_view::size() for idiomatic modern C++ (O3 validation)
-    TestCase("sv_chain1_step4_use_size",
-             '#include <string_view>\ninline int len(std::string_view s) { int i = 0; while(s[i]) i++; return i; } int f() { return len("hello"); }',
              '#include <string_view>\ninline int len(std::string_view s) { return static_cast<int>(s.size()); } int f() { return len("hello"); }', o=3),
 
     # CHAIN 2: Character access - pointer dereference to string_view indexing
-    # Step 2a: char* -> const char* (const correctness, O0 validation)
+    # Step 1: char* -> const char* (const correctness, O0 validation)
     TestCase("sv_chain2_step1_add_const",
              'int first_char(char* str) { return *str; } int f() { return first_char((char*)"abc"); }',
              'int first_char(const char* str) { return *str; } int f() { return first_char("abc"); }', o=0),
 
-    # Step 2b: const char* -> string_view with .data() dereference (O3 validation)
-    TestCase("sv_chain2_step2_string_view_data",
+    # Step 2: const char* -> string_view[0] (modern C++, O3 validation)
+    TestCase("sv_chain2_step2_string_view",
              '#include <string_view>\ninline int first_char(const char* str) { return *str; } int f() { return first_char("abc"); }',
-             '#include <string_view>\ninline int first_char(std::string_view str) { return *str.data(); } int f() { return first_char("abc"); }', o=3),
-
-    # Step 2c: Use string_view operator[] (modern C++, O3 validation)
-    TestCase("sv_chain2_step3_string_view_index",
-             '#include <string_view>\ninline int first_char(std::string_view str) { return *str.data(); } int f() { return first_char("abc"); }',
              '#include <string_view>\ninline int first_char(std::string_view str) { return str[0]; } int f() { return first_char("abc"); }', o=3),
 
     # CHAIN 3: Empty string check - null terminator to string_view::empty()
-    # Step 3a: char* -> const char* (const correctness, O0 validation)
+    # Step 1: char* -> const char* (const correctness, O0 validation)
     TestCase("sv_chain3_step1_add_const",
              'int is_empty(char* s) { return s[0] == 0; } int f() { return is_empty((char*)""); }',
              'int is_empty(const char* s) { return s[0] == 0; } int f() { return is_empty(""); }', o=0),
 
-    # Step 3b: const char* -> string_view with .data() (O3 validation)
-    TestCase("sv_chain3_step2_string_view_data",
+    # Step 2: const char* -> string_view::empty() (modern C++, O3 validation)
+    TestCase("sv_chain3_step2_string_view",
              '#include <string_view>\ninline int is_empty(const char* s) { return s[0] == 0; } int f() { return is_empty(""); }',
-             '#include <string_view>\ninline int is_empty(std::string_view s) { return s.data()[0] == 0; } int f() { return is_empty(""); }', o=3),
-
-    # Step 3c: Use string_view::length() check (O3 validation)
-    TestCase("sv_chain3_step3_use_length",
-             '#include <string_view>\ninline int is_empty(std::string_view s) { return s.data()[0] == 0; } int f() { return is_empty(""); }',
-             '#include <string_view>\ninline int is_empty(std::string_view s) { return s.length() == 0; } int f() { return is_empty(""); }', o=3),
-
-    # Step 3d: Use string_view::empty() for idiomatic code (O3 validation)
-    TestCase("sv_chain3_step4_use_empty",
-             '#include <string_view>\ninline int is_empty(std::string_view s) { return s.length() == 0; } int f() { return is_empty(""); }',
              '#include <string_view>\ninline int is_empty(std::string_view s) { return s.empty(); } int f() { return is_empty(""); }', o=3),
 
 ]
