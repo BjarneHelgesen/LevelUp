@@ -40,3 +40,11 @@ class ToolConfig:
     @property
     def clang_path(self) -> str:
         return self.get_tool_path('clang')
+
+    @property
+    def vcvarsall_path(self) -> str:
+        return self.get_tool_path('vcvarsall')
+
+    @property
+    def msvc_arch(self) -> str:
+        return self.get_tool_path('msvc_arch')

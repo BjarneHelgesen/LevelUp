@@ -17,6 +17,8 @@ class MSVCCompiler(BaseCompiler):
         3: '/Ox',
     }
 
+    _cache = {}
+
     def __init__(self):
         logger.info("Initializing MSVCCompiler")
         self.default_flags = [
@@ -27,7 +29,21 @@ class MSVCCompiler(BaseCompiler):
 
         config = ToolConfig()
         self.cl_path = config.cl_path
+        self.vcvarsall = config.vcvarsall_path
+        self.arch = config.msvc_arch
+
         logger.assert_true(Path(self.cl_path).exists(), f"cl.exe not found at {self.cl_path}")
+        logger.assert_true(Path(self.vcvarsall).exists(), f"vcvarsall.bat not found at {self.vcvarsall}")
+
+        cache_key = f"msvc_{self.arch}"
+        if cache_key in MSVCCompiler._cache:
+            self.env = MSVCCompiler._cache[cache_key]
+            logger.info(f"MSVCCompiler initialized from cache: cl.exe at {self.cl_path}")
+            return
+
+        logger.debug("Loading MSVC environment variables")
+        self.env = self._load_msvc_environment()
+        MSVCCompiler._cache[cache_key] = self.env
         logger.info(f"MSVCCompiler initialized with cl.exe at: {self.cl_path}")
 
     @staticmethod
@@ -39,6 +55,23 @@ class MSVCCompiler(BaseCompiler):
     def get_name() -> str:
         return "Microsoft Visual C++"
 
+    def _load_msvc_environment(self):
+        cmd = f'"{self.vcvarsall}" {self.arch} && set'
+
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError("Failed to run vcvarsall.bat")
+
+        env = {}
+        for line in result.stdout.splitlines():
+            if "=" in line:
+                key, val = line.split("=", 1)
+                env[key.upper()] = val
+        return env
+
     def _run_cl(self, args, cwd=None, check=True):
         cmd = [self.cl_path] + args
         logger.debug(f"Running cl.exe: {' '.join(cmd)}")
@@ -48,7 +81,8 @@ class MSVCCompiler(BaseCompiler):
             cwd=cwd,
             capture_output=True,
             text=True,
-            check=check
+            check=check,
+            env=self.env
         )
 
         if result.returncode != 0:
