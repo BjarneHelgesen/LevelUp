@@ -8,7 +8,7 @@ from pathlib import Path
 from .base_mod import BaseMod
 from ..refactorings.add_function_qualifier import AddFunctionQualifier
 from ..refactorings.qualifier_type import QualifierType
-from ..parsers.symbol import Symbol, SymbolKind
+from ..parsers.symbols import FunctionSymbol
 
 
 class AddOverrideMod(BaseMod):
@@ -65,7 +65,7 @@ class AddOverrideMod(BaseMod):
                         continue
 
                     # Create mock Symbol object for this function
-                    symbol = Symbol(kind=SymbolKind.FUNCTION)
+                    symbol = FunctionSymbol()
                     symbol.name = function_name
                     symbol.qualified_name = function_name
                     symbol.file_path = str(source_file)

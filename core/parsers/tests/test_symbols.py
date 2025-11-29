@@ -4,7 +4,7 @@ Test script to verify Symbol parsing from Doxygen XML.
 
 import pytest
 from pathlib import Path
-from core.parsers import DoxygenRunner, DoxygenParser, Symbol, SymbolKind
+from core.parsers import DoxygenRunner, DoxygenParser, SymbolKind
 
 
 @pytest.mark.slow

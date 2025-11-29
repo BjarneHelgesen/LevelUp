@@ -8,7 +8,7 @@ import re
 from .base_mod import BaseMod
 from ..refactorings.remove_function_qualifier import RemoveFunctionQualifier
 from ..refactorings.qualifier_type import QualifierType
-from ..parsers.symbol import Symbol, SymbolKind
+from ..parsers.symbols import FunctionSymbol
 
 
 class RemoveInlineMod(BaseMod):
@@ -57,7 +57,7 @@ class RemoveInlineMod(BaseMod):
                         function_name = f"function_at_line_{line_num}"
 
                     # Create mock Symbol object for this function
-                    symbol = Symbol(kind=SymbolKind.FUNCTION)
+                    symbol = FunctionSymbol()
                     symbol.name = function_name
                     symbol.qualified_name = function_name
                     symbol.file_path = str(source_file)

@@ -20,7 +20,7 @@ from core.validators.validator_id import ValidatorId
 from core.mods.mod_factory import ModFactory
 from core.repo.repo import Repo
 from core.parsers.symbol_table import SymbolTable
-from core.parsers.symbol import Symbol, SymbolKind
+from core.parsers.symbols import FunctionSymbol
 from core.refactorings.remove_function_qualifier import RemoveFunctionQualifier
 from core.refactorings.add_function_qualifier import AddFunctionQualifier
 from core.refactorings.qualifier_type import QualifierType
@@ -30,9 +30,9 @@ from core.validators.smoketest import run_validator_smoke_tests
 
 
 def create_mock_symbol(name: str, qualified_name: str, file_path: Path, line_number: int,
-                       prototype: str = "", kind: str = SymbolKind.FUNCTION) -> Symbol:
-    """Create a mock Symbol object for testing."""
-    symbol = Symbol(kind=kind)
+                       prototype: str = "") -> FunctionSymbol:
+    """Create a mock FunctionSymbol object for testing."""
+    symbol = FunctionSymbol()
     symbol.name = name
     symbol.qualified_name = qualified_name
     symbol.file_path = str(file_path)

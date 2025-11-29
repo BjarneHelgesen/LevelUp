@@ -11,7 +11,7 @@ from ..validators.validator_id import ValidatorId
 from .. import logger
 
 if TYPE_CHECKING:
-    from ..parsers.symbol import Symbol
+    from ..parsers.symbols import BaseSymbol
 
 
 class AddFunctionQualifier(BaseRefactoring):
@@ -23,7 +23,7 @@ class AddFunctionQualifier(BaseRefactoring):
         """Safe refactoring: adding qualifiers preserves semantics - high confidence."""
         return 0.9
 
-    def apply(self, symbol: 'Symbol', qualifier: str) -> Optional[GitCommit]:
+    def apply(self, symbol: 'BaseSymbol', qualifier: str) -> Optional[GitCommit]:
         """
         Add qualifier to specific function at given line number.
 

@@ -12,7 +12,7 @@ from ..validators.validator_id import ValidatorId
 from .. import logger
 
 if TYPE_CHECKING:
-    from ..parsers.symbol import Symbol
+    from ..parsers.symbols import BaseSymbol
 
 
 class RemoveFunctionQualifier(BaseRefactoring):
@@ -24,7 +24,7 @@ class RemoveFunctionQualifier(BaseRefactoring):
         """Safe refactoring: removing qualifiers like 'inline' preserves semantics - high confidence."""
         return 0.9
 
-    def apply(self, symbol: 'Symbol', qualifier: str) -> Optional[GitCommit]:
+    def apply(self, symbol: 'BaseSymbol', qualifier: str) -> Optional[GitCommit]:
         """
         Remove qualifier from specific function at given line number.
 
