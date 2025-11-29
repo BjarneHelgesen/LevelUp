@@ -13,7 +13,7 @@ Mods are high-level transformations (e.g., "remove all inline keywords") that ge
 - Required methods:
   - `get_id()`: Stable string identifier (IMPORTANT: Never change once set)
   - `get_name()`: Human-readable name for UI
-  - `generate_refactorings(repo, symbols) -> Iterator[Tuple[RefactoringBase, ...]]`: Yields (refactoring_instance, *args) tuples
+  - `generate_refactorings(repo, symbols) -> Iterator[Tuple[BaseRefactoring, ...]]`: Yields (refactoring_instance, *args) tuples
 
 **ModFactory (mod_factory.py)**
 - Enum-based registry using `ModType` enum

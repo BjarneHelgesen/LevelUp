@@ -1,12 +1,12 @@
 from typing import Optional
-from core.refactorings.refactoring_base import RefactoringBase
+from core.refactorings.base_refactoring import BaseRefactoring
 from core.parsers.symbols.function_symbol import FunctionSymbol
-from core.git_commit import GitCommit
+from core.repo.git_commit import GitCommit
 from .change_function_prototype import ChangeFunctionPrototypeRefactoring
 from .prototype_change_spec import PrototypeChangeSpec
 
 
-class RemoveParameterRefactoring(RefactoringBase):
+class RemoveParameterRefactoring(BaseRefactoring):
     def get_probability_of_success(self) -> float:
         return 0.15
 

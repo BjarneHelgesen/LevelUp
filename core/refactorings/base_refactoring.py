@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from ..repo.repo import Repo
-    from ..git_commit import GitCommit
+    from ..repo.git_commit import GitCommit
 
 
-class RefactoringBase(ABC):
+class BaseRefactoring(ABC):
     """
     Abstract base class for refactorings.
 

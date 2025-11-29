@@ -12,7 +12,7 @@ Refactorings are low-level, atomic transformations (e.g., "remove inline keyword
 
 ## Key Components
 
-**RefactoringBase (refactoring_base.py)**
+**BaseRefactoring (base_refactoring.py)**
 - Abstract base class defining refactoring interface
 - Required methods:
   - `get_probability_of_success() -> float`: Return 0.0-1.0 confidence (e.g., 0.9 for safe changes)
@@ -44,7 +44,7 @@ Refactorings are low-level, atomic transformations (e.g., "remove inline keyword
 
 ## Adding a New Refactoring
 
-1. Create class in this folder inheriting from `RefactoringBase`
+1. Create class in this folder inheriting from `BaseRefactoring`
 2. Implement required methods:
    - `get_probability_of_success() -> float`: Return confidence level
    - `apply(*args) -> Optional[GitCommit]`: Implement transformation
@@ -59,11 +59,11 @@ Refactorings are low-level, atomic transformations (e.g., "remove inline keyword
 ## Example Refactoring Implementation
 
 ```python
-from core.refactorings.refactoring_base import RefactoringBase
+from core.refactorings.base_refactoring import BaseRefactoring
 from core.repo.git_commit import GitCommit
 from core.validators.validator_id import ValidatorId
 
-class RemoveFunctionQualifier(RefactoringBase):
+class RemoveFunctionQualifier(BaseRefactoring):
     def __init__(self, repo):
         self.repo = repo
 

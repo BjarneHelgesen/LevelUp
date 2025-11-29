@@ -5,8 +5,8 @@ AddFunctionQualifier refactoring - adds a qualifier to a function.
 from typing import Optional, TYPE_CHECKING
 from pathlib import Path
 
-from .refactoring_base import RefactoringBase
-from ..git_commit import GitCommit
+from .base_refactoring import BaseRefactoring
+from ..repo.git_commit import GitCommit
 from ..validators.validator_id import ValidatorId
 from .. import logger
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ..parsers.symbol import Symbol
 
 
-class AddFunctionQualifier(RefactoringBase):
+class AddFunctionQualifier(BaseRefactoring):
     """
     Add qualifier (const, noexcept, override, etc.) to a function.
     """

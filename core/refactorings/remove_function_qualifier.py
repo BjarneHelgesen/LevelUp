@@ -6,8 +6,8 @@ from typing import Optional, TYPE_CHECKING
 import re
 from pathlib import Path
 
-from .refactoring_base import RefactoringBase
-from ..git_commit import GitCommit
+from .base_refactoring import BaseRefactoring
+from ..repo.git_commit import GitCommit
 from ..validators.validator_id import ValidatorId
 from .. import logger
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from ..parsers.symbol import Symbol
 
 
-class RemoveFunctionQualifier(RefactoringBase):
+class RemoveFunctionQualifier(BaseRefactoring):
     """
     Remove qualifier (inline, static, etc.) from a function.
     """

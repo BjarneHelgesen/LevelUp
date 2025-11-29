@@ -1,6 +1,6 @@
 from enum import Enum
 
-from .validation_result import ValidationResult
+from .validators.validation_result import ValidationResult
 
 
 class ResultStatus(Enum):

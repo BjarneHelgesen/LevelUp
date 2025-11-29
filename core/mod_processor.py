@@ -9,7 +9,7 @@ from .validators.validator_factory import ValidatorFactory
 from .result import Result, ResultStatus
 from .repo.repo import Repo
 from .mod_request import ModRequest
-from .validation_result import ValidationResult
+from .validators.validation_result import ValidationResult
 from .parsers.symbol_table import SymbolTable
 from . import logger
 

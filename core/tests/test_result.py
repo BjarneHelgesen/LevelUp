@@ -1,6 +1,6 @@
 import pytest
 from core.result import Result, ResultStatus
-from core.validation_result import ValidationResult
+from core.validators.validation_result import ValidationResult
 
 
 class TestResultStatus:

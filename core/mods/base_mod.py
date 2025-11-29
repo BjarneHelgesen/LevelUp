@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Generator, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..refactorings.refactoring_base import RefactoringBase
+    from ..refactorings.base_refactoring import BaseRefactoring
     from ..refactorings.refactoring_params import RefactoringParams
     from ..parsers.symbol_table import SymbolTable
     from ..repo.repo import Repo
@@ -40,7 +40,7 @@ class BaseMod(ABC):
 
     @abstractmethod
     def generate_refactorings(self, repo: 'Repo', symbols: 'SymbolTable') -> \
-            Generator[Tuple['RefactoringBase', 'RefactoringParams'], None, None]:
+            Generator[Tuple['BaseRefactoring', 'RefactoringParams'], None, None]:
         """
         Generate refactorings for this mod.
 
