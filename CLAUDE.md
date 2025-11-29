@@ -6,7 +6,7 @@ Guidance for Claude Code when working with this repository.
 
 LevelUp modernizes legacy C++ code with zero regression risk through validated transformations.
 
-**Critical Design Principle**: All code modernization must be regression-free. The system prioritizes correctness over all other concerns.
+**Critical Design Principle**: All code upgraded C++ code  must be completely regression-free. LevelUp prioritizes correctness over all other concerns.
 
 ## Architecture
 
@@ -19,8 +19,6 @@ core/ModProcessor
     ↓ orchestrates
 core packages (compilers, validators, mods, refactorings, parsers, repo)
     ↓ returns
-core/Result (type-safe)
-    ↓ converts to JSON
 User (Web UI)
 ```
 
@@ -31,10 +29,10 @@ User (Web UI)
 See package-specific CLAUDE.md files for detailed documentation:
 - **`core/`** - Core business logic (see `core/CLAUDE.md` for overview)
   - `core/compilers/` - Compiler abstractions (MSVC, Clang)
-  - `core/validators/` - Regression detection through assembly comparison
+  - `core/validators/` - Regression detection (e.g. through assembly comparison)
   - `core/mods/` - High-level transformations
   - `core/refactorings/` - Atomic code changes
-  - `core/parsers/` - Doxygen integration for symbol extraction
+  - `core/parsers/` - Parsing C++ for symbol extraction
   - `core/repo/` - Repository management and git operations
 - **`server/`** - Flask web server (API, UI, configuration)
 
@@ -65,10 +63,14 @@ pytest core/validators/   # Specific package tests
 - Docstrings only when providing non-obvious information
 - Important warnings preserved (e.g., "IMPORTANT: Stable identifier used in APIs")
 
-**No Dataclasses**:
-- Do NOT use `@dataclass` decorator
-- Use regular classes with explicit `__init__` methods
-- Type hints encouraged
+**Craft consistent code**
+- Define regular classes with explicit `__init__` methods. Do NOT use `@dataclass` decorator or metaclasses
+- Prefer regular classes to Dicts (key/value pairs) 
+- Strings as identifiers is discouraged. Use enums, member names, etc. where possible 
+- Type hints are encouraged, but not the Typing library
+- All main components should be inheret from an abstract base class
+- All main components should be created by a factory function
+- All use of main components should rely on the abstract base class - not the realization
 
 ## Workflow
 
@@ -81,5 +83,5 @@ pytest core/validators/   # Specific package tests
 1. **Cross-platform**: Write cross-platform code; initially runs on Windows
 2. **No internet**: All operations must work offline
 3. **Simplicity over beauty**: Prioritize code correctness and simplicity
-4. **No regressions**: Primary objective - validated changes must be functionally identical
+4. **No regressions**: Primary objective - validated changes of all modified C++ must be functionally identical
 5. **Compute-intensive OK**: Prefer more validations if it ensures correctness
