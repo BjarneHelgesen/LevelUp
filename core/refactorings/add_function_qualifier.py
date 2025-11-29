@@ -11,7 +11,7 @@ from ..validators.validator_id import ValidatorId
 from .. import logger
 
 if TYPE_CHECKING:
-    from ..doxygen.symbol import Symbol
+    from ..parsers.symbol import Symbol
 
 
 class AddFunctionQualifier(RefactoringBase):

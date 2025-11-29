@@ -8,7 +8,7 @@ from typing import Dict, Any, Generator, Tuple, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..refactorings.refactoring_base import RefactoringBase
     from ..refactorings.refactoring_params import RefactoringParams
-    from ..doxygen.symbol_table import SymbolTable
+    from ..parsers.symbol_table import SymbolTable
     from ..repo.repo import Repo
 
 

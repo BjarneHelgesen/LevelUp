@@ -8,7 +8,7 @@ import re
 from .base_mod import BaseMod
 from ..refactorings.remove_function_qualifier import RemoveFunctionQualifier
 from ..refactorings.qualifier_type import QualifierType
-from ..doxygen.symbol import Symbol, SymbolKind
+from ..parsers.symbol import Symbol, SymbolKind
 
 
 class RemoveInlineMod(BaseMod):

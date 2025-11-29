@@ -1,4 +1,4 @@
-from .prototype_utils import PrototypeParser, PrototypeModifier
+from core.refactorings.function_prototype.prototype_utils import PrototypeParser, PrototypeModifier
 
 
 def test_parsing():

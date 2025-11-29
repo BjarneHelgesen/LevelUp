@@ -10,7 +10,7 @@ from typing import Optional
 import git
 
 from .. import logger
-from ..doxygen import DoxygenRunner, DoxygenParser
+from ..parsers import DoxygenRunner, DoxygenParser
 
 
 class Repo:

@@ -8,7 +8,7 @@ from pathlib import Path
 from .base_mod import BaseMod
 from ..refactorings.add_function_qualifier import AddFunctionQualifier
 from ..refactorings.qualifier_type import QualifierType
-from ..doxygen.symbol import Symbol, SymbolKind
+from ..parsers.symbol import Symbol, SymbolKind
 
 
 class AddOverrideMod(BaseMod):
