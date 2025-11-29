@@ -7,7 +7,7 @@ from core.mods.add_override_mod import AddOverrideMod
 from core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
 from core.mods.base_mod import BaseMod
 from core.repo.repo import Repo
-from core.doxygen.symbol_table import SymbolTable
+from core.parsers.symbol_table import SymbolTable
 
 
 class TestRemoveInlineMod:

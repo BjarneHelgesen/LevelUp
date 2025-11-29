@@ -23,7 +23,7 @@ from core.result import Result, ResultStatus
 from core.repo import Repo
 from core.mod_request import ModRequest
 from core.mod_processor import ModProcessor
-from core.doxygen import DoxygenRunner
+from core.parsers import DoxygenRunner
 from core import logger
 from core.tool_config import ToolConfig
 

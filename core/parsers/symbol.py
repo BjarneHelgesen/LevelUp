@@ -1,7 +1,7 @@
 """
 Backward compatibility shim for old Symbol imports.
 
-DEPRECATED: Import from core.doxygen.symbols instead.
+DEPRECATED: Import from core.parsers.symbols instead.
 """
 
 from .symbols import (
@@ -33,7 +33,7 @@ class Symbol(BaseSymbol):
     DEPRECATED: Use specialized symbol classes (FunctionSymbol, ClassSymbol, etc.) instead.
 
     Legacy monolithic symbol class maintained for backward compatibility.
-    New code should use the specialized symbol hierarchy from core.doxygen.symbols.
+    New code should use the specialized symbol hierarchy from core.parsers.symbols.
     """
 
     def __init__(self, kind):

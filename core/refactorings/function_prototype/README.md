@@ -112,7 +112,7 @@ Mods generate refactorings using the generator pattern:
 ```python
 from core.mods.base_mod import BaseMod
 from core.refactorings.function_prototype import RenameParameterRefactoring
-from core.doxygen.symbols.symbol_kind import SymbolKind
+from core.parsers.symbols.symbol_kind import SymbolKind
 
 class ExampleMod(BaseMod):
     @staticmethod

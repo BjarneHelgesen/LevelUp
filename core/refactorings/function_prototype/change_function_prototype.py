@@ -1,7 +1,7 @@
 from typing import Optional
 from pathlib import Path
 from core.refactorings.refactoring_base import RefactoringBase
-from core.doxygen.symbols.function_symbol import FunctionSymbol
+from core.parsers.symbols.function_symbol import FunctionSymbol
 from core.git_commit import GitCommit
 from core.validators.validator_id import ValidatorId
 from .prototype_utils import PrototypeParser, PrototypeModifier

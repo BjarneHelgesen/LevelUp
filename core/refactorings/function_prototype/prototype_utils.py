@@ -1,8 +1,8 @@
 import re
 from pathlib import Path
 from typing import Optional, List, Tuple
-from core.doxygen.symbols.function_symbol import FunctionSymbol
-from core.doxygen.symbols.base_symbol import BaseSymbol
+from core.parsers.symbols.function_symbol import FunctionSymbol
+from core.parsers.symbols.base_symbol import BaseSymbol
 
 
 class PrototypeLocation:

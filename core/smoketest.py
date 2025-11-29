@@ -19,8 +19,8 @@ from core.compilers.compiler_factory import get_compiler, set_compiler
 from core.validators.validator_id import ValidatorId
 from core.mods.mod_factory import ModFactory
 from core.repo.repo import Repo
-from core.doxygen.symbol_table import SymbolTable
-from core.doxygen.symbol import Symbol, SymbolKind
+from core.parsers.symbol_table import SymbolTable
+from core.parsers.symbol import Symbol, SymbolKind
 from core.refactorings.remove_function_qualifier import RemoveFunctionQualifier
 from core.refactorings.add_function_qualifier import AddFunctionQualifier
 from core.refactorings.qualifier_type import QualifierType
