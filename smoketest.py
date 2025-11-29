@@ -459,6 +459,19 @@ int f() {
              '                   inline int checksum(const char* buffer, int length) { int sum = 0; for (int i = 0; i < length; i++)          { sum += buffer[i]; } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data, 5); }',
              '#include <span>\n   inline int checksum(std::span<const char> buffer)   { int sum = 0; for (const char& byte : buffer) { sum += byte;      } return sum; } int f() { const char data[] = {1, 2, 3, 4, 5}; return checksum(data);    }', o=3),
 
+    # =============================================================================
+    # REPLACE: #if preprocessor conditional with if constexpr (C++17)
+    # Moves compile-time decisions from preprocessor to type system
+    # =============================================================================
+    TestCase("ifdef_to_if_constexpr",
+             '#define USE_FAST_PATH 1\nint f() {\n#if USE_FAST_PATH\n    return 42;\n#else\n    return 0;\n#endif\n}',
+             'constexpr bool USE_FAST_PATH = true;\nint f() {\n    if constexpr (USE_FAST_PATH) {\n        return 42;\n    } else {\n        return 0;\n    }\n}', o=3),
+
+    # Template version with type traits
+    TestCase("template_ifdef_to_if_constexpr",
+             '#include <type_traits>\ntemplate<typename T> int process(T x) {\n#ifdef __cplusplus\n    return x + 1;\n#else\n    return x;\n#endif\n}\nint f() { return process(5); }',
+             '#include <type_traits>\ntemplate<typename T> int process(T x) {\n    if constexpr (std::is_integral<T>::value) {\n        return x + 1;\n    } else {\n        return x;\n    }\n}\nint f() { return process(5); }', o=3),
+
 ]
 
 
