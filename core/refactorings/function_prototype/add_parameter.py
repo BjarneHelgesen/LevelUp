@@ -1,0 +1,18 @@
+from typing import Optional
+from core.refactorings.refactoring_base import RefactoringBase
+from core.doxygen.symbols.function_symbol import FunctionSymbol
+from core.git_commit import GitCommit
+from .change_function_prototype import ChangeFunctionPrototypeRefactoring
+from .prototype_change_spec import PrototypeChangeSpec
+
+
+class AddParameterRefactoring(RefactoringBase):
+    def get_probability_of_success(self) -> float:
+        return 0.2
+
+    def apply(self, symbol: FunctionSymbol, param_type: str, param_name: str, position: int = -1) -> Optional[GitCommit]:
+        change_spec = PrototypeChangeSpec()
+        change_spec.add_parameter(param_type, param_name, position)
+
+        core_refactoring = ChangeFunctionPrototypeRefactoring(self.repo)
+        return core_refactoring.apply(symbol, change_spec)
