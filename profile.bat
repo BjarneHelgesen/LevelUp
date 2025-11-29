@@ -1,5 +1,5 @@
-  python -m cProfile -o smoketest.prof smoketest.py
-  snakeviz smoketest.prof
-# python -m pstats smoketest.prof 
-# sort cumtime
-# stats 100 
+  python -m cProfile -o profile.prof smoketest.py
+  snakeviz profile.prof
+@ rem # python -m pstats profile.prof 
+@ rem sort cumtime
+@ rem stats 100 

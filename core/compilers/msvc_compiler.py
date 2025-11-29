@@ -25,6 +25,8 @@ class MSVCCompiler(BaseCompiler):
         levelup_header = Path(__file__).parent.parent.parent / "LevelUp.h"
 
         self.default_flags = [
+            '/std:c++20',
+            '/Zc:strictStrings-',
             '/EHsc',
             '/nologo',
             '/W3',
@@ -132,7 +134,8 @@ class MSVCCompiler(BaseCompiler):
             result = self._run_cl(args, cwd=source_path.parent, check=False)
 
             if result.returncode != 0:
-                raise RuntimeError(f"Compilation failed: {result.stderr}")
+                error_output = result.stderr or result.stdout
+                raise RuntimeError(f"Compilation failed: {error_output}")
 
             return CompiledFile(
                 source_file=source_path,
