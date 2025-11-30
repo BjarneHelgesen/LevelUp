@@ -11,6 +11,7 @@ import git
 
 from .. import logger
 from ..parsers import DoxygenRunner, DoxygenParser
+from ..compilers import get_compiler, CompiledFile
 
 
 class Repo:
@@ -46,6 +47,7 @@ class Repo:
         self.post_checkout = post_checkout
         self._doxygen_parser: Optional[DoxygenParser] = None
         self._git_repo: Optional[git.Repo] = None
+        self.compiled_files: list[CompiledFile] = []
 
     @staticmethod
     def get_repo_name(repo_url: str) -> str:
@@ -301,6 +303,56 @@ class Repo:
         """String representation for debugging"""
         name = self.get_repo_name(self.url)
         return f"Repo(name={name}, url={self.url}, path={self.repo_path})"
+
+    # ==================== Compilation ====================
+
+    def find_source_files(self) -> list[Path]:
+        """
+        Find all C/C++ source files in the repository.
+
+        Returns:
+            List of Path objects for .c and .cpp files
+        """
+        source_files = []
+
+        # Find all .cpp files
+        source_files.extend(self.repo_path.rglob('*.cpp'))
+
+        # Find all .c files
+        source_files.extend(self.repo_path.rglob('*.c'))
+
+        # Sort by path for consistent ordering
+        source_files.sort()
+
+        logger.info(f"Found {len(source_files)} source files in {self.repo_path}")
+        return source_files
+
+    def compile_all_files(self, optimization_level: int = 0) -> list[CompiledFile]:
+        """
+        Compile all source files in the repository and store the results.
+
+        Args:
+            optimization_level: Optimization level to use (0-3)
+
+        Returns:
+            List of CompiledFile objects for each compilation unit
+        """
+        compiler = get_compiler()
+        source_files = self.find_source_files()
+
+        self.compiled_files = []
+
+        for source_file in source_files:
+            try:
+                logger.info(f"Compiling {source_file}")
+                compiled = compiler.compile_file(source_file, optimization_level)
+                self.compiled_files.append(compiled)
+            except Exception as e:
+                logger.error(f"Failed to compile {source_file}: {e}")
+                # Continue compiling other files even if one fails
+
+        logger.info(f"Successfully compiled {len(self.compiled_files)} out of {len(source_files)} files")
+        return self.compiled_files
 
     # ==================== Doxygen Integration ====================
 
