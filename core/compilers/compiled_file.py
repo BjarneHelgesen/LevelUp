@@ -8,12 +8,14 @@ class CompiledFile:
         asm_file: Path = None,
         ast=None,
         ir: str = None,
-        obj_file: Path = None
+        obj_file: Path = None,
+        warnings: str = None
     ):
         self.source_file = Path(source_file)
         self.ast = ast
         self.ir = ir
         self.obj_file = obj_file
+        self.warnings = warnings
 
         # Read ASM content from file if provided
         if asm_file and Path(asm_file).exists():
