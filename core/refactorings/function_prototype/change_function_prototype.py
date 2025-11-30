@@ -4,7 +4,7 @@ from core.refactorings.base_refactoring import BaseRefactoring
 from core.parsers.symbols.function_symbol import FunctionSymbol
 from core.repo.git_commit import GitCommit
 from core.validators.validator_id import ValidatorId
-from .prototype_utils import PrototypeParser, PrototypeModifier
+from .prototype_utils import PrototypeParser, PrototypeBuilder
 from .prototype_change_spec import PrototypeChangeSpec
 
 
@@ -43,15 +43,30 @@ class ChangeFunctionPrototypeRefactoring(BaseRefactoring):
                 continue
 
             original_lines = lines[start_idx:end_idx + 1]
-            prototype = ''.join(original_lines)
+            original_prototype = ''.join(original_lines)
 
-            modified_prototype = self._apply_changes(prototype, change_spec)
+            # Parse prototype into components
+            components = PrototypeParser.parse_prototype(original_prototype)
+            if not components:
+                continue
 
-            if modified_prototype and modified_prototype != prototype:
-                modified_lines = modified_prototype.splitlines(keepends=True)
+            # Modify components based on change spec
+            modified_components = PrototypeBuilder.modify_components(components, change_spec)
 
-                if len(modified_lines) != len(original_lines):
-                    modified_lines = [modified_prototype.replace('\n', '') + '\n']
+            # Rebuild prototype from modified components
+            new_prototype = PrototypeBuilder.build(modified_components)
+
+            # Only apply if actually changed
+            if new_prototype != original_prototype:
+                # Preserve line breaks if original had them
+                if '\n' in original_prototype:
+                    modified_lines = new_prototype.splitlines(keepends=True)
+                    if not modified_lines[-1].endswith('\n'):
+                        modified_lines[-1] += '\n'
+                else:
+                    modified_lines = [new_prototype]
+                    if not modified_lines[-1].endswith('\n') and original_lines[-1].endswith('\n'):
+                        modified_lines[-1] += '\n'
 
                 lines[start_idx:end_idx + 1] = modified_lines
                 modified = True
@@ -76,48 +91,6 @@ class ChangeFunctionPrototypeRefactoring(BaseRefactoring):
             )
         except ValueError:
             return None
-
-    def _apply_changes(self, prototype: str, change_spec: PrototypeChangeSpec) -> Optional[str]:
-        modified = prototype
-
-        if change_spec.new_return_type:
-            result = PrototypeModifier.replace_return_type(modified, change_spec.new_return_type)
-            if result:
-                modified = result
-
-        if change_spec.new_function_name:
-            result = PrototypeModifier.replace_function_name(modified, change_spec.new_function_name)
-            if result:
-                modified = result
-
-        for param_index, new_type, new_name in change_spec.parameter_changes:
-            if new_type and new_name:
-                result = PrototypeModifier.replace_parameter_type(modified, param_index, new_type)
-                if result:
-                    modified = result
-                result = PrototypeModifier.replace_parameter_name(modified, param_index, new_name)
-                if result:
-                    modified = result
-            elif new_type:
-                result = PrototypeModifier.replace_parameter_type(modified, param_index, new_type)
-                if result:
-                    modified = result
-            elif new_name:
-                result = PrototypeModifier.replace_parameter_name(modified, param_index, new_name)
-                if result:
-                    modified = result
-
-        for param_index in sorted(change_spec.parameters_to_remove, reverse=True):
-            result = PrototypeModifier.remove_parameter(modified, param_index)
-            if result:
-                modified = result
-
-        for param_type, param_name, position in change_spec.parameters_to_add:
-            result = PrototypeModifier.add_parameter(modified, param_type, param_name, position)
-            if result:
-                modified = result
-
-        return modified if modified != prototype else None
 
     def _generate_commit_message(self, symbol: FunctionSymbol, change_spec: PrototypeChangeSpec) -> str:
         changes = []

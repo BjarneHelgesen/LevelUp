@@ -1,4 +1,5 @@
-from core.refactorings.function_prototype.prototype_utils import PrototypeParser, PrototypeModifier
+from core.refactorings.function_prototype.prototype_utils import PrototypeParser, PrototypeModifier, PrototypeBuilder, Parameter
+from core.refactorings.function_prototype.prototype_change_spec import PrototypeChangeSpec
 
 
 def test_parsing():
@@ -119,6 +120,150 @@ def test_modification():
     print("\n[All modification tests passed!]\n")
 
 
+def test_parse_and_build():
+    """Test parsing prototypes into components and rebuilding them."""
+    test_cases = [
+        {
+            'name': 'Simple function',
+            'prototype': 'int add(int a, int b);',
+        },
+        {
+            'name': 'Function with leading qualifiers',
+            'prototype': 'inline static void process(const std::string& str);',
+        },
+        {
+            'name': 'Function with trailing qualifiers',
+            'prototype': 'std::string getName() const noexcept;',
+        },
+        {
+            'name': 'Function with default parameters',
+            'prototype': 'void configure(int timeout = 30, bool verbose = false);',
+        },
+        {
+            'name': 'Function with all qualifiers',
+            'prototype': 'inline virtual int compute(double x, double y = 1.0) const override;',
+        },
+        {
+            'name': 'Method with namespace',
+            'prototype': 'std::string MyClass::getName() const;',
+        },
+        {
+            'name': 'Function ending with brace',
+            'prototype': 'void empty() {',
+        },
+    ]
+
+    print("Testing parse_prototype and build...")
+    for test in test_cases:
+        print(f"\n  Test: {test['name']}")
+        print(f"    Input: {test['prototype']}")
+
+        # Parse the prototype
+        components = PrototypeParser.parse_prototype(test['prototype'])
+        assert components is not None, f"Failed to parse: {test['prototype']}"
+
+        # Rebuild the prototype
+        rebuilt = PrototypeBuilder.build(components)
+        print(f"    Rebuilt: {rebuilt}")
+
+        # Parse the rebuilt version
+        components2 = PrototypeParser.parse_prototype(rebuilt)
+        assert components2 is not None, f"Failed to parse rebuilt: {rebuilt}"
+
+        # Verify key components match
+        assert components.return_type == components2.return_type, "Return type mismatch"
+        assert components.function_name == components2.function_name, "Function name mismatch"
+        assert len(components.parameters) == len(components2.parameters), "Parameter count mismatch"
+        assert components.terminator == components2.terminator, "Terminator mismatch"
+
+        print(f"    Leading qualifiers: {components.leading_qualifiers}")
+        print(f"    Return type: {components.return_type}")
+        print(f"    Function name: {components.function_name}")
+        print(f"    Parameters: {[(p.type, p.name, p.default_value) for p in components.parameters]}")
+        print(f"    Trailing qualifiers: {components.trailing_qualifiers}")
+        print(f"    Terminator: '{components.terminator}'")
+        print(f"    [PASS]")
+
+    print("\n[All parse and build tests passed!]\n")
+
+
+def test_modify_components():
+    """Test modifying prototype components."""
+    test_cases = [
+        {
+            'name': 'Change return type',
+            'prototype': 'int add(int a, int b);',
+            'change_spec': lambda: PrototypeChangeSpec().set_return_type('double'),
+            'verify': lambda result: 'double add(' in result and result != 'int add('
+        },
+        {
+            'name': 'Change function name',
+            'prototype': 'void process(std::string str);',
+            'change_spec': lambda: PrototypeChangeSpec().set_function_name('handle'),
+            'verify': lambda result: 'handle(' in result and 'process(' not in result
+        },
+        {
+            'name': 'Change parameter type',
+            'prototype': 'bool check(int value, std::string name);',
+            'change_spec': lambda: PrototypeChangeSpec().change_parameter_type(0, 'long'),
+            'verify': lambda result: 'long value' in result
+        },
+        {
+            'name': 'Change parameter name',
+            'prototype': 'void set(int x);',
+            'change_spec': lambda: PrototypeChangeSpec().change_parameter_name(0, 'value'),
+            'verify': lambda result: 'int value' in result and 'int x' not in result
+        },
+        {
+            'name': 'Add parameter',
+            'prototype': 'int compute(int a);',
+            'change_spec': lambda: PrototypeChangeSpec().add_parameter('int', 'b', -1),
+            'verify': lambda result: 'int a, int b' in result
+        },
+        {
+            'name': 'Remove parameter',
+            'prototype': 'void func(int a, int b, int c);',
+            'change_spec': lambda: PrototypeChangeSpec().remove_parameter(1),
+            'verify': lambda result: 'int a, int c' in result and 'int b' not in result
+        },
+        {
+            'name': 'Preserve default values',
+            'prototype': 'void configure(int timeout = 30, bool verbose = false);',
+            'change_spec': lambda: PrototypeChangeSpec().change_parameter_type(0, 'long'),
+            'verify': lambda result: 'long timeout = 30' in result and 'bool verbose = false' in result
+        },
+        {
+            'name': 'Preserve qualifiers when changing return type',
+            'prototype': 'inline static int compute(double x);',
+            'change_spec': lambda: PrototypeChangeSpec().set_return_type('double'),
+            'verify': lambda result: 'inline static double' in result
+        },
+    ]
+
+    print("Testing modify_components...")
+    for test in test_cases:
+        print(f"\n  Test: {test['name']}")
+        print(f"    Input: {test['prototype']}")
+
+        # Parse the prototype
+        components = PrototypeParser.parse_prototype(test['prototype'])
+        assert components is not None, f"Failed to parse: {test['prototype']}"
+
+        # Apply changes
+        change_spec = test['change_spec']()
+        modified_components = PrototypeBuilder.modify_components(components, change_spec)
+
+        # Rebuild
+        result = PrototypeBuilder.build(modified_components)
+        print(f"    Result: {result}")
+
+        # Verify
+        assert test['verify'](result), f"Verification failed for: {result}"
+        print(f"    [PASS]")
+
+    print("\n[All modify components tests passed!]\n")
+
+
 if __name__ == '__main__':
     print("=" * 60)
     print("Function Prototype Utilities Test Suite")
@@ -126,6 +271,8 @@ if __name__ == '__main__':
 
     test_parsing()
     test_modification()
+    test_parse_and_build()
+    test_modify_components()
 
     print("=" * 60)
     print("[ALL TESTS PASSED]")
