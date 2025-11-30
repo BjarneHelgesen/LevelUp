@@ -137,7 +137,12 @@ class MSVCCompiler(BaseCompiler):
                 error_output = result.stderr or result.stdout
                 raise RuntimeError(f"Compilation failed: {error_output}")
 
+            # Capture warnings from stdout and stderr
+            warnings = (result.stdout or "") + (result.stderr or "")
+            warnings = warnings.strip() if warnings.strip() else None
+
             return CompiledFile(
                 source_file=source_path,
-                asm_file=asm_file if asm_file.exists() else None
+                asm_file=asm_file if asm_file.exists() else None,
+                warnings=warnings
             )
