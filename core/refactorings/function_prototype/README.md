@@ -1,6 +1,6 @@
 # Function Prototype Refactoring API
 
-This package provides a comprehensive API for safely modifying C++ function prototypes with low risk of introducing errors. The API is designed to work with the Symbols classes from Doxygen XML parsing and handles edge cases like macros, inline comments, and type aliases.
+This package provides a comprehensive API for safely modifying C++ function prototypes with low risk of introducing errors. The API is designed to work with the Symbols classes from parsers folder and handles edge cases like macros, inline comments, and type aliases.
 
 ## Overview
 

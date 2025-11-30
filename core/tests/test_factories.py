@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
 from core.mods.mod_factory import ModFactory, ModType
-from core.mods.remove_inline_mod import RemoveInlineMod
 from core.mods.add_override_mod import AddOverrideMod
 from core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
 from core.validators.validator_factory import ValidatorFactory, ValidatorType
@@ -13,9 +12,6 @@ from core.compilers.clang_compiler import ClangCompiler
 
 
 class TestModFactory:
-    def test_from_id_creates_remove_inline_mod(self):
-        mod = ModFactory.from_id("remove_inline")
-        assert isinstance(mod, RemoveInlineMod)
 
     def test_from_id_creates_add_override_mod(self):
         mod = ModFactory.from_id("add_override")
@@ -30,11 +26,6 @@ class TestModFactory:
             ModFactory.from_id("nonexistent_mod")
         assert "Unsupported mod" in str(exc_info.value)
 
-    def test_from_id_creates_new_instance_each_time(self):
-        mod1 = ModFactory.from_id("remove_inline")
-        mod2 = ModFactory.from_id("remove_inline")
-        assert mod1 is not mod2
-
     def test_get_available_mods_returns_list(self):
         mods = ModFactory.get_available_mods()
         assert isinstance(mods, list)
@@ -48,11 +39,6 @@ class TestModFactory:
         for mod in mods:
             assert "id" in mod
             assert "name" in mod
-
-    def test_get_available_mods_includes_remove_inline(self):
-        mods = ModFactory.get_available_mods()
-        ids = [mod["id"] for mod in mods]
-        assert "remove_inline" in ids
 
     def test_get_available_mods_includes_add_override(self):
         mods = ModFactory.get_available_mods()
@@ -71,7 +57,6 @@ class TestModFactory:
             assert mod.get_id() == mod_info["id"]
 
     def test_mod_type_enum_matches_classes(self):
-        assert ModType.REMOVE_INLINE.value == RemoveInlineMod
         assert ModType.ADD_OVERRIDE.value == AddOverrideMod
         assert ModType.REPLACE_MS_SPECIFIC.value == ReplaceMSSpecificMod
 

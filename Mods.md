@@ -19,7 +19,6 @@ Based on the 59 validator test cases in `smoketest.py`, we can create correspond
 
 | Mod ID | Name | Test Case | Implementation |
 |--------|------|-----------|----------------|
-| `remove_inline` | Remove Inline Keywords | remove_inline | RemoveInlineMod |
 | `add_override` | Add Override Keywords | add_override | AddFunctionQualifier(OVERRIDE) |
 | `add_noexcept` | Add Noexcept Specifier | add_noexcept | AddFunctionQualifier(NOEXCEPT) |
 

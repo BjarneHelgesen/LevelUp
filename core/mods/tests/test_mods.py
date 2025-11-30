@@ -2,35 +2,11 @@ import pytest
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock
-from core.mods.remove_inline_mod import RemoveInlineMod
 from core.mods.add_override_mod import AddOverrideMod
 from core.mods.replace_ms_specific_mod import ReplaceMSSpecificMod
 from core.mods.base_mod import BaseMod
 from core.repo.repo import Repo
 from core.parsers.symbol_table import SymbolTable
-
-
-class TestRemoveInlineMod:
-    def test_get_id_returns_stable_identifier(self):
-        assert RemoveInlineMod.get_id() == "remove_inline"
-
-    def test_get_name_returns_human_readable_name(self):
-        assert RemoveInlineMod.get_name() == "Remove Inline Keywords"
-
-    # Removed: get_validator_id() no longer exists - validator type is per-refactoring
-
-    def test_mod_has_correct_description(self):
-        mod = RemoveInlineMod()
-        assert "inline" in mod.description.lower()
-
-    # TODO: Update these tests to use generate_refactorings instead of generate_changes
-    # These tests need to be rewritten for the new refactoring architecture
-
-    def test_get_metadata_includes_id_and_description(self):
-        mod = RemoveInlineMod()
-        metadata = mod.get_metadata()
-        assert metadata["mod_id"] == "remove_inline"
-        assert "description" in metadata
 
 
 class TestAddOverrideMod:
@@ -201,7 +177,7 @@ class TestReplaceMSSpecificMod:
 
 class TestBaseMod:
     def test_base_mod_has_get_metadata(self):
-        mod = RemoveInlineMod()
+        mod = AddOverrideMod()
         metadata = mod.get_metadata()
         assert isinstance(metadata, dict)
         assert "mod_id" in metadata
@@ -215,7 +191,7 @@ class TestBaseMod:
         repo.repo_path = temp_dir
         symbols = Mock(spec=SymbolTable)
 
-        mod = RemoveInlineMod()
+        mod = AddOverrideMod()
         result = mod.generate_refactorings(repo, symbols)
         # Should be a generator
         assert hasattr(result, '__iter__')

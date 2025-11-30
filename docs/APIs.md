@@ -193,10 +193,6 @@ Base URL: `/api`
 ```json
 [
   {
-    "id": "remove_inline",
-    "name": "Remove Inline Keywords"
-  },
-  {
     "id": "add_override",
     "name": "Add Override Keywords"
   },
@@ -410,7 +406,6 @@ class BaseMod(ABC):
 
 ```python
 class ModType(Enum):
-    REMOVE_INLINE = RemoveInlineMod
     ADD_OVERRIDE = AddOverrideMod
     REPLACE_MS_SPECIFIC = ReplaceMSSpecificMod
     MS_MACRO_REPLACEMENT = MSMacroReplacementMod
@@ -423,20 +418,6 @@ class ModFactory:
     def get_available_mods() -> List[Dict[str, Any]]
 ```
 
-### mods/remove_inline_mod.py
-
-```python
-class RemoveInlineMod(BaseMod):
-    @staticmethod
-    def get_id() -> str  # Returns 'remove_inline'
-
-    @staticmethod
-    def get_name() -> str  # Returns 'Remove Inline Keywords'
-
-    def generate_refactorings(repo: Repo, symbols: SymbolTable)
-        # Yields (refactoring, symbol, qualifier) tuples
-        # Example: yield (RemoveFunctionQualifier(repo), symbol, QualifierType.INLINE)
-```
 
 ### mods/add_override_mod.py
 

@@ -62,18 +62,7 @@ def print_header(title: str):
 
 
 MOD_SMOKE_TESTS = [
-    ModSmokeTest(
-        "remove_inline_single",
-        "remove_inline",
-        "inline int f() { return 1; }",
-        "int f() { return 1; }",
-    ),
-    ModSmokeTest(
-        "remove_inline_multiple",
-        "remove_inline",
-        "inline int f() { return 1; }\ninline int g() { return 2; }",
-        "int f() { return 1; }\nint g() { return 2; }",
-    ),
+    # Add ModSmokeTest(params),
 ]
 
 

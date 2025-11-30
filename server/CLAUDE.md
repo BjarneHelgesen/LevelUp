@@ -108,7 +108,7 @@ ModProcessor accepts `repos_path` and `git_path` in constructor - no global CONF
 ## Type Safety at API Boundary
 
 **String IDs only in app.py**:
-- Frontend sends/receives JSON with string IDs (e.g., `"mod_type": "remove_inline"`)
+- Frontend sends/receives JSON with string IDs 
 - app.py converts strings to enums/objects immediately
 - Backend code (core package) uses only type-safe objects:
   - `ModRequest` with `ModSourceType` enum (not "builtin" string)
@@ -117,18 +117,6 @@ ModProcessor accepts `repos_path` and `git_path` in constructor - no global CONF
 - app.py converts back to JSON with string IDs for frontend responses
 - Pattern prevents typos and provides IDE autocomplete
 
-**Example Conversion Flow**:
-```python
-# Frontend: {"type": "builtin", "mod_type": "remove_inline"}
-# app.py converts:
-from core.mod_request import ModRequest, ModSourceType
-from core.mods.mod_factory import ModFactory
-
-source_type = ModSourceType.BUILTIN
-mod_instance = ModFactory.from_id("remove_inline")  # Only string usage
-mod_request = ModRequest(source_type=source_type, mod_instance=mod_instance)
-# Backend uses mod_request.source_type (enum) and mod_request.mod_instance (object)
-```
 
 ## Workspace Management
 

@@ -56,7 +56,6 @@ The web interface that uses the core package uses stringified ids. The core obje
 
 Examples:
 - `CompilerFactory.from_id("msvc")` → MSVCCompiler instance
-- `ModFactory.from_id("remove_inline")` → RemoveInlineMod instance
 - `ValidatorFactory.from_id("asm_o0", compiler)` → ASMValidatorO0 instance
 
 No core code should create object from string ids. All core code should call factories with enums

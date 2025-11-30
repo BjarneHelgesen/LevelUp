@@ -20,12 +20,8 @@ Mods are high-level transformations (e.g., "remove all inline keywords") that ge
 - `from_id(mod_id: str)`: Creates mod instance from ID
 - `get_available_mods()`: Returns list with id and name for each mod
 
-## Built-in Mods
+## Mods
 
-**RemoveInlineMod (remove_inline_mod.py)**
-- Removes `inline` keywords from function definitions
-- Uses SymbolTable to find inline functions
-- Generates `RemoveFunctionQualifier` refactorings
 
 **AddOverrideMod (add_override_mod.py)**
 - Adds `override` keywords to virtual function overrides
@@ -60,28 +56,6 @@ Mods are high-level transformations (e.g., "remove all inline keywords") that ge
 5. Add to `ModType` enum in `mod_factory.py`
 6. ID automatically available in UI via `/api/available/mods`
 
-## Example Mod Implementation
-
-```python
-from core.mods.base_mod import BaseMod
-from core.refactorings.remove_function_qualifier import RemoveFunctionQualifier
-
-class RemoveInlineMod(BaseMod):
-    @staticmethod
-    def get_id() -> str:
-        return "remove_inline"
-
-    @staticmethod
-    def get_name() -> str:
-        return "Remove Inline Keywords"
-
-    def generate_refactorings(self, repo, symbols):
-        # Find all inline functions
-        for symbol in symbols.get_all_symbols():
-            if "inline" in symbol.qualifiers:
-                # Yield refactoring instance and its arguments
-                yield (RemoveFunctionQualifier(repo), symbol, "inline")
-```
 
 ## Testing
 
