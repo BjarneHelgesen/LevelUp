@@ -51,10 +51,7 @@ class ModProcessor:
             repo.ensure_cloned()
             repo.prepare_work_branch()
 
-            # Ensure Doxygen data exists
-            self._ensure_doxygen_data(repo)
-
-            # Load symbol table
+            # Load symbol table (generates Doxygen if needed)
             symbols = self._load_symbols(repo)
 
             # Process mod with refactorings
@@ -70,27 +67,6 @@ class ModProcessor:
                 status=ResultStatus.ERROR,
                 message=str(e)
             )
-
-    def _ensure_doxygen_data(self, repo: Repo):
-        """
-        Ensure Doxygen XML data exists for repo.
-        Generate if missing or stale.
-        """
-        # Check for unexpanded XML (primary output)
-        xml_dir = repo.repo_path / 'doxygen_output' / 'xml_unexpanded'
-        stale_marker = repo.repo_path / 'doxygen_output' / '.doxygen_stale'
-
-        if stale_marker.exists():
-            logger.info("Doxygen data is stale, regenerating...")
-            repo.generate_doxygen()
-            stale_marker.unlink()
-            logger.info("Doxygen data regenerated")
-        elif not xml_dir.exists() or not list(xml_dir.glob('*.xml')):
-            logger.info("Generating Doxygen data...")
-            repo.generate_doxygen()
-            logger.info("Doxygen data generated")
-        else:
-            logger.debug("Doxygen data already exists")
 
     def _load_symbols(self, repo: Repo) -> SymbolTable:
         """Load symbol table from Doxygen XML."""
@@ -168,6 +144,10 @@ class ModProcessor:
                         file=str(file_path),
                         valid=True
                     ))
+
+                    # Refresh symbols from modified source
+                    for affected_symbol_name in git_commit.affected_symbols:
+                        symbols.refresh_symbol_from_source(affected_symbol_name)
                 else:
                     # Rollback commit
                     git_commit.rollback()
@@ -178,10 +158,6 @@ class ModProcessor:
                         file=str(file_path),
                         valid=False
                     ))
-
-                    # Symbols already invalidated by refactoring, but rollback restored file
-                    # Re-invalidate so symbols get refreshed from restored content
-                    symbols.invalidate_file(file_path)
 
             # Determine result status
             if len(accepted_commits) > 0 and len(rejected_commits) == 0:

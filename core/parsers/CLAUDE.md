@@ -39,23 +39,23 @@ Parses C++ codebases to extract symbol metadata (functions, classes, enums, etc.
 
 **SymbolTable (symbol_table.py)**
 - Manages all symbols for a repository
-- Incremental invalidation: marks files dirty after modification
+- Generates Doxygen data during initialization if not present
+- In-memory symbol updates: refreshes symbols from source after successful refactorings
 - Methods:
+  - `load_from_doxygen()`: Loads all symbols from Doxygen XML (generates if needed)
   - `get_all_symbols()`: Returns all symbols
   - `get_symbols_in_file(file_path)`: Returns symbols in specific file
-  - `get_symbol_by_name(name)`: Finds symbol by name
-  - `invalidate_file(file_path)`: Marks file dirty (symbols need refresh)
-  - `invalidate_all()`: Marks all symbols dirty (full refresh needed)
-- Lazy loading: only parses Doxygen XML when symbols are requested
-- Stale detection: regenerates Doxygen if `.doxygen_stale` marker exists
+  - `get_symbol(qualified_name)`: Finds symbol by qualified name
+  - `refresh_symbol_from_source(qualified_name)`: Updates symbol by re-parsing from source file
+  - `update_symbol(updated_symbol)`: Updates symbol in table with new object
 
 ## Workflow
 
-1. **Initial Setup**: When repo added, `DoxygenRunner.run()` generates XML
-2. **Symbol Loading**: `SymbolTable` parses XML lazily when mods request symbols
+1. **Initial Setup**: When `SymbolTable` is initialized, it generates Doxygen XML if not present
+2. **Symbol Loading**: `SymbolTable.load_from_doxygen()` parses all symbols from XML
 3. **Refactoring**: Mods query `SymbolTable` to find refactoring targets
-4. **Invalidation**: After file modifications, `SymbolTable.invalidate_file()` marks symbols dirty
-5. **Regeneration**: If `.doxygen_stale` marker exists, Doxygen re-runs before next mod
+4. **Symbol Updates**: After successful function prototype refactorings, `ModProcessor` calls `refresh_symbol_from_source()` to update symbols in-memory
+5. **Validation**: Symbols remain accurate throughout mod processing without re-running Doxygen
 
 ## Usage in Mods
 
@@ -83,6 +83,6 @@ Run tests: `pytest core/parsers/tests/`
 Tests verify:
 - Doxygen execution and XML generation
 - XML parsing for various symbol types
-- SymbolTable querying and filtering
-- Incremental invalidation
-- Stale detection and regeneration
+- Symbol metadata extraction (functions, classes, enums, etc.)
+- Line number and file location extraction
+- Dependency and call graph information

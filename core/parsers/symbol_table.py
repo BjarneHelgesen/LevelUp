@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Dict, List, Set, Optional, TYPE_CHECKING
 
 from .symbols import BaseSymbol
+from .symbols.function_symbol import FunctionSymbol
+from .symbols.symbol_kind import SymbolKind
 from .. import logger
 
 if TYPE_CHECKING:
@@ -14,10 +16,10 @@ if TYPE_CHECKING:
 
 class SymbolTable:
     """
-    Manages symbols for a repository with incremental updates.
+    Manages symbols for a repository.
 
-    Symbols are loaded from Doxygen XML and updated as files are modified.
-    Uses fast incremental updates to avoid full Doxygen regeneration.
+    Symbols are loaded from Doxygen XML during initialization.
+    Symbols are updated in-memory when refactorings successfully modify prototypes.
     """
 
     def __init__(self, repo: 'Repo'):
@@ -25,12 +27,20 @@ class SymbolTable:
         self.repo_path = repo.repo_path
         self._symbols: Dict[str, BaseSymbol] = {}
         self._file_index: Dict[Path, Set[str]] = {}
-        self._dirty_files: Set[Path] = set()
-        self._needs_full_refresh = False
 
     def load_from_doxygen(self):
-        """Initial load of all symbols from Doxygen XML."""
+        """
+        Load all symbols from Doxygen XML.
+        Generates Doxygen data if not already present.
+        """
         logger.info("Loading symbols from Doxygen XML")
+
+        # Ensure Doxygen data exists
+        xml_dir = self.repo_path / 'doxygen_output' / 'xml_unexpanded'
+        if not xml_dir.exists() or not list(xml_dir.glob('*.xml')):
+            logger.info("Generating Doxygen data...")
+            self.repo.generate_doxygen()
+            logger.info("Doxygen data generated")
 
         # Get Doxygen parser from repo
         doxygen_parser = self.repo.get_doxygen_parser()
@@ -45,80 +55,117 @@ class SymbolTable:
 
         logger.info(f"Loaded {len(self._symbols)} symbols")
 
-    def invalidate_file(self, file_path: Path):
-        """
-        Mark file as needing re-parse.
-        Called by refactorings after modifying a file.
-        """
-        resolved_path = file_path.resolve()
-        self._dirty_files.add(resolved_path)
-        logger.debug(f"Invalidated symbols for {file_path}")
-
-    def refresh_dirty_files(self):
-        """
-        Update symbols for dirty files.
-
-        For now, marks that full Doxygen refresh is needed on next run.
-        Future optimization: implement direct source parsing for incremental updates.
-        """
-        if not self._dirty_files:
-            return
-
-        logger.info(f"Deferring refresh of {len(self._dirty_files)} dirty files to next run")
-
-        # Mark that full refresh needed on next run
-        self._mark_stale()
-
-        # For now, we'll keep using the current symbols during this run
-        # Full refresh happens on next ModProcessor run
-        self._dirty_files.clear()
-
-    def _mark_stale(self):
-        """Mark that full Doxygen refresh needed on next run."""
-        marker_file = self.repo_path / 'doxygen_output' / '.doxygen_stale'
-        marker_file.parent.mkdir(parents=True, exist_ok=True)
-        marker_file.touch()
-        logger.debug("Marked Doxygen data as stale")
-
-    def check_and_refresh_if_stale(self):
-        """Check if Doxygen is stale and regenerate if needed."""
-        marker_file = self.repo_path / 'doxygen_output' / '.doxygen_stale'
-
-        if marker_file.exists():
-            logger.info("Doxygen data is stale, regenerating...")
-            self.repo.generate_doxygen()
-            self.load_from_doxygen()
-            marker_file.unlink()
-            logger.info("Doxygen data refreshed")
-
-    def get_symbol(self, qualified_name: str, auto_refresh: bool = True) -> Optional[BaseSymbol]:
+    def get_symbol(self, qualified_name: str) -> Optional[BaseSymbol]:
         """
         Get symbol by qualified name.
 
         Args:
             qualified_name: Fully qualified symbol name
-            auto_refresh: If True, refresh dirty files before lookup
         """
-        if auto_refresh:
-            self.refresh_dirty_files()
-
         return self._symbols.get(qualified_name)
 
-    def get_symbols_in_file(self, file_path: Path, auto_refresh: bool = True) -> List[BaseSymbol]:
+    def get_symbols_in_file(self, file_path: Path) -> List[BaseSymbol]:
         """Get all symbols defined in a file."""
-        if auto_refresh:
-            self.refresh_dirty_files()
-
         file_path = file_path.resolve()
         qual_names = self._file_index.get(file_path, set())
         return [self._symbols[qn] for qn in qual_names if qn in self._symbols]
 
-    def get_all_symbols(self, auto_refresh: bool = True) -> List[BaseSymbol]:
+    def get_all_symbols(self) -> List[BaseSymbol]:
         """Get all symbols in the repository."""
-        if auto_refresh:
-            self.refresh_dirty_files()
-
         return list(self._symbols.values())
+
+    def update_symbol(self, updated_symbol: BaseSymbol):
+        """
+        Update a symbol in the table after successful refactoring.
+
+        This method updates the in-memory symbol representation when a
+        refactoring successfully modifies a symbol's prototype or other
+        globally visible properties.
+
+        Args:
+            updated_symbol: The updated symbol object with new values
+        """
+        qualified_name = updated_symbol.qualified_name
+
+        if qualified_name not in self._symbols:
+            logger.warning(f"Attempted to update unknown symbol: {qualified_name}")
+            return
+
+        old_symbol = self._symbols[qualified_name]
+        old_file_path = Path(old_symbol.file_path).resolve()
+        new_file_path = Path(updated_symbol.file_path).resolve()
+
+        # Update symbol in main dictionary
+        self._symbols[qualified_name] = updated_symbol
+
+        # Update file index if file changed
+        if old_file_path != new_file_path:
+            # Remove from old file index
+            if old_file_path in self._file_index:
+                self._file_index[old_file_path].discard(qualified_name)
+                if not self._file_index[old_file_path]:
+                    del self._file_index[old_file_path]
+
+            # Add to new file index
+            if new_file_path not in self._file_index:
+                self._file_index[new_file_path] = set()
+            self._file_index[new_file_path].add(qualified_name)
+
+        logger.debug(f"Updated symbol: {qualified_name}")
+
+    def refresh_symbol_from_source(self, qualified_name: str):
+        """
+        Refresh a function symbol's prototype by re-parsing from source file.
+
+        This is called after a successful function prototype refactoring to update
+        the in-memory symbol with the new prototype from the modified source.
+
+        Args:
+            qualified_name: Qualified name of the symbol to refresh
+        """
+        if qualified_name not in self._symbols:
+            logger.warning(f"Attempted to refresh unknown symbol: {qualified_name}")
+            return
+
+        symbol = self._symbols[qualified_name]
+
+        # Only refresh function symbols for now
+        if symbol.kind != SymbolKind.FUNCTION:
+            logger.debug(f"Skipping refresh for non-function symbol: {qualified_name}")
+            return
+
+        # Import here to avoid circular dependency
+        from ..refactorings.function_prototype.prototype_utils import PrototypeParser
+
+        # Find prototype in source file
+        locations = PrototypeParser.find_prototype_locations(symbol)
+        if not locations:
+            logger.warning(f"Could not find prototype for symbol: {qualified_name}")
+            return
+
+        # Use the first location (typically the definition or declaration)
+        location = locations[0]
+        new_prototype = location.text.strip()
+
+        # Update the symbol's prototype
+        symbol.prototype = new_prototype
+
+        # For FunctionSymbol, also update parsed components
+        if isinstance(symbol, FunctionSymbol):
+            new_return_type = PrototypeParser.extract_return_type(new_prototype)
+            new_parameters = PrototypeParser.extract_parameters(new_prototype)
+
+            if new_return_type is not None:
+                symbol.return_type = new_return_type
+                # Keep expanded version the same for now (would need Doxygen to update)
+                symbol.return_type_expanded = new_return_type
+
+            if new_parameters is not None:
+                symbol.parameters = new_parameters
+                # Keep expanded version the same for now
+                symbol.parameters_expanded = new_parameters
+
+        logger.debug(f"Refreshed symbol from source: {qualified_name}")
 
     def _build_file_index(self):
         """Build reverse index: file -> symbols."""
