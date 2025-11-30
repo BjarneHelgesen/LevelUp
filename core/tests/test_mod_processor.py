@@ -65,6 +65,7 @@ class TestModProcessorProcessMod:
             mock_git_commit = Mock()
             mock_git_commit.commit_message = commit_message
             mock_git_commit.validator_type = validator_type
+            mock_git_commit.affected_symbols = []  # GitCommit requires this to be iterable
             mock_refactoring.apply.return_value = mock_git_commit
         else:
             # Refactoring could not be applied (preconditions failed)
@@ -469,6 +470,7 @@ class TestModProcessorTempFileCleanup:
         mock_git_commit = Mock()
         mock_git_commit.commit_message = "Change at test.cpp:1"
         mock_git_commit.validator_type = "asm_o0"
+        mock_git_commit.affected_symbols = []  # GitCommit requires this to be iterable
         mock_refactoring.apply.return_value = mock_git_commit
 
         mock_symbol = Mock()
